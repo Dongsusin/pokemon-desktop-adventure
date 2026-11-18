@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
-import { arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position } from '../game/engine'
+import { arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
 import { species } from '../game/catalog'
 import { battleForm, formStats } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
@@ -227,7 +227,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
       <header className="ring-scoreboard">
         <Health id={player.speciesId} formId={player.formId} hp={player.currentHP} max={maxHP} level={effectiveLevel(game)}
           remaining={roster.map(mon=>mon.currentHP>0)}/>
-        <div className="ring-match"><span>{label}</span><h1>VS {trainer.name}</h1></div>
+        <div className="ring-match"><span>{battle.practice ? '연습 재대결' : label}</span><h1>VS {trainer.name}</h1></div>
         <Health rival id={opponentId} formId={opponentForm} hp={foe?.currentHP ?? 0} max={foe?.maxHP ?? 1} level={foeMember.level}
           remaining={trainer.team.map((_,i)=>i>=battle.opponentIndex)}/>
       </header>
@@ -248,12 +248,12 @@ export function TrainerArena({ game }: { game: GameSave }) {
         </div>
         {(arena.paused || arena.needsSwitch) && <div className="ring-scrim" onPointerDown={e => e.stopPropagation()}>
           <div className="ring-pause-panel">
-            <strong>{confirmExit ? '이 도전을 포기할까요?' : arena.paused ? '일시정지' : '다음 포켓몬을 선택하세요'}</strong>
-            {confirmExit && <small>{trainer.role === 'gym' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
+            <strong>{confirmExit ? (battle.practice ? '연습을 끝낼까요?' : '이 도전을 포기할까요?') : arena.paused ? '일시정지' : '다음 포켓몬을 선택하세요'}</strong>
+            {confirmExit && <small>{battle.practice ? '입장 전 파티와 체력으로 돌아갑니다.' : trainer.role === 'gym' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
             {confirmExit ? <div><button onClick={() => setConfirmExit(false)}>돌아가기</button>
-              <button className="danger" onClick={() => input({ type: 'arena-surrender' })}>포기 확정</button></div>
+              <button className="danger" onClick={() => input({ type: 'arena-surrender' })}>{battle.practice ? '연습 종료' : '포기 확정'}</button></div>
               : arena.paused ? <div><button onClick={() => pause(false)}>배틀 재개</button>
-                <button onClick={() => setConfirmExit(true)}>도전 포기</button></div>
+                <button onClick={() => setConfirmExit(true)}>{battle.practice ? '연습 나가기' : '도전 포기'}</button></div>
               : <small>아래 파티에서 전투에 나갈 포켓몬을 골라 주세요.</small>}
           </div></div>}
       </div>
@@ -328,10 +328,11 @@ function useBattleSound(enabled: boolean, id: number | undefined, pitch: number,
   useEffect(() => () => { if (context.current) void context.current.close().catch(() => {}) }, [])
 }
 
-export interface TrainerResult { name: string; won: boolean; message: string; speciesId: string; formId?: string }
+export interface TrainerResult { practiceResult?: PracticeResult; name: string; won: boolean; message: string; speciesId: string; formId?: string }
 
 export function BattleResult({ result, close, sound }: { result: TrainerResult; close: () => void; sound: boolean }) {
-  const title = result.won ? '도전 승리' : result.message.includes('포기') ? '도전 포기' : '도전 패배'
+  const title = result.practiceResult ? { win: '연습 승리', loss: '연습 패배', left: '연습 종료' }[result.practiceResult]
+    : result.won ? '도전 승리' : result.message.includes('포기') ? '도전 포기' : '도전 패배'
   useBattleSound(sound, 1, result.won ? 523.25 : 293.66, result.won ? 1.5 : .8)
   return <section className="ring-result" aria-label="도전 결과">
     <div className="ring-result-top"><span>{result.name} 배틀</span><h1>{title}</h1>

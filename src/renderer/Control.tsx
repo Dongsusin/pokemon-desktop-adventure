@@ -429,8 +429,9 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     } else if (bout.current) {
       const record = bout.current
       bout.current = null
-      const message = game.history.find(entry => entry.id > record.logId && entry.kind === 'battle')?.text ?? ''
-      setResult({ ...record, message, won: game.wins > record.wins })
+      const entry = game.history.find(entry => entry.id > record.logId && entry.kind === 'battle')
+      setResult({ ...record, message: entry?.text ?? '', practiceResult: entry?.practiceResult,
+        won: entry?.practiceResult === 'win' || game.wins > record.wins })
       setTab('도전')
     }
   }, [trainerId, game.player.instanceId, game.player.speciesId, game.player.formId])
@@ -440,7 +441,7 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     setTab('지도')
   }
   function begin(kind: ChallengeKind, trainerId?: string) {
-    send(kind === 'gym' ? { type: 'challengeGym' } : kind === 'finale' ? { type: 'challengeFinale' } : { type: 'challengeLeague', trainerId })
+    send(kind === 'practice' ? { type: 'practiceGym' } : kind === 'gym' ? { type: 'challengeGym' } : kind === 'finale' ? { type: 'challengeFinale' } : { type: 'challengeLeague', trainerId })
     setTab('도전')
   }
 

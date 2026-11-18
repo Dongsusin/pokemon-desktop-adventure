@@ -1,5 +1,5 @@
 import {
-  canChallengeFinale, canChallengeGym, canChallengeLeague, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
+  canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
   type GameSave
 } from '../game/engine'
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
@@ -9,7 +9,7 @@ import { species } from '../game/catalog'
 import { Pokemon, TeraIcon, statNames, types } from './shared'
 import './campaign.css'
 
-export type ChallengeKind = 'gym' | 'league' | 'finale'
+export type ChallengeKind = 'practice' | 'gym' | 'league' | 'finale'
 
 const frameSize = 32
 
@@ -54,7 +54,12 @@ export function ChallengeActions({ game, kind, busy, begin }: {
   if (kind === 'gym') {
     const gym = region.gymTrainerByLocationId[game.locationId]
     if (!gym) return null
-    if (game.campaign.badges.includes(gym.id)) return <p className="campaign-result">✓ {gym.badge} 획득</p>
+    if (game.campaign.badges.includes(gym.id)) return <>
+      <p className="campaign-result">✓ {gym.badge} 획득</p>
+      <button className="primary campaign-cta" disabled={busy || !canPracticeGym(game)}
+        onClick={() => begin('practice')}>{gym.name} 연습 재대결</button>
+      <p className="campaign-requirement">연습 후 파티의 입장 전 체력을 복원합니다. 경험치와 코인은 정식 도전에서 획득합니다.</p>
+    </>
     const next = nextGymTrainer(game)
     if (next && next.id !== gym.id) {
       const location = region.locationById[next.locationId]

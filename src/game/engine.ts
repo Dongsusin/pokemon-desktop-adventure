@@ -231,7 +231,10 @@ export interface Wild {
   direction: Direction
 }
 
+export type PracticeResult = 'win' | 'loss' | 'left'
+
 export interface GameLog {
+  practiceResult?: PracticeResult
   id: number
   at: number
   kind: 'battle' | 'loot' | 'level' | 'evolution' | 'recovery' | 'offline' | 'capture' | 'travel'
@@ -286,7 +289,15 @@ interface Runtime {
   evolutionFrom: string | null
 }
 
+interface PracticeParty {
+  player: Player
+  followers: PartyPokemon[]
+  cooldowns: Runtime['cooldowns']
+  boostUntil: number
+}
+
 interface TrainerBattle {
+  practice?: PracticeParty
   arena: TrainerArena
   trainerId: string
   opponentIndex: number
@@ -355,6 +366,7 @@ export type GameAction =
   | { type: 'travel'; locationId: string }
   | { type: 'transfer-region'; regionId: RegionId }
   | { type: 'challenge-gym' }
+  | { type: 'practice-gym' }
   | { type: 'challenge-finale' }
   | { type: 'challenge-league'; trainerId?: string }
   | { type: 'set-auto-battle'; value: boolean }
@@ -561,8 +573,8 @@ function transition(game: GameSave, state: Activity, stateIn = 0): void {
   game.runtime.stateIn = stateIn
 }
 
-function addLog(game: GameSave, kind: GameLog['kind'], text: string): void {
-  game.history.unshift({ id: game.runtime.nextId++, at: game.runtime.clock, kind, text })
+function addLog(game: GameSave, kind: GameLog['kind'], text: string, practiceResult?: PracticeResult): void {
+  game.history.unshift({ id: game.runtime.nextId++, at: game.runtime.clock, kind, text, ...(practiceResult && { practiceResult }) })
   if (game.history.length > MAX_HISTORY) game.history.length = MAX_HISTORY
 }
 
@@ -1518,6 +1530,11 @@ export function canChallengeGym(game: GameSave): boolean {
   return nextGymTrainer(game)?.locationId === game.locationId && canChallenge(game)
 }
 
+export function canPracticeGym(game: GameSave): boolean {
+  const trainer = worldRegions[game.regionId].gymTrainerByLocationId[game.locationId]
+  return !!trainer && game.campaign.badges.includes(trainer.id) && !game.runtime.drop && canChallenge(game)
+}
+
 export function canChallengeFinale(game: GameSave): boolean {
   const finale = worldRegions[game.regionId].finaleTrainer
   return finale?.locationId === game.locationId && game.campaign.champion && !game.campaign.finaleWon && canChallenge(game)
@@ -1563,11 +1580,15 @@ function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Po
   game.runtime.targetId = target.id
   faceTarget(game, target)
   game.runtime.turn = playerStats(game).speed >= opponentStats(game, target).speed ? 'player' : 'wild'
-  addUnique(game.pokedexSeen, target.speciesId)
+  if (!battle.practice) addUnique(game.pokedexSeen, target.speciesId)
   transition(game, 'BATTLE', wait)
 }
 
-function startChallenge(game: GameSave, trainer: KantoTrainer): boolean {
+function practiceParty(game: GameSave): PracticeParty {
+  return { player: game.player, followers: game.followers, cooldowns: game.runtime.cooldowns, boostUntil: game.runtime.boostUntil }
+}
+
+function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: PracticeParty): boolean {
   if (game.runtime.drop) collect(game, game.runtime.drop)
   game.effects = []
   game.runtime.destination = null
@@ -1575,12 +1596,13 @@ function startChallenge(game: GameSave, trainer: KantoTrainer): boolean {
   game.runtime.autoCaptureTargetId = null
   game.runtime.cooldowns = {}
   if (trainer.role !== 'gym' && trainer.id !== worldRegions[game.regionId].finaleTrainer?.id) game.campaign.leagueIndex ??= 0
-  game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
+  game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, ...(practice && { practice }), arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
   const { x, y } = game.player.position
   const inward = x > 145 * game.settings.spriteScale ? -1 : 1
   sendTrainerOpponent(game, trainer, { x: x + inward * 92, y }, 1050)
-  addLog(game, 'battle', trainer.name + ' 도전 시작')
-  addEffect(game, 'travel', game.player.position, 1100, { text: trainer.name + ' 도전!' })
+  const label = trainer.name + (practice ? ' 연습 재대결' : ' 도전')
+  addLog(game, 'battle', label + ' 시작')
+  addEffect(game, 'travel', game.player.position, 1100, { text: label + '!' })
   return true
 }
 
@@ -1619,6 +1641,18 @@ function restAfterChallenge(game: GameSave): void {
   transition(game, 'IDLE', 900)
 }
 
+function endPractice(game: GameSave, trainer: KantoTrainer, party: PracticeParty, outcome: PracticeResult): void {
+  clearChallenge(game)
+  game.player = party.player
+  game.followers = party.followers
+  game.runtime.cooldowns = party.cooldowns
+  game.runtime.boostUntil = party.boostUntil
+  game.effects = []
+  transition(game, 'IDLE', 700)
+  const label = { win: '승리', loss: '패배', left: '종료' }[outcome]
+  addLog(game, 'battle', trainer.name + ' 연습 ' + label + ' · 입장 전 파티로 돌아왔습니다.', outcome)
+}
+
 function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): void {
   const battle = game.campaign.battle!
   if (battle.opponentIndex + 1 < trainer.team.length) {
@@ -1631,6 +1665,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
     return
   }
 
+  if (battle.practice) return endPractice(game, trainer, battle.practice, 'win')
   game.wins++
   clearChallenge(game)
   let result = trainer.name + ' 격파'
@@ -1671,7 +1706,8 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
 }
 
 function trainerDefeat(game: GameSave, trainer: KantoTrainer, surrendered = false): void {
-  const arena = game.campaign.battle!.arena
+  const { arena, practice } = game.campaign.battle!
+  if (practice) return endPractice(game, trainer, practice, surrendered ? 'left' : 'loss')
   game.losses++
   clearChallenge(game)
   resetLeagueRun(game.campaign)
@@ -1839,7 +1875,9 @@ function travel(game: GameSave, locationId: unknown): boolean {
 
 function travelTo(game: GameSave, location: KantoLocation): void {
   const trainer = currentTrainer(game)
-  if (trainer) {
+  if (trainer && game.campaign.battle?.practice) {
+    endPractice(game, trainer, game.campaign.battle.practice, 'left')
+  } else if (trainer) {
     const arena = game.campaign.battle!.arena
     game.losses++
     addLog(game, 'battle', trainer.name + ' 도전 중단')
@@ -2171,6 +2209,11 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
       const trainer = nextGymTrainer(game)
       return Boolean(trainer && canChallengeGym(game) && startChallenge(game, trainer))
     }
+    case 'practice-gym': {
+      const region = worldRegions[game.regionId]
+      const local = region.gymTrainerByLocationId[game.locationId]
+      return !!local && canPracticeGym(game) && startChallenge(game, resolveTrainer(region, local, game.starterSpeciesId), structuredClone(practiceParty(game)))
+    }
     case 'challenge-finale': {
       const region = worldRegions[game.regionId]
       const trainer = region.finaleTrainer
@@ -2464,7 +2507,9 @@ function readHistory(value: unknown): GameLog[] {
     if (!isRecord(entry) || typeof entry.text !== 'string') continue
     const kind = logKinds.find((known) => known === entry.kind)
     const id = integer(entry.id, 0, 0, maxStoredNumber - 1000)
-    if (kind && id) history.push({ id, at: finite(entry.at, 0, 0, maxStoredNumber), kind, text: entry.text.slice(0, 240) })
+    const outcome = entry.practiceResult
+    if (kind && id) history.push({ id, at: finite(entry.at, 0, 0, maxStoredNumber), kind, text: entry.text.slice(0, 240),
+      ...(kind === 'battle' && (outcome === 'win' || outcome === 'loss' || outcome === 'left') && { practiceResult: outcome }) })
   }
   return history
 }
@@ -2515,7 +2560,7 @@ function readRegionProgress(region: WorldRegion, value: unknown): RegionProgress
   return { badges, champion, ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }) }
 }
 
-function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number): Campaign {
+function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number, practice?: PracticeParty): Campaign {
   const campaign = newCampaign(readRegionProgress(region, value))
   if (!isRecord(value)) return campaign
   const gym = remainingGym(region, campaign.badges)
@@ -2540,7 +2585,8 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   const localGym = region.gymTrainerByLocationId[locationId]
   const finale = region.finaleTrainer
   const availableFinale = finale?.locationId === locationId && campaign.champion && !campaign.finaleWon ? finale : undefined
-  const eligibleTrainer = localGym && !campaign.badges.includes(localGym.id) ? localGym
+  const eligibleTrainer = practice ? (localGym && campaign.badges.includes(localGym.id) ? localGym : undefined)
+    : localGym && !campaign.badges.includes(localGym.id) ? localGym
     : campaign.leagueIndex !== null ? eligibleLeagueOpponents(region, campaign, speciesId)
       .find(trainer => trainer.id === savedTrainerId) : availableFinale
   const index = value.battle.opponentIndex
@@ -2559,7 +2605,7 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
     opponentIndex = team.findIndex(slot => sameMember(slot) && occurrence-- === 0)
   }
   if (opponentIndex >= 0 && opponentIndex < team.length) {
-    campaign.battle = { trainerId: savedTrainerId, opponentIndex, arena: createArena([]) }
+    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(practice && { practice }), arena: createArena([]) }
   }
   return campaign
 }
@@ -2628,6 +2674,30 @@ function restorePlayableParty(game: GameSave): void {
 
 /** Validate essential fields and rebuild the rest from known keys, allowing additive save changes. */
 export function hydrateSave(value: unknown, expectedSlot: number): GameSave | null {
+  if (!isRecord(value) || !isRecord(value.campaign) || !isRecord(value.campaign.battle) ||
+      !('practice' in value.campaign.battle)) return readGame(value, expectedSlot)
+  // Validate the original party with the same loader as an ordinary save. It is
+  // also the recovery point if a saved opponent is no longer available.
+  const snapshot = value.campaign.battle.practice
+  if (!isRecord(snapshot) || !isRecord(value.runtime) || !Array.isArray(snapshot.followers) ||
+      snapshot.followers.length >= MAX_PARTY_SIZE) return null
+  const opening = readGame({ ...value, player: snapshot.player, followers: snapshot.followers, wild: [],
+    campaign: { ...value.campaign, battle: null },
+    runtime: { ...value.runtime, targetId: null, cooldowns: snapshot.cooldowns, boostUntil: snapshot.boostUntil },
+  }, expectedSlot)
+  if (!opening) return null
+  const live = readGame(value, expectedSlot, practiceParty(opening))
+  if (!live?.campaign.battle?.practice) return opening
+  const identities = new Map([opening.player, ...opening.followers].map(member => [member.instanceId, member]))
+  const fighters = [live.player, ...live.followers]
+  if (fighters.length !== identities.size || fighters.some(member => {
+    const original = identities.get(member.instanceId)
+    return !original || original.speciesId !== member.speciesId || original.formId !== member.formId || original.level !== member.level
+  })) return opening
+  return live
+}
+
+function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty): GameSave | null {
   if (!isRecord(value) || typeof value.schemaVersion !== 'number' || !Number.isInteger(value.schemaVersion) ||
       value.schemaVersion < 1 || value.schemaVersion > SAVE_SCHEMA_VERSION ||
       value.selectedSlot !== expectedSlot ||
@@ -2679,7 +2749,7 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   const fallbackLocationId = regionId === 'kanto' ? LEGACY_LOCATION_ID : region.startLocationId
   const location = savedLocation ?? region.locationById[fallbackLocationId]
   delete regionProgress[regionId]
-  const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId, value.schemaVersion) : newCampaign()
+  const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId, value.schemaVersion, practice) : newCampaign()
   const effective = Math.min(level, region.levelCaps[campaign.badges.length])
   const baseHP = statsFor(speciesId, effective, heldItemId, formId).hp
   let trainerEnemy = campaign.battle

@@ -43,6 +43,7 @@ export type AdventureCommand =
   | { type: 'travel'; locationId: string }
   | { type: 'transferRegion'; regionId: RegionId }
   | { type: 'challengeGym' }
+  | { type: 'practiceGym' }
   | { type: 'challengeFinale' }
   | { type: 'challengeLeague'; trainerId?: string }
   | { type: 'useItem'; itemId: string }

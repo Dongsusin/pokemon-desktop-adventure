@@ -133,6 +133,7 @@ export function parseCommand(value: unknown): AdventureCommand | null {
       return knownId(value.trainerId) ? { type: value.type, trainerId: value.trainerId } : null
     case 'challengeFinale':
     case 'challengeGym':
+    case 'practiceGym':
     case 'evolve':
     case 'save':
     case 'showControl':

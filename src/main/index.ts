@@ -271,10 +271,11 @@ function startDesktop(): void {
         dispatch(requireGame(), { type: 'set-auto-battle', value: command.enabled })
         saveCurrent()
         break
+      case 'practiceGym':
       case 'challengeGym':
       case 'challengeFinale':
       case 'challengeLeague':
-        if (!dispatch(requireGame(), command.type === 'challengeGym'
+        if (!dispatch(requireGame(), command.type === 'practiceGym' ? { type: 'practice-gym' } : command.type === 'challengeGym'
           ? { type: 'challenge-gym' } : command.type === 'challengeFinale'
             ? { type: 'challenge-finale' } : { type: 'challenge-league', trainerId: command.trainerId })) {
           throw new Error('현재 위치와 도전 조건을 확인해 주세요.')
