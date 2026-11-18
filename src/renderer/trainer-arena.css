@@ -39,6 +39,8 @@
 .ring-cast-name { fill:#fff7d6; stroke:#352436; stroke-width:5; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; font:800 22px "Malgun Gothic",sans-serif; }
 .ring-goal { position:absolute; z-index:2; pointer-events:none; width:2.3%; min-width:10px; aspect-ratio:1; transform:translate(-50%,-50%) rotate(45deg); border:2px solid #fff9ca; box-shadow:0 0 0 1px #48383a; }
 .ring-fighter { position:absolute; width:var(--actor-size); aspect-ratio:1; transform:translate(-50%,-64%); pointer-events:none; transition:left 72ms linear,top 72ms linear; }
+.ring-fighter[data-emitting] { transition:none; }
+.ring-fighter[data-beam-hit] .ring-actor-image { filter:brightness(1.4); }
 .ring-fighter-shadow { position:absolute; top:67%; left:20%; width:60%; height:19%; border-radius:50%; background:#423a3090; }
 .ring-fighter-motion { position:absolute; inset:0; transform-origin:50% 73%; }
 .ring-actor-image { position:absolute; inset:0; height:100%; width:100%; object-fit:contain; image-rendering:pixelated; }
@@ -125,4 +127,16 @@
 @media(prefers-reduced-motion:reduce) {
   .ring-fighter,.ring-hp-track i { transition:none; }
   .ring-fighter-motion,.ring-impact i { animation:none!important; }
+}
+
+.ring-clash-label { text-anchor:middle; fill:#ffe58a; stroke:#332136; stroke-width:4; paint-order:stroke fill; stroke-linejoin:round; font:900 21px "Malgun Gothic",sans-serif; }
+.ring-beam-pulse { transform-box:fill-box; transform-origin:center; animation:ring-contact-pulse .15s ease-out both; }
+.ring-clash-finish { animation:ring-clash-finish .68s ease-out both; }
+.ring-clash-rings { animation:ring-clash-rings .32s ease-out both; }
+@keyframes ring-contact-pulse { from { opacity:1;transform:scale(.55); } to { opacity:0;transform:scale(1.5); } }
+@keyframes ring-clash-finish { 0%,65% { opacity:1; } to { opacity:0; } }
+@keyframes ring-clash-rings { from { opacity:1;transform:scale(.6); } to { opacity:0;transform:scale(1.9); } }
+@media(prefers-reduced-motion:reduce) {
+  .ring-clash-sparks,.ring-clash-rings { display:none; }
+  .ring-beam-pulse { animation-name:ring-clash-finish; }
 }

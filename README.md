@@ -4,7 +4,7 @@ Windows 바탕화면에서 포켓몬과 함께하는 자동 육성 게임입니�
 
 ## 실행
 
-Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.18.0/Pokemon-Desktop-Adventure-0.18.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
+Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.19.0/Pokemon-Desktop-Adventure-0.19.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
 
 소스 코드로 실행하려면 Windows 10 또는 11의 PowerShell에서 프로젝트 폴더를 엽니다. Node.js 22.12 이상과 npm이 필요합니다.
 
@@ -31,6 +31,8 @@ npm run dev
 ![회색체육관에서 웅의 롱스톤과 대치하는 장면](docs/screenshots/trainer-battle.png)
 
 관동부터 팔데아까지 **체육관 도전**이나 **리그 도전**을 누르면 배틀 경기장에 입장합니다. 선두 포켓몬으로 거리를 좁히고 기술을 쓰거나, 상대가 조준을 마치는 순간 옆으로 굴러 피할 수 있습니다. 꼬부기의 물대포는 앞쪽으로 뻗는 빔이고, 잎날가르기는 세 갈래로 퍼집니다. 돌떨구기는 바위가 착지하는 지점에 피해를 줍니다. 기술 버튼에 마우스를 올리면 사거리와 예상 경로가 표시됩니다. 상대가 범위 밖에 있어도 기술은 발동해, 투사체가 최대 거리까지 날아가며 공격을 빗맞힐 수 있습니다. [실제 실행 영상](docs/screenshots/trainer-battle.gif)
+
+물대포·전기쇼크·용의숨결은 상대에게 닿아 있는 동안 0.2초 간격으로 피해를 줍니다. 빔 둘이 정면에서 만나면 양쪽 빔이 충돌점에서 멈추고 힘겨루기가 시작됩니다. 기술 위력과 타입 상성, 포켓몬의 능력치에 따라 충돌점이 밀리고 어느 한쪽이 돌파하거나 무승부로 끝납니다. 빔과 투사체는 포켓몬의 폼, 바라보는 방향과 발사 동작에 맞는 위치에서 나갑니다. [피카츄와 별가사리의 실제 힘겨루기](docs/screenshots/beam-clash.gif)
 
 [포켓몬 레조넌스 v3.0.0](https://reso.jhcloud.kr/)을 기준으로 1,200 × 760 전장과 기술별 궤적, 발사 속도, 준비 시간, 2회 연속 회피를 적용했습니다. 981종과 추가 46폼이 이동·공격 방향에 맞는 탐험대 도트를 사용합니다. 나머지 44종과 추가 12폼은 포켓몬별 정면 도트를 사용하며, 원본이 한 장인 경우에는 걸음과 공격 반동을 게임에서 재생합니다. 회색체육관, 블루체육관, 신오 체육관 등에는 실제 체육관 타일이 깔리며, 전용 배경이 없는 곳은 트레이너의 타입에 맞는 곳에서 대결합니다. [그림과 전장 출처](assets/battle/SOURCES.md)
 

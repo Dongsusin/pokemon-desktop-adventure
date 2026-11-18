@@ -1,6 +1,8 @@
 import type { Move, Position } from './engine'
-import { arenaCastFrame, arenaCastTouches, arenaDistance, arenaHeightRatio, arenaMoveProfile, castDuration, createArenaCast,
-  type ArenaCast, type ArenaSide } from './arenaMoves'
+import { arenaCastFrame, arenaCastTouches, beamPulseMs, beamRounds, arenaDistance, arenaHeightRatio, arenaMoveProfile, castDuration, createArenaCast,
+  type ArenaCast, type ArenaSide, type ArenaSpriteRefs } from './arenaMoves'
+
+import { escapeBeamClash, setClashPoint, stepBeamClash, type BeamClash, type BeamClashResult } from './arenaBeams'
 
 export { arenaDistance } from './arenaMoves'
 
@@ -16,7 +18,7 @@ export interface ArenaFeedback {
   id: number
   text: string
   actor: 'player' | 'enemy' | 'system'
-  kind: 'hit' | 'miss' | 'switch' | 'heal' | 'dodge'
+  kind: 'hit' | 'miss' | 'switch' | 'heal' | 'dodge' | 'clash-win' | 'clash-draw' | 'clash-break'
   moveType?: string
   moveId?: string
   castId?: number
@@ -34,6 +36,8 @@ export interface TrainerArena {
   paused: boolean
   needsSwitch: boolean
   casts: ArenaCast[]
+  beamClash: BeamClash | null
+  lastClash?: BeamClashResult
   nextCastId: number
   dodgeCharges: number
   dodgeMs: number
@@ -61,7 +65,7 @@ export function createArena(partyOrder: string[]): TrainerArena {
   return {
     player: { x: 230 / 1200, y: .5 }, enemy: { x: 970 / 1200, y: .5 }, direction: zero(), facing: { x: 1, y: 0 },
     partyOrder, participants: partyOrder.slice(0, 1), paused: false, needsSwitch: false,
-    casts: [], nextCastId: 1, dodgeCharges: maxCharges, dodgeMs: 0, dodgeDirection: zero(),
+    casts: [], beamClash: null, nextCastId: 1, dodgeCharges: maxCharges, dodgeMs: 0, dodgeDirection: zero(),
     dodgeCooldownMs: 0, invulnerableMs: 0, skillLockMs: 0, switchCooldownMs: 0, enemyInMs: 1150,
     telegraph: null, feedback: null,
   }
@@ -79,7 +83,7 @@ function point(value: unknown, fallback: Position): Position {
   return object(value) ? { x: number(value.x, fallback.x, 0.05, 0.95), y: number(value.y, fallback.y, 0.10, 0.90) } : fallback
 }
 
-export function restoreArena(value: unknown, roster: string[], fainted: boolean, enemyMove: Move, playerMove: (id: string) => Move | undefined): TrainerArena {
+export function restoreArena(value: unknown, roster: string[], fainted: boolean, enemyMove: Move, playerMove: (id: string) => Move | undefined, sprites?: ArenaSpriteRefs): TrainerArena {
   const arena = createArena(roster)
   arena.paused = true
   arena.needsSwitch = fainted
@@ -119,7 +123,12 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
       const move = saved.side === 'enemy' ? enemyMove : playerMove(saved.moveId)
       if (!move || move.id !== saved.moveId) continue
       const id = Math.floor(number(saved.id, arena.nextCastId, 1, Number.MAX_SAFE_INTEGER - 1))
-      const cast = createArenaCast(id, saved.side, move, point(saved.origin, arena[saved.side]), point(saved.target, arena.player))
+      if (arena.casts.some(cast => cast.id === id)) continue
+      const emitter = object(saved.emitter) ? saved.emitter : undefined
+      const lockedAim = emitter && object(saved.target) ? { x: number(saved.target.x, arena.player.x, -.5, 1.5),
+        y: number(saved.target.y, arena.player.y, -.5, 1.5) } : undefined
+      const cast = createArenaCast(id, saved.side, move, point(emitter?.feet ?? saved.origin, arena[saved.side]),
+        point(emitter?.targetFeet ?? saved.target, arena[saved.side === 'player' ? 'enemy' : 'player']), emitter ? sprites : undefined, lockedAim)
       if (saved.legacyWarning && saved.side === 'enemy' && object(saved.profile)) {
         setLegacyProfile(cast, saved.profile.startupMs, saved.profile.radius)
         cast.target = point(saved.target, arena.player)
@@ -128,6 +137,21 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
       if (cast.elapsedMs >= castDuration(cast)) continue
       cast.resolved = saved.resolved === true || cast.elapsedMs >= cast.profile.startupMs + cast.profile.activeMs
       if (cast.resolved) cast.result = saved.result === 'hit' ? 'hit' : 'miss'
+      if (cast.beam) {
+        const rounds = beamRounds(cast)
+        const elapsedPulses = clamp(Math.floor((cast.elapsedMs - cast.profile.startupMs + .00001) / beamPulseMs), 0, rounds)
+        const beam = object(saved.beam) ? saved.beam : {}
+        cast.beam.pulses = Math.floor(number(beam.pulses, elapsedPulses, 0, elapsedPulses))
+        cast.beam.hits = Math.floor(number(beam.hits, 0, 0, elapsedPulses))
+        cast.beam.spent = beam.spent === true || (!saved.beam && cast.resolved)
+        if (cast.beam.hits || cast.beam.spent) {
+          cast.result = saved.result === 'miss' ? 'miss' : 'hit'
+          if (object(beam.lastHit)) cast.beam.lastHit = {
+            x: number(beam.lastHit.x, cast.target.x, -.5, 1.5), y: number(beam.lastHit.y, cast.target.y, -.5, 1.5) }
+          if (typeof beam.budget === 'number') cast.beam.budget = number(beam.budget, 0, 0, 1_000_000)
+          cast.beam.applied = number(beam.applied, 0, 0, cast.beam.budget ?? 0)
+        }
+      }
       arena.casts.push(cast)
       arena.nextCastId = Math.max(arena.nextCastId, id + 1)
     }
@@ -143,11 +167,23 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
       arena.casts.push(cast)
     }
   }
+  const held = value.beamClash
+  if (object(held)) {
+    const source = arena.casts.find(c => c.side === 'player' && c.id === held.playerCastId && c.beam && !c.resolved)
+    const foe = arena.casts.find(c => c.side === 'enemy' && c.id === held.enemyCastId && c.beam && !c.resolved)
+    if (source && foe && arenaCastFrame(source).phase === 'active' && arenaCastFrame(foe).phase === 'active') {
+      arena.beamClash = { playerCastId: source.id, enemyCastId: foe.id, point: source.origin,
+        origin: number(held.origin, .5, 0, 1), balance: number(held.balance, 0, -1, 1),
+        ratio: number(held.ratio, 1, .00001, 100_000), elapsedMs: number(held.elapsedMs, 0, 0, 2500) }
+      setClashPoint(arena.beamClash, source, foe)
+    }
+  }
   refreshTelegraph(arena)
   return arena
 }
 
 function setLegacyProfile(cast: ArenaCast, duration: unknown, radius: unknown) {
+  delete cast.beam
   cast.legacyWarning = true
   cast.profile = { kind: 'burst', range: 1, radius: number(radius, .12, .06, .25), spreadDeg: [0], halfAngleDeg: 0,
     startupMs: number(duration, 850, 250, 1500), activeMs: 1, recoveryMs: 125 }
@@ -161,9 +197,9 @@ function refreshTelegraph(arena: TrainerArena) {
   } : null
 }
 
-export function beginArenaCast(arena: TrainerArena, side: ArenaSide, move: Move): ArenaCast {
+export function beginArenaCast(arena: TrainerArena, side: ArenaSide, move: Move, sprites?: ArenaSpriteRefs): ArenaCast {
   const target = side === 'enemy' ? arena.player : arena.enemy
-  const cast = createArenaCast(arena.nextCastId++, side, move, arena[side], target)
+  const cast = createArenaCast(arena.nextCastId++, side, move, arena[side], target, sprites)
   arena.casts.push(cast)
   if (side === 'player') arena.facing = arenaCastFrame(cast).direction
   refreshTelegraph(arena)
@@ -172,6 +208,7 @@ export function beginArenaCast(arena: TrainerArena, side: ArenaSide, move: Move)
 
 export function clearArenaCasts(arena: TrainerArena) {
   arena.casts = []
+  arena.beamClash = null
   arena.telegraph = null
   arena.skillLockMs = 0
 }
@@ -185,6 +222,7 @@ function translate(from: Position, direction: Position, distance: number) {
 export function moveArena(arena: TrainerArena, x: number, y: number): boolean {
   if (![-1, 0, 1].includes(x) || ![-1, 0, 1].includes(y)) return false
   if ((arena.paused || arena.needsSwitch) && (x || y)) return false
+  escapeBeamClash(arena, { x, y })
   arena.direction = { x, y }
   if (x || y) arena.facing = { x, y }
   return true
@@ -192,6 +230,7 @@ export function moveArena(arena: TrainerArena, x: number, y: number): boolean {
 
 export function dodgeArena(arena: TrainerArena): boolean {
   if (arena.paused || arena.needsSwitch || arena.dodgeCharges <= 0 || arena.dodgeMs > 0) return false
+  escapeBeamClash(arena)
   arena.dodgeMs = rollMs
   arena.dodgeDirection = { ...(arena.direction.x || arena.direction.y ? arena.direction : arena.facing) }
   arena.invulnerableMs = dodgeIFrameEnd
@@ -204,13 +243,15 @@ export function dodgeArena(arena: TrainerArena): boolean {
   return true
 }
 
-export interface ArenaImpact { cast: ArenaCast; hit: boolean; position: Position }
+export interface ArenaImpact { cast: ArenaCast; hit: boolean; position: Position; beamShare?: number; silent?: boolean }
 
 export function arenaStepMs(arena: TrainerArena, remaining: number) {
   // Split movement at exact changes in phase, roll and invulnerability. Short
   // integration steps also let the next actor react to a KO immediately.
   const edges = [arena.dodgeMs, arena.invulnerableMs, arena.dodgeMs - (rollMs - dodgeIFrameStart), arena.enemyInMs]
+  if (arena.beamClash) edges.push(600 - arena.beamClash.elapsedMs, 2500 - arena.beamClash.elapsedMs)
   for (const cast of arena.casts) {
+    if (cast.beam && !cast.resolved && !arena.beamClash) edges.push(cast.profile.startupMs + (cast.beam.pulses + 1) * beamPulseMs - cast.elapsedMs)
     for (const end of [cast.profile.startupMs, cast.profile.startupMs + cast.profile.activeMs, castDuration(cast)]) {
       edges.push(end - cast.elapsedMs)
     }
@@ -230,7 +271,8 @@ function moveFighter(arena: TrainerArena, side: ArenaSide, elapsed: number, dire
   translate(arena[side], direction, distance)
 }
 
-export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: number, enemySpeed: number, selected: Move): ArenaImpact[] {
+export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: number, enemySpeed: number, selected: Move,
+  sprites?: ArenaSpriteRefs, strengthRatio: (a: ArenaCast, b: ArenaCast) => number = () => 1): ArenaImpact[] {
   const seconds = elapsed / 1000
   const from = { player: { ...arena.player }, enemy: { ...arena.enemy } }
   const rolling = arena.dodgeMs > .00001
@@ -243,7 +285,10 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
   moveFighter(arena, 'enemy', elapsed, direction, Math.min(Math.max(0, distance - range * .80), enemySpeed * seconds))
 
   const impacts: ArenaImpact[] = []
+  const held = arena.beamClash
+  const starts = arena.casts.map(c => c.elapsedMs)
   for (const cast of arena.casts) {
+    if (held && (cast.id === held.playerCastId || cast.id === held.enemyCastId)) continue
     const victim = cast.side === 'player' ? 'enemy' : 'player'
     const p = cast.profile
     const start = cast.elapsedMs
@@ -254,7 +299,37 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
       const f = distance > p.range ? p.range / distance : 1
       cast.target = { x: cast.origin.x + (aim.x - cast.origin.x) * f, y: cast.origin.y + (aim.y - cast.origin.y) * f }
     }
-    if (cast.resolved) continue
+  }
+  stepBeamClash(arena, elapsed, strengthRatio, impacts)
+  for (const [index, cast] of arena.casts.entries()) {
+    if (cast.resolved || (arena.beamClash && cast.beam)) continue
+    const victim = cast.side === 'player' ? 'enemy' : 'player'
+    const p = cast.profile, start = starts[index]
+    if (cast.beam) {
+      const beam = cast.beam, rounds = beamRounds(cast)
+      // The channel clock stops during a clash. Only scheduled 12-frame
+      // samples test contact; leaving and re-entering never catches up old hits.
+      const next = p.startupMs + (beam.pulses + 1) * beamPulseMs
+      if (beam.pulses < rounds && cast.elapsedMs + .00001 >= next) {
+        beam.pulses++
+        const sample = Math.min(next, p.startupMs + p.activeMs - .000001)
+        if ((cast.side === 'player' || !invulnerable) && arenaCastTouches(cast, sample, sample, arena[victim], arena[victim])) {
+          const at = arena[victim], offset = cast.victimOffset ?? { x: 0, y: 0 }
+          beam.lastHit = { x: at.x + offset.x, y: at.y + offset.y }
+          beam.hits++
+          cast.result = 'hit'
+          impacts.push({ cast, hit: true, position: beam.lastHit, beamShare: 1 / rounds })
+        }
+      }
+      if (cast.elapsedMs + .00001 >= p.startupMs + p.activeMs) {
+        cast.resolved = true
+        if (!beam.hits) {
+          cast.result = 'miss'
+          impacts.push({ cast, hit: false, position: { ...arena[victim] } })
+        }
+      }
+      continue
+    }
     const touches = arenaCastTouches(cast, start, cast.elapsedMs, from[victim], arena[victim])
     const hit = touches && (cast.side === 'player' || !invulnerable)
     // A dodged shot passes through; the Pokémon may still walk into a held
@@ -278,7 +353,7 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
   }
   arena.enemyInMs = Math.max(0, arena.enemyInMs - elapsed)
   if (!arena.casts.some(cast => cast.side === 'enemy') && arena.enemyInMs <= .00001 && arenaDistance(arena.enemy, arena.player) <= range) {
-    const cast = beginArenaCast(arena, 'enemy', selected)
+    const cast = beginArenaCast(arena, 'enemy', selected, sprites)
     arena.enemyInMs = castDuration(cast) + 850
   }
   refreshTelegraph(arena)

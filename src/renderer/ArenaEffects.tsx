@@ -1,6 +1,8 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { arenaCastFrame, type ArenaCast } from '../game/arenaMoves'
 import type { Position } from '../game/engine'
+import type { TrainerArena } from '../game/trainerArena'
+import { BeamShaft, BeamContact, ClashCore, ClashFinish } from './ArenaBeams'
 
 // Both axes are measured in units of playfield width in the simulation.
 const width = 1200
@@ -76,17 +78,6 @@ function Technique({ cast }: { cast: ArenaCast }) {
     <g transform={'scale(' + (r / 26) + ')'}><path d="M-58 5q23-11 49-8l1 12Z" fill={element} opacity=".72"/>
       <g transform={cast.moveType === 'rock' || cast.moveType === 'grass' ? 'rotate(' + p * 320 + ')' : undefined}>
         <Projectile type={cast.moveType} moveId={cast.moveId} /></g></g></g>)}</>
-  if (kind === 'beam') {
-    const tip = pixel(frame.beamTip)
-    const len = Math.hypot(tip.x-origin.x,tip.y-origin.y)
-    const wave = Math.sin(p * Math.PI * 6)
-    const line = cast.moveType === 'electric'
-      ? 'M0 0L' + len * .22 + ' ' + (wave * r*.45) + 'l' + (-len*.04) + ' ' + (-r*.60) + 'L' + len*.62 + ' ' + (r*.5) + 'l' + (-len*.06) + ' ' + (-r*.68) + 'L' + len + ' 0'
-      : 'M0 0Q' + len*.5 + ' ' + r*.28*wave + ' ' + len + ' 0'
-    return <g transform={at(origin) + rotate} fill="none" strokeLinecap="round">
-      <path d={line} stroke={element} strokeWidth={r*1.7} opacity=".38"/><path d={line} stroke={element} strokeWidth={r*.95}/>
-      <path d={line} stroke="#fff9ec" strokeWidth={r*.30}/><circle cx={len} r={r*.54} fill="#fffde3"/></g>
-  }
   if (kind === 'dash') {
     const length = Math.min(108, Math.hypot(head.x - origin.x,head.y-origin.y))
     return <g transform={at(head) + rotate} fill={element}>
@@ -132,7 +123,10 @@ function Lob({ cast }: { cast: ArenaCast }) {
     <g transform={'translate('+x+' '+(y-rise)+') rotate('+p*260+') scale(.7)'}><Projectile type="rock" moveId="rockThrow"/></g></g>
 }
 
-export function ArenaEffects({ casts, preview, effects, playing }: { casts: ArenaCast[]; preview?: ArenaCast; effects: boolean; playing: boolean }) {
+export function ArenaEffects({ casts, preview, effects, playing, clash, lastClash }: {
+  casts: ArenaCast[]; preview?: ArenaCast; effects: boolean; playing: boolean
+  clash: TrainerArena['beamClash']; lastClash?: TrainerArena['lastClash']
+}) {
   // Interpolate only until the next 50 ms simulation snapshot. Pausing displays the saved frame exactly.
   const [sample, setSample] = useState<{ casts: ArenaCast[]; delta: number } | null>(null)
   useEffect(() => {
@@ -147,6 +141,7 @@ export function ArenaEffects({ casts, preview, effects, playing }: { casts: Aren
     return () => cancelAnimationFrame(request)
   }, [casts, playing])
   const delta = playing && sample?.casts === casts ? sample.delta : 0
+  const clashColor = (id: number) => moveColors[casts.find(cast => cast.id === id)?.moveType ?? 'normal'] ?? moveColors.normal
   return <svg className="ring-effects" viewBox="0 0 1200 760" preserveAspectRatio="none" aria-hidden="true">
     {preview && <g className="ring-preview"><Footprint cast={preview}/></g>}
     {casts.map(snapshot => {
@@ -161,9 +156,14 @@ export function ArenaEffects({ casts, preview, effects, playing }: { casts: Aren
           <g className={'ring-footprint ' + (enemy ? 'enemy' : 'ally')} style={{fillOpacity:.08+.16*frame.progress}}><Footprint cast={cast}/></g>
           {effects && <Lob cast={cast}/>}
           <text x={label.x} y={Math.max(22,label.y-36)} className="ring-cast-name">{cast.moveName}</text></>}
-        {frame.phase === 'active' && (effects ? (cast.profile.kind === 'projectile' && cast.result === 'hit' ? null : <Technique cast={cast}/>) :
-          <g className={'ring-footprint ' + (enemy ? 'enemy' : 'ally')}><Footprint cast={cast}/></g>)}
+        {(frame.phase === 'active' || !!cast.beamStop) && (cast.profile.kind === 'beam' ? <BeamShaft cast={cast} effects={effects}/> :
+          effects ? (cast.profile.kind === 'projectile' && cast.result === 'hit' ? null : <Technique cast={cast}/>) :
+            <g className={'ring-footprint ' + (enemy ? 'enemy' : 'ally')}><Footprint cast={cast}/></g>)}
+        {effects && cast.beam && <BeamContact cast={cast}/>}
       </g>
     })}
+    {clash && <ClashCore clash={clash} delta={delta} effects={effects}
+      playerColor={clashColor(clash.playerCastId)} enemyColor={clashColor(clash.enemyCastId)}/>}
+    <ClashFinish outcome={lastClash} effects={effects}/>
   </svg>
 }

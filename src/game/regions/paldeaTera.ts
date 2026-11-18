@@ -22,10 +22,14 @@ const effectiveness: Readonly<Record<string, Readonly<Record<string, number>>>> 
   fairy: { fighting: 2, poison: 0.5, steel: 0.5, fire: 0.5, dragon: 2, dark: 2 },
 }
 
+export function singleTypeEffectiveness(moveType: string, defenderType: string): number {
+  return effectiveness[moveType]?.[defenderType] ?? 1
+}
+
 export function teraAttackMultiplier(moveType: string, originalTypes: readonly string[], attackerTera: string, defenderTera: string, defenderAbility?: KantoTrainerMember['abilityId']): number {
   if ((defenderAbility === 'levitate' && moveType === 'ground') || (defenderAbility === 'water-absorb' && moveType === 'water')) return 0
   const originalStab = originalTypes.includes(moveType)
   const teraStab = moveType === attackerTera
   const stab = originalStab && teraStab ? 2 : originalStab || teraStab ? 1.5 : 1
-  return stab * (effectiveness[moveType]?.[defenderTera] ?? 1)
+  return stab * singleTypeEffectiveness(moveType, defenderTera)
 }

@@ -22,7 +22,7 @@ export function ArenaFighter({ side, id, formId, pos, direction, opponent, casti
   const frame = casting && arenaCastFrame(casting)
   const freeToWalk = casting?.profile.kind === 'projectile' && casting.elapsedMs > casting.profile.startupMs + 150
   const acting = !!frame && !(freeToWalk && walking)
-  const aim = acting ? frame.direction : walking ? step : facing.current
+  const aim = acting ? frame.facing : walking ? step : facing.current
   useLayoutEffect(() => {
     previous.current = { ...pos }
     if (aim.x || aim.y) facing.current = { ...aim }
@@ -33,20 +33,23 @@ export function ArenaFighter({ side, id, formId, pos, direction, opponent, casti
     const timeout = window.setTimeout(() => setHurt(false), 200)
     return () => { window.clearTimeout(timeout); setHurt(false) }
   }, [feedback?.id, side])
+  const heldBeam = casting?.profile.kind === 'beam' && (frame?.phase === 'active' || !!casting.beamStop)
   const ranged = casting && !['dash','cone'].includes(casting.profile.kind)
-  const inFlight = casting?.profile.lobSpeed && casting.elapsedMs >= arenaMoveProfile({ id: casting.moveId }).startupMs
-  const motion = !playing ? lastMotion.current : invincible ? 'dodge' : hurt ? 'hurt' : acting ? (ranged ? (frame.phase === 'windup' && !inFlight ? 'charge' : 'shoot') : 'attack') : walking ? 'walk' : 'idle'
+  const lobStart = casting?.profile.lobSpeed ? arenaMoveProfile({ id: casting.moveId }).startupMs : undefined
+  const inFlight = casting && lobStart !== undefined && frame?.phase === 'windup' && casting.elapsedMs >= lobStart
+  const spriteFrame = inFlight ? { phase: 'active' as const, progress: (casting.elapsedMs - lobStart) / Math.max(1, casting.profile.startupMs - lobStart) } : frame
+  const motion = !playing ? lastMotion.current : invincible ? 'dodge' : heldBeam ? 'shoot' : hurt ? 'hurt' : acting ? (ranged ? (frame.phase === 'windup' && !inFlight ? 'charge' : 'shoot') : 'attack') : walking ? 'walk' : 'idle'
   useLayoutEffect(() => { lastMotion.current = motion }, [motion])
   const name = pokemonName(id, formId)
-  const size = battleSpriteFootprint(species[id].pokedexNumber,formId) * (dynamax ? 1.42 : 1)
+  const size = battleSpriteFootprint(species[id].pokedexNumber, formId, Boolean(dynamax))
   const towards = Math.sign(opponent.x - pos.x) || 1
   const style = { left: pos.x*100+'%', top: pos.y*100+'%', '--actor-size': size+'%', '--recoil': -towards*12+'%',
     '--lean': (aim.x >= 0 ? 1 : -1)*5+'deg', zIndex: 3 + Math.round(pos.y * 70) } as CSSProperties
   return <div className={'ring-fighter ' + side + (dynamax ? ' dynamax' : '')} data-motion={motion}
-    data-side={side} data-x={pos.x} data-y={pos.y} data-species={id} style={style}>
+    data-side={side} data-emitting={ranged && acting ? true : undefined} data-beam-hit={heldBeam && hurt ? true : undefined} data-x={pos.x} data-y={pos.y} data-species={id} style={style}>
     <i className="ring-fighter-shadow"/>
     <div className="ring-fighter-motion">
-      <BattleSprite id={species[id].pokedexNumber} formId={formId} facing={aim} motion={motion} paused={!playing} castFrame={frame} className="ring-actor-image" alt={name}/>
+      <BattleSprite id={species[id].pokedexNumber} formId={formId} facing={aim} motion={motion} paused={!playing} heldBeam={casting?.profile.kind === 'beam'} castFrame={spriteFrame} className="ring-actor-image" alt={name}/>
     </div>
     <div className="ring-fighter-label"><b>{name}</b><i><span style={{width: Math.max(0,Math.min(1,health))*100+'%'}}/></i></div>
     {tera && <span className="ring-tera"><TeraIcon type={tera}/></span>}

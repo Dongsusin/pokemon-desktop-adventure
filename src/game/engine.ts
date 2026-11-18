@@ -1,5 +1,7 @@
 import { species, starterIds, wildIds } from './catalog'
-import { arenaDistance, arenaMoveProfile, castDuration, type ArenaCast } from './arenaMoves'
+import { arenaDistance, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
+import { arenaBodyPoint } from './arenaMuzzle'
+import { beamClashPower, escapeBeamClash } from './arenaBeams'
 import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, moveArena, restoreArena, stepArena,
   type ArenaFeedback, type TrainerArena } from './trainerArena'
 import { battleForm, formStats, hasWildMidnightForm, locationForm, validForm, wildEncounterForm } from './forms'
@@ -914,20 +916,34 @@ function arenaNotice(game: GameSave, arena: TrainerArena, notice: Omit<ArenaFeed
   arena.feedback = { ...notice, id: game.runtime.nextId++ }
 }
 
+function spriteRefs(id: string, formId: string | undefined, foe: Wild): ArenaSpriteRefs {
+  return {
+    player: { dex: species[id].pokedexNumber, formId, dynamax: Boolean(foe.maxActionsLeft) },
+    enemy: { dex: species[foe.speciesId].pokedexNumber, formId: battleForm(foe), dynamax: Boolean(foe.maxActionsLeft) },
+  }
+}
+
+export function arenaSpriteRefs(game: GameSave, foe = findTarget(game)): ArenaSpriteRefs {
+  return foe ? spriteRefs(game.player.speciesId, game.player.formId, foe) : {}
+}
+
 export function arenaSkills(game: GameSave) {
   const arena = game.campaign.battle?.arena
   const target = game.wild.find(enemy => enemy.id === game.runtime.targetId)
   if (!arena || !target) return []
+  const casting = arena.casts.find(cast => cast.side === 'player')
+  const refs = arenaSpriteRefs(game, target)
   return game.player.moveIds.map(id => {
     const base = moves[id]
     const move = target.maxActionsLeft ? stadiumMove(base) : base
     const profile = arenaMoveProfile(move)
     const range = profile.range
+    const preview = createArenaCast(0, 'player', move, arena.player, arena.enemy, refs)
     return {
       move, range, profile,
-      cooldownMs: Math.max(arena.skillLockMs, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
+      cooldownMs: Math.max(arena.skillLockMs, casting ? castDuration(casting) - casting.elapsedMs : 0, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
       unlocked: base.unlockLevel <= effectiveLevel(game),
-      inRange: move.category === 'healing' || arenaDistance(arena.player, arena.enemy) <= range,
+      inRange: move.category === 'healing' || arenaDistance(preview.origin, preview.profile.kind === 'burst' ? arena.enemy : preview.target) <= range,
     }
   })
 }
@@ -944,7 +960,16 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   game.runtime.targetId = target.id
   game.runtime.pausedState = 'BATTLE'
   transition(game, 'BATTLE')
+  escapeBeamClash(arena)
   arena.casts = arena.casts.filter(cast => cast.side === 'enemy')
+  // The incoming Pokémon can have a different silhouette and body height.
+  const incomingBody = arenaSpriteRefs(game, target).player!
+  for (const incomingCast of arena.casts) {
+    if (incomingCast.victimOffset) {
+      const body = arenaBodyPoint(arena.player, incomingBody)
+      incomingCast.victimOffset = { x: body.x - arena.player.x, y: body.y - arena.player.y }
+    }
+  }
   arena.dodgeMs = arena.invulnerableMs = 0
   addUnique(arena.participants, id)
   arena.direction = { x: 0, y: 0 }
@@ -1006,7 +1031,7 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
       const skill = arenaSkills(game)[action.slot]
       if (!skill?.unlocked || skill.cooldownMs > 0) return false
       if (skill.move.category === 'healing' && game.player.currentHP >= playerStats(game).hp) return false
-      const cast = beginArenaCast(arena, 'player', skill.move)
+      const cast = beginArenaCast(arena, 'player', skill.move, arenaSpriteRefs(game, target))
       arena.skillLockMs = castDuration(cast)
       game.runtime.cooldowns[skill.move.id] = game.runtime.clock + Math.max(620, skill.move.cooldownMs)
       return true
@@ -1024,7 +1049,28 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
   const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
   const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
-  for (const { cast, hit, position } of stepArena(arena, elapsed, playerSpeed, enemySpeed, selected)) {
+  const refs = arenaSpriteRefs(game, opponent)
+  const outcome = arena.lastClash
+  const impacts = stepArena(arena, elapsed, playerSpeed, enemySpeed, selected, refs, (a, b) => {
+    const strength = (cast: ArenaCast, other: ArenaCast) => {
+      const player = cast.side === 'player'
+      const move = player && opponent.maxActionsLeft ? stadiumMove(moves[cast.moveId]) : player ? moves[cast.moveId] : selected
+      const stats = player ? playerStats(game) : opponentStats(game, opponent)
+      const level = player ? effectiveLevel(game) : opponent.level
+      const types = player ? formStats(game.player.speciesId, game.player.formId).types : formStats(opponent.speciesId, battleForm(opponent)).types
+      const offense = move.category === 'physical' ? stats.attack : stats.spAttack
+      return beamClashPower(level, offense, move.power, types.includes(move.type), move.type, other.moveType)
+    }
+    return strength(a, b) / strength(b, a)
+  })
+  if (arena.lastClash && arena.lastClash !== outcome) {
+    const end = arena.lastClash
+    arenaNotice(game, arena, { actor: end.winner ?? 'system',
+      kind: end.outcome === 'draw' ? 'clash-draw' : end.outcome === 'escape' ? 'clash-break' : 'clash-win',
+      text: end.outcome === 'draw' ? '두 빔이 상쇄됐다!' : end.outcome === 'escape' ? '힘겨루기가 풀렸다!' : end.winner === 'player' ? '밀어냈다!' : '밀렸다!',
+      position: end.point })
+  }
+  for (const { cast, hit, position, beamShare, silent } of impacts) {
     if (game.campaign.battle?.arena !== arena || arena.needsSwitch || findTarget(game) !== opponent) break
     // If another impact ended Dynamax in this same slice, its pending Max
     // technique was cancelled. Never replace it with a new base-form hit.
@@ -1032,9 +1078,11 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
       if (!opponent.maxActionsLeft) continue
     }
     const playerTurn = cast.side === 'player'
-    if (hit) attack(game, opponent, { playerTurn, move: playerTurn ? moves[cast.moveId] : technique, cast, position })
+    if (hit) attack(game, opponent, { playerTurn, move: playerTurn ? moves[cast.moveId] : technique, cast, position, beamShare })
     else {
-      spendMaxAction(game, opponent)
+      if (!cast.beam?.spent) spendMaxAction(game, opponent)
+      if (cast.beam) cast.beam.spent = true
+      if (silent) continue
       arenaNotice(game, arena, { actor: cast.side, kind: 'miss', text: cast.moveName + ' · 빗나감',
         moveType: cast.moveType, castId: cast.id, moveId: cast.moveId, position })
     }
@@ -1513,7 +1561,7 @@ function victory(game: GameSave, wild: Wild): void {
   }
 }
 
-function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean; cast: ArenaCast; position: Position }): void {
+function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean; cast: ArenaCast; position: Position; beamShare?: number }): void {
   const player = game.player
   const playerTurn = manual?.playerTurn ?? (game.runtime.turn === 'player')
   const baseMove = manual?.move ?? (playerTurn ? chooseMove(game, target) : wildMove(target))
@@ -1531,23 +1579,40 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     game.runtime.cooldowns[selected.id] = game.runtime.clock + selected.cooldownMs
   }
 
+  const beam = manual?.cast.beam
+  const firstBeamContact = !beam?.spent
+  if (beam) beam.spent = true
   if (selected.category === 'healing') {
     const amount = heal(game, Math.ceil(stats.hp * selected.power / 100))
     addEffect(game, 'heal', player.position, 900, { text: '+' + amount + ' HP' })
     if (arena) arenaNotice(game, arena, { actor: 'player', kind: 'heal', ...feedback, amount, text: selected.nameKo + ' · +' + amount + ' HP', moveType: selected.type })
   } else {
-    const damage = damageWithMultiplier(
+    const rollDamage = () => damageWithMultiplier(
       selected,
       playerTurn ? stats : enemyStats,
       playerTurn ? enemyStats : stats,
       playerTurn ? effectiveLevel(game) : target.level,
       matchup(game, target, selected, playerTurn), randomBetween(game, 0.90, 1.10),
     )
+    let damage: number
+    if (beam && manual?.beamShare !== undefined) {
+      if (beam.budget === undefined) {
+        const base = rollDamage()
+        // Integer HP requires at least one point per damaging pulse. One
+        // sampled budget per cast keeps the full hold and save/reload stable.
+        beam.budget = base ? Math.max(beamRounds(manual.cast), Math.round(base * fullBeamMultiplier)) : 0
+      }
+      const amount = manual.cast.clashBreakthrough
+        ? Math.round(beam.budget * manual.beamShare)
+        : Math.round(beam.hits * beam.budget / beamRounds(manual.cast)) - beam.applied
+      damage = Math.max(0, Math.min(beam.budget - beam.applied, amount))
+      beam.applied += damage
+    } else damage = rollDamage()
     recipient.currentHP = Math.max(0, recipient.currentHP - damage)
     addEffect(game, 'attack', source.position, 560, {
       target: { ...recipient.position }, moveType: selected.type, text: selected.nameKo, actor, targetActor
     })
-    if (playerTurn && target.abilityId === 'water-absorb' && selected.type === 'water') {
+    if (firstBeamContact && playerTurn && target.abilityId === 'water-absorb' && selected.type === 'water') {
       const recovered = Math.min(target.maxHP - target.currentHP, Math.max(1, Math.floor(target.maxHP / 4)))
       target.currentHP += recovered
       addEffect(game, 'heal', target.position, 900, { text: '저수 · +' + recovered + ' HP', actor: target.id })
@@ -1565,7 +1630,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     else victory(game, target)
   } else if (player.currentHP === 0) {
     if (trainer && arena && game.followers.some(member => member.currentHP > 0)) {
-      spendMaxAction(game, target)
+      if (firstBeamContact) spendMaxAction(game, target)
       arena.needsSwitch = true
       clearArenaCasts(arena)
       arena.direction = { x: 0, y: 0 }
@@ -1574,7 +1639,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     } else if (trainer) trainerDefeat(game, trainer)
     else defeat(game, target)
   } else {
-    spendMaxAction(game, target)
+    if (firstBeamContact) spendMaxAction(game, target)
     game.runtime.turn = playerTurn ? 'wild' : 'player'
     game.runtime.stateIn = TURN_MS
   }
@@ -2396,7 +2461,7 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
       const foeBase = wildMove(foe)
       const foeMove = foe.maxActionsLeft ? stadiumMove(foeBase, foe.dynamax === 'gigantamax' ? foe.speciesId : undefined) : foeBase
       campaign.battle.arena = restoreArena(rawArena, [leaderId, ...followers.map(member => member.instanceId)], currentHP === 0, foeMove, id =>
-        moveIds.includes(id) ? (foe.maxActionsLeft ? stadiumMove(moves[id]) : moves[id]) : undefined)
+        moveIds.includes(id) ? (foe.maxActionsLeft ? stadiumMove(moves[id]) : moves[id]) : undefined, spriteRefs(speciesId, formId, foe))
     }
   }
   const autoBattle = value.autoBattle !== false

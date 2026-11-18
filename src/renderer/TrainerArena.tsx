@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
-import { arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position } from '../game/engine'
+import { arenaSkills, arenaSpriteRefs, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position } from '../game/engine'
 import { species } from '../game/catalog'
 import { battleForm, formStats } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
@@ -46,7 +46,8 @@ function Impact({ feedback, pos }: { feedback: Feedback; pos: Position }) {
   const [at] = useState(() => ({ ...(feedback.position ?? pos) }))
   const message = feedback.kind === 'hit' ? feedback.amount ?? '명중' : feedback.kind === 'heal' ? '+' + (feedback.amount ?? '회복') :
     feedback.kind === 'dodge' ? '회피' : feedback.kind === 'miss' ? '빗나감' : '출전'
-  return <div className={'ring-impact ' + feedback.kind} style={point(at)} aria-hidden="true">
+  if (feedback.kind.startsWith('clash-')) return null
+  return <div className={'ring-impact ' + feedback.kind} data-impact-id={feedback.id} style={point(at)} aria-hidden="true">
     {feedback.kind === 'hit' && <i/>}<b>{message}</b>
   </div>
 }
@@ -215,7 +216,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const playerType = formStats(player.speciesId, player.formId).types[0]
   const terrain = trainer.type ?? (trainer.role === 'champion' ? 'champion' : 'normal')
   const selected = range?.unlocked && isPlaying ? range : undefined
-  const preview = selected && createArenaCast(-1, 'player', selected.move, arena.player, arena.enemy)
+  const preview = selected && createArenaCast(-1, 'player', selected.move, arena.player, arena.enemy, arenaSpriteRefs(game, foe))
   const ground = battleGroundUrl(trainer.locationId, terrain, trainer.role !== 'gym')
   const location = region.locationById[trainer.locationId].name
   const special = foe?.teraType ? types[foe.teraType] + ' 테라스탈'
@@ -236,7 +237,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
         <div ref={world} className="ring-world" style={{transform:camera}} data-zoom={zoom}>
         <ArenaTrainers trainer={trainer}/>
         {goal && isPlaying && <i className="ring-goal" aria-hidden="true" style={point(goal)}/>}
-        <ArenaEffects casts={arena.casts} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
+        <ArenaEffects casts={arena.casts} clash={arena.beamClash} lastClash={arena.lastClash} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
         <ArenaFighter side="enemy" pos={arena.enemy} opponent={arena.player} id={opponentId} formId={opponentForm}
           health={(foe?.currentHP ?? 0)/(foe?.maxHP ?? 1)} playing={isPlaying} feedback={feedback}
           casting={arena.casts.find(cast=>cast.side==='enemy')} dynamax={!!foe?.maxActionsLeft} tera={foe?.teraType}/>
@@ -298,6 +299,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
       </div>
     </div>
     <div className="ring-announce" role="status"><i/>{hint || (arena.needsSwitch ? '선두가 쓰러졌습니다. 교체할 포켓몬을 고르세요.'
+      : arena.beamClash ? '광선 맞대결 중 · 방향을 틀거나 회피해 빠져나올 수 있습니다.'
       : feedback?.text || '방향키·Alt 클릭 이동 / Q W E R 기술 / 좌·우 클릭 Q·W / Shift·Space 회피')}</div>
     {special && <p className="ring-special">{special}{foe?.abilityId && ' · 특성 ' + (foe.abilityId === 'levitate' ? '부유' : '저수')}</p>}
   </section>

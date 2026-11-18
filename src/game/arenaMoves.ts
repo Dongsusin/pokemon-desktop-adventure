@@ -1,4 +1,10 @@
 import type { Move, Position } from './engine'
+import { arenaBodyPoint, arenaMuzzlePoint, type ArenaSpriteRef } from './arenaMuzzle'
+
+export type ArenaSpriteRefs = Partial<Record<ArenaSide, ArenaSpriteRef>>
+export const beamPulseMs = 200
+export const fullBeamMultiplier = 1.45
+export const beamRounds = (cast: ArenaCast) => Math.max(1, Math.floor((cast.profile.activeMs + .00001) / beamPulseMs))
 
 export type ArenaSide = 'player' | 'enemy'
 export type ArenaShape = 'dash' | 'projectile' | 'beam' | 'cone' | 'burst' | 'self'
@@ -84,6 +90,11 @@ export interface ArenaCast {
   resolved: boolean
   result?: 'hit' | 'miss'
   legacyWarning?: boolean
+  emitter?: { feet: Position; targetFeet: Position; facing: Position }
+  victimOffset?: Position
+  clashBreakthrough?: boolean
+  beamStop?: Position
+  beam?: { pulses: number; hits: number; lastHit?: Position; budget?: number; applied: number; spent: boolean }
 }
 
 const clamp01 = (n: number) => Math.max(0, Math.min(n, 1))
@@ -96,26 +107,40 @@ export function arenaDistance(a: Position, b: Position): number {
   return Math.hypot(a.x - b.x, (a.y - b.y) * arenaHeightRatio)
 }
 
-function aim(from: Position, to: Position, side: ArenaSide): Position {
+export function arenaAim(from: Position, to: Position, side: ArenaSide): Position {
   const d = delta(from, to)
   const length = Math.hypot(d.x, d.y)
   return length ? { x: d.x / length, y: d.y / length } : { x: side === 'player' ? 1 : -1, y: 0 }
 }
 
-export function createArenaCast(id: number, side: ArenaSide, move: Move, origin: Position, target: Position): ArenaCast {
+export function createArenaCast(id: number, side: ArenaSide, move: Move, origin: Position, target: Position, sprites?: ArenaSpriteRefs, lockedAim?: Position): ArenaCast {
   const base = arenaMoveProfile(move)
+  const feet = origin, targetFeet = target
+  const shooter = sprites?.[side], victim = sprites?.[side === 'player' ? 'enemy' : 'player']
+  const ranged = base.kind === 'beam' || base.kind === 'projectile' || Boolean(base.lobSpeed)
+  let victimOffset: Position | undefined
+  if (ranged && victim && !base.lobSpeed) {
+    target = arenaBodyPoint(targetFeet, victim)
+    victimOffset = { x: target.x - targetFeet.x, y: target.y - targetFeet.y }
+    if (lockedAim) target = lockedAim
+  }
+  const facing = ranged && shooter ? arenaAim(arenaBodyPoint(feet, shooter), target, side) : undefined
+  if (facing && shooter) origin = arenaMuzzlePoint(feet, facing, shooter)
   const distance = arenaDistance(origin, target)
   // The player may cast with the opponent beyond reach. A ground mark then
   // lands at maximum range along the aimed direction.
   const mark = base.kind === 'burst' && distance > base.range ? lerpPoint(origin, target, base.range / distance) : target
   const profile = base.lobSpeed ? { ...base, startupMs: base.startupMs + arenaDistance(origin, mark) / base.lobSpeed * 1000 } : base
-  const direction = aim(origin, target, side)
+  const direction = arenaAim(origin, target, side)
   // Rushes stop just in front of the locked target. A moving target can escape;
   // a fired shot keeps flying down its initial heading to its full range.
   const reach = profile.kind === 'dash' ? Math.min(profile.range, Math.max(0, distance - profile.radius * .72)) : profile.range
   const end = { x: origin.x + direction.x * reach, y: origin.y + direction.y * reach / arenaHeightRatio }
   return { id, side, moveId: move.id, moveName: move.nameKo, moveType: move.type, profile,
-    origin: { ...origin }, target: { ...mark }, end, elapsedMs: 0, resolved: false }
+    origin: { ...origin }, target: { ...mark }, end, elapsedMs: 0, resolved: false,
+    ...(facing && { emitter: { feet: { ...feet }, targetFeet: { ...targetFeet }, facing } }),
+    ...(victimOffset && { victimOffset }),
+    ...(base.kind === 'beam' && { beam: { pulses: 0, hits: 0, applied: 0, spent: false } }) }
 }
 
 export function castDuration(cast: ArenaCast): number {
@@ -130,15 +155,18 @@ export function arenaCastFrame(cast: ArenaCast, time = cast.elapsedMs) {
   const progress = phase === 'windup' ? clamp01(time / p.startupMs) : phase === 'active' ? travel
     : clamp01((time - p.startupMs - p.activeMs) / p.recoveryMs)
   const head = p.kind === 'burst' ? cast.target : p.kind === 'self' ? cast.origin : lerpPoint(cast.origin, cast.end, travel)
-  const direction = aim(cast.origin, cast.target, cast.side)
+  const direction = arenaAim(cast.origin, cast.target, cast.side)
   const heads = p.spreadDeg.length === 1 ? [head] : p.spreadDeg.map(degrees => {
     const angle = degrees * Math.PI / 180
     const x = direction.x * Math.cos(angle) - direction.y * Math.sin(angle)
     const y = direction.y * Math.cos(angle) + direction.x * Math.sin(angle)
     return { x: cast.origin.x + x * travel * p.range, y: cast.origin.y + y * travel * p.range / arenaHeightRatio }
   })
-  const beamTip = p.growthMs ? lerpPoint(cast.origin, cast.end, clamp01((time - p.startupMs) / p.growthMs)) : cast.end
-  return { phase, progress, head, heads, beamTip, direction } as const
+  const origin = cast.origin
+  const facing = cast.emitter?.facing ?? direction
+  const length = p.range * (p.growthMs ? clamp01((time - p.startupMs) / p.growthMs) : 1)
+  const beamTip = cast.beamStop ?? { x: origin.x + direction.x * length, y: origin.y + direction.y * length / arenaHeightRatio }
+  return { phase, progress, head, heads, origin, beamTip, direction, facing } as const
 }
 
 // Whether the relative motion segment crosses a disc about (0,0).
@@ -163,6 +191,14 @@ function clip(a: Position, b: Position, planes: number[][]): [Position, Position
 }
 
 export function arenaCastTouches(cast: ArenaCast, fromMs: number, toMs: number, victimFrom: Position, victimTo: Position): boolean {
+  if (cast.victimOffset) {
+    victimFrom = { x: victimFrom.x + cast.victimOffset.x, y: victimFrom.y + cast.victimOffset.y }
+    victimTo = { x: victimTo.x + cast.victimOffset.x, y: victimTo.y + cast.victimOffset.y }
+  }
+  return touchesBody(cast, fromMs, toMs, victimFrom, victimTo)
+}
+
+function touchesBody(cast: ArenaCast, fromMs: number, toMs: number, victimFrom: Position, victimTo: Position): boolean {
   const p = cast.profile
   const start = Math.max(fromMs, p.startupMs), stop = Math.min(toMs, p.startupMs + p.activeMs)
   if (stop < start || fromMs >= p.startupMs + p.activeMs) return false
@@ -175,12 +211,13 @@ export function arenaCastTouches(cast: ArenaCast, fromMs: number, toMs: number, 
     return first.some((head, i) => crossesDisc(delta(head, a), delta(last[i], b), p.radius))
   }
   if (p.kind === 'burst') return crossesDisc(delta(cast.target, a), delta(cast.target, b), p.radius)
-  const direction = aim(cast.origin, cast.target, cast.side)
-  const local = (point: Position) => {
-    const offset = delta(cast.origin, point)
+  const beamFrom = arenaCastFrame(cast, start), beamTo = arenaCastFrame(cast, stop)
+  const direction = beamTo.direction
+  const local = (origin: Position, point: Position) => {
+    const offset = delta(origin, point)
     return { x: dot(direction, offset), y: cross(direction, offset) }
   }
-  const first = local(a), last = local(b)
+  const first = local(beamFrom.origin, a), last = local(beamTo.origin, b)
   if (p.kind === 'cone') {
     const slope = Math.tan(p.halfAngleDeg * Math.PI / 180)
     const inside = clip(first, last, [[slope, -1, 0], [slope, 1, 0]])
@@ -189,10 +226,10 @@ export function arenaCastTouches(cast: ArenaCast, fromMs: number, toMs: number, 
   const fullAt = p.startupMs + (p.growthMs ?? 0)
   if (start < fullAt && stop > fullAt) {
     const split = lerpPoint(a, b, (fullAt - start) / (stop - start))
-    return arenaCastTouches(cast, start, fullAt, a, split) || arenaCastTouches(cast, fullAt, stop, split, b)
+    return touchesBody(cast, start, fullAt, a, split) || touchesBody(cast, fullAt, stop, split, b)
   }
-  const tipA = arenaCastFrame(cast, start).beamTip, tipB = arenaCastFrame(cast, stop).beamTip
-  const lenA = arenaDistance(cast.origin, tipA), lenB = arenaDistance(cast.origin, tipB)
+  const tipA = beamFrom.beamTip, tipB = beamTo.beamTip
+  const lenA = arenaDistance(beamFrom.origin, tipA), lenB = arenaDistance(beamTo.origin, tipB)
   // The leading edge grows during this interval; all four limits vary linearly.
   const inBody = clip(first, last, [[1, 0, 0], [0, 1, p.radius], [0, -1, p.radius]])
   if (inBody) {

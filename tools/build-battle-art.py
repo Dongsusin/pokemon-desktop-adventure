@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
+from battle_emitters import build_emitters, firing_pose
 
 # Pass the extracted resources/app.asar from the published Windows v3.0.0 ZIP.
 # Read only the pictures, their frame measurements, arena bounds and artist credits.
@@ -67,6 +68,12 @@ def atlas(entry):
     atlas_height = 0
     for action in ['idle', 'walk', 'attack', 'hurt', 'charge', 'shoot']:
         anim = sprite['anims'].get(action)
+        if action == 'shoot':
+            resolved = firing_pose(sprite)
+            # The renderer already falls back to Attack or Idle when Shoot is absent.
+            implicit = sprite['anims'].get('attack') or sprite['anims']['idle']
+            if isinstance(anim, dict) or resolved != implicit:
+                anim = resolved
         if not isinstance(anim, dict):
             continue
         strip, meta = action_strip(sprite, anim)
@@ -185,6 +192,8 @@ def main():
             manifest[key] = records
             credits.append(credit)
     add_fronts(manifest)
+    metrics = json.loads(read('assets/Battle/sprites8/index.json'))['sets']
+    build_emitters(root,out,manifest,chosen,metrics)
     (root/'src/renderer/battle-atlases.json').write_text(json.dumps(manifest,separators=(',',':')),encoding='utf-8')
     (out/'SPRITE-CREDITS.txt').write_text('\n\n'.join(credits)+'\n',encoding='utf-8')
     for source, dest in [('assets/Battle/movement/LICENSE.md','SPRITE-LICENSE.md'),('assets/Battle/movement/credit_names.txt','SPRITE-ARTISTS.txt'),('assets/Arenas/CREDITS.txt','GROUND-CREDITS.txt')]:
