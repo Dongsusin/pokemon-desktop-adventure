@@ -1,16 +1,9 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import atlasData from './battle-atlases.json?raw'
+import { spriteAtlas, spriteAtlasKey, spriteExtent, spriteFrameIndex, spriteSheetUrl } from './spriteAtlas'
 import { battleDirectionRow, canvasGroundAnchor, firingPose } from '../game/arenaMuzzle'
 export { battleSpriteFootprint } from '../game/arenaMuzzle'
 
 type Motion = 'idle' | 'walk' | 'attack' | 'charge' | 'shoot' | 'hurt' | 'dodge'
-// Sheet offset, frame size, ground anchor, direction rows, durations (60 Hz).
-type Strip = [number, number, number, number, number, number, number[], number?, number?]
-type Atlas = { idle: Strip; walk: Strip; attack: Strip } & Partial<Record<Motion, Strip>>
-const atlases: Record<string, Atlas> = JSON.parse(atlasData)
-const spriteKey = (id: number, formId?: string) => formId || String(id)
-const extent = (atlas: Atlas) => Math.max(16, atlas.idle[1], atlas.idle[2])
-
 type CastFrame = { phase: 'windup' | 'active' | 'recovery'; progress: number }
 
 interface Props {
@@ -27,8 +20,8 @@ interface Props {
 }
 
 export function BattleSprite({ id, formId, facing, motion, castFrame, heldBeam = false, paused = false, loop = false, className, alt = '' }: Props) {
-  const key = spriteKey(id, formId)
-  const atlas = atlases[key]
+  const key = spriteAtlasKey(id, formId)
+  const atlas = spriteAtlas(key)
   const canvas = useRef<HTMLCanvasElement>(null)
   const pose = useRef({ facing, motion, paused, castFrame, heldBeam })
   useLayoutEffect(() => { pose.current = { facing, motion, paused, castFrame, heldBeam } }, [facing, motion, paused, castFrame, heldBeam])
@@ -69,15 +62,14 @@ export function BattleSprite({ id, formId, facing, motion, castFrame, heldBeam =
         const bounds = castFrame.phase === 'windup' ? [0, hitTick] : castFrame.phase === 'active' ? [hitTick, returnTick] : [returnTick, period]
         remaining = Math.min(period - 1, bounds[0] + (bounds[1] - bounds[0]) * castFrame.progress)
       }
-      let frame = 0
-      while (frame < durations.length - 1 && remaining >= durations[frame]) remaining -= durations[frame++]
+      let frame = spriteFrameIndex(durations, remaining)
       // Use the same authored release frame as the measured beam origin.
       const emitting = motion === 'shoot' && castFrame?.phase === 'active' && (heldBeam || castFrame.progress < .12)
       if (emitting && mouth) frame = mouth.frame
       const signature = [offset, row, frame].join('/')
       if (previousFrame !== signature) {
         // Allow attacks to extend outside the idle body rectangle without clipping.
-        const unit = extent(atlas)
+        const unit = spriteExtent(atlas)
         ctx!.clearRect(0, 0, target!.width, target!.height)
         ctx!.save()
         const anchor = canvasGroundAnchor(unit)
@@ -90,12 +82,12 @@ export function BattleSprite({ id, formId, facing, motion, castFrame, heldBeam =
       request = requestAnimationFrame(draw)
     }
     sheet.onload = () => { request = requestAnimationFrame(draw) }
-    sheet.src = new URL('battle/sprites/' + key + '.png', document.baseURI).href
+    sheet.src = spriteSheetUrl(key)
     return () => { sheet.onload = null; cancelAnimationFrame(request) }
   }, [key, atlas, id, formId, loop])
 
   if (!atlas?.walk || !atlas.attack) return null
-  const size = extent(atlas) * 3
+  const size = spriteExtent(atlas) * 3
   return <canvas ref={canvas} className={className} width={size} height={size} role="img" aria-label={alt}
     data-atlas={key} style={{ position: 'absolute', inset: 'auto', left: '-100%', top: '-100%',
       width: '300%', height: '300%', imageRendering: 'pixelated', pointerEvents: 'none' }} />

@@ -231,6 +231,7 @@ export interface GameLog {
 }
 
 export interface Effect {
+  moveId?: string
   formId?: string
   id: number
   kind: 'damage' | 'attack' | 'loot' | 'reward' | 'level' | 'evolution' | 'heal' | 'pickup' | 'defeat' | 'capture' | 'travel'
@@ -370,6 +371,7 @@ const TRAINER_HEALTH_MULTIPLIER = 0.82
 const RECOVERY_MS = 680
 const EVOLUTION_MS = 3200
 const BATTLE_RANGE = 75
+export const LOOT_RANGE = 21
 const SEARCH_RANGE = 460
 
 function clamp(n: number, min: number, max: number): number {
@@ -1656,7 +1658,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     } else damage = rollDamage()
     recipient.currentHP = Math.max(0, recipient.currentHP - damage)
     addEffect(game, 'attack', source.position, 560, {
-      target: { ...recipient.position }, moveType: selected.type, text: selected.nameKo, actor, targetActor
+      target: { ...recipient.position }, moveId: selected.id, moveType: selected.type, text: selected.nameKo, actor, targetActor
     })
     if (firstBeamContact && playerTurn && target.abilityId === 'water-absorb' && selected.type === 'water') {
       const recovered = Math.min(target.maxHP - target.currentHP, Math.max(1, Math.floor(target.maxHP / 4)))
@@ -1899,7 +1901,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
       break
     case 'LOOT':
       if (runtime.drop) {
-        const arrived = moveToward(game, runtime.drop.position, 55, elapsed, 21)
+        const arrived = moveToward(game, runtime.drop.position, 55, elapsed, LOOT_RANGE)
         if (runtime.stateIn > 0 || !arrived) break
         collect(game, runtime.drop)
       }

@@ -1,18 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Application, Container, Graphics, ImageSource, Rectangle, Sprite, Texture } from 'pixi.js'
 import 'pixi.js/unsafe-eval'
-import { battleForm, formStats } from '../game/forms'
+import { formStats } from '../game/forms'
 import { species } from '../game/catalog'
 import { worldLocationById, worldRegions } from '../game/regions/world'
 import { DYNAMAX_OPPONENT_SCALE, DYNAMAX_PARTNER_SCALE, activityLabels, effectiveLevel, items, levelCap, playerStats, requiredExp } from '../game/engine'
 import type { Effect, GameSave, Position } from '../game/engine'
-import { ItemSprite, Pokemon, TeraIcon, spriteUrl, useAdventure } from './shared'
+import { ItemSprite, TeraIcon, useAdventure } from './shared'
+import { BALL_LAND, BALL_REVEAL, fieldFrame, figures, latestEffect, phase, poseFor, type Figure } from './desktopSprites'
+import { spriteAtlasKey, spriteSheetUrl } from './spriteAtlas'
 
-const PARTNER = 'partner'
-const MAX_TEXTURES = 24
 const SPRITE_HEIGHT = 61
-const BALL_LAND = 0.33
-const BALL_REVEAL = 0.78
 const effectColors: Record<string, string> = {
   normal: '#ffe7aa', fire: '#ff9a50', water: '#67dbff', grass: '#b9f773', bug: '#d0e880',
   flying: '#ccedff', poison: '#f4adff', ground: '#f6c37a', rock: '#e7ca9a', ice: '#a0f2ff',
@@ -20,38 +18,17 @@ const effectColors: Record<string, string> = {
   fairy: '#ffd0eb', dark: '#c0a7e3', dragon: '#9eaaff'
 }
 const itemColors = { common: '#feedad', uncommon: '#b9f773', rare: '#9ddfff', epic: '#ebbbff' }
-type Figure = {
-  formId?: string
-  totem?: boolean
-  dynamax?: boolean
-  teraType?: string
-  id: string
-  speciesId: string
-  at: Position
-  direction: -1 | 1
-  moving: boolean
-  scale: number
-  defeat?: Effect
-}
 type Display = {
   root: Container
   shape: Graphics
   sprite: Sprite
-  requestedId: string
-  displayedId: string
+  key: string
+  row?: number
 }
 
-const phase = (effect: Effect, ahead = 0) =>
-  Math.min(1, Math.max(0, (effect.durationMs - effect.remainingMs + ahead) / Math.max(1, effect.durationMs)))
-function latestEffect(effects: Effect[], matches: (effect: Effect) => boolean) {
-  for (let i = effects.length - 1; i >= 0; i--) {
-    if (matches(effects[i])) return effects[i]
-  }
-}
 const anchor = (value: number, margin: number) => 'clamp(' + margin + 'px, ' + value + 'px, calc(100% - ' + margin + 'px))'
 const approach = (from: Position, to: Position, t: number) =>
   ({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t })
-const followerId = (instanceId: string) => 'follower:' + instanceId
 
 function ballPosition(effect: Effect, t: number, height: number) {
   const target = effect.target ?? effect.position
@@ -70,81 +47,12 @@ function ballWobble(t: number) {
   return Math.sin(cycle * Math.PI * 2) * Math.pow(Math.sin((cycle % 1) * Math.PI), 0.8)
 }
 
-function figures(game: GameSave, evolution?: Effect, capture?: Effect, ahead = 0): Figure[] {
-  const player = game.player
-  const nearby: Figure[] = game.wild.map(mon => {
-    const totem = Boolean(mon.trainerId && worldRegions[game.regionId].trainerById[mon.trainerId]?.totemAura)
-    return {
-      id: String(mon.id), speciesId: mon.speciesId, formId: battleForm(mon), at: mon.position, direction: mon.direction,
-      moving: false, totem, teraType: mon.teraType, dynamax: Boolean(mon.maxActionsLeft), scale: game.settings.spriteScale * (mon.maxActionsLeft ? DYNAMAX_OPPONENT_SCALE : totem ? 1.18 : 0.84)
-    }
-  })
-  if (capture?.captured && capture.speciesId && capture.target && typeof capture.targetActor === 'number'
-      && phase(capture, ahead) < BALL_LAND + 0.1 && !nearby.some(mon => mon.id === String(capture.targetActor))) {
-    nearby.push({
-      id: String(capture.targetActor), speciesId: capture.speciesId, formId: capture.formId, at: capture.target,
-      direction: player.position.x >= capture.target.x ? 1 : -1,
-      moving: false, scale: game.settings.spriteScale * 0.84
-    })
-  }
-  const followers = game.followers.map(mon => ({
-    id: followerId(mon.instanceId), speciesId: mon.speciesId, formId: mon.formId, at: mon.position, direction: mon.direction,
-    moving: mon.state === 'WANDER', scale: game.settings.spriteScale
-  }))
-  const partnerId = evolution && phase(evolution, ahead) < 0.54 && evolution.fromSpeciesId
-    ? evolution.fromSpeciesId : player.speciesId
-  const defeated: Figure[] = []
-  for (const effect of game.effects) {
-    if (!game.settings.effects || effect.kind !== 'defeat' || typeof effect.actor !== 'number' || !effect.speciesId) continue
-    if (nearby.some(mon => mon.id === String(effect.actor))) continue
-    defeated.push({
-      id: String(effect.actor), speciesId: effect.speciesId, formId: effect.formId, at: effect.position,
-      direction: player.position.x >= effect.position.x ? 1 : -1,
-      moving: false, scale: game.settings.spriteScale * 0.84, defeat: effect
-    })
-  }
-  return [{
-    id: PARTNER, speciesId: partnerId, formId: partnerId === player.speciesId ? player.formId : evolution?.fromFormId, at: player.position, direction: player.direction,
-    moving: ['WANDER', 'SEARCH', 'CHASE', 'LOOT'].includes(player.state),
-    teraType: game.wild[0]?.teraType ? formStats(player.speciesId, player.formId).types[0] : undefined,
-    dynamax: Boolean(game.wild[0]?.maxActionsLeft), scale: game.settings.spriteScale * (game.wild[0]?.maxActionsLeft ? DYNAMAX_PARTNER_SCALE : 1)
-  }, ...followers, ...nearby, ...defeated]
-}
-
-function characterTexture(id: string): Promise<Texture> {
+function loadSheet(key: string): Promise<ImageSource> {
   return new Promise((resolve, reject) => {
-    const img = new Image()
-    img.onload = () => {
-      const { naturalWidth: width, naturalHeight: height } = img
-      const source = new ImageSource({ resource: img, scaleMode: 'nearest' })
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const context = canvas.getContext('2d', { willReadFrequently: true })
-      let frame: Rectangle | undefined
-      try {
-        if (context) {
-          context.drawImage(img, 0, 0)
-          const { data } = context.getImageData(0, 0, width, height)
-          let left = width, right = -1, top = height, bottom = -1
-          for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-              if (!data[(y * width + x) * 4 + 3]) continue
-              left = Math.min(left, x)
-              right = Math.max(right, x)
-              top = Math.min(top, y)
-              bottom = Math.max(bottom, y)
-            }
-          }
-          if (right >= 0) frame = new Rectangle(left, top, right - left + 1, bottom - top + 1)
-        }
-      } catch {
-        // Some WebGL environments restrict reading image pixels. Use the original frame.
-      }
-      resolve(new Texture({ source, frame }))
-    }
-    img.onerror = reject
-    img.src = spriteUrl(id)
+    const image = new Image()
+    image.onload = () => resolve(new ImageSource({ resource: image, scaleMode: 'nearest' }))
+    image.onerror = reject
+    image.src = spriteSheetUrl(key)
   })
 }
 
@@ -249,57 +157,19 @@ function drawCapture(draw: Graphics, effect: Effect, t: number, height: number) 
   }
 }
 
-function poseFor(figure: Figure, effects: Effect[], ahead: number, time: number, evolution?: Effect, capture?: Effect) {
-  let x = 0
-  const step = time / 105 + (figure.at.x + figure.at.y) / 110
-  let y = figure.moving ? -Math.round(Math.abs(Math.sin(step)) * 3) : 0
-  let alpha = 1
-  let tint = 0xffffff
-  let stretch = 1
-  const activeAttack = latestEffect(effects, effect => effect.kind === 'attack' && String(effect.actor) === figure.id)
-  const damage = latestEffect(effects, effect => effect.kind === 'damage' && String(effect.actor ?? effect.targetActor) === figure.id)
-  if (activeAttack?.target) {
-    const power = Math.sin(phase(activeAttack, ahead) * Math.PI)
-    x += Math.sign(activeAttack.target.x - activeAttack.position.x) * power * 18 * figure.scale
-    y += Math.sign(activeAttack.target.y - activeAttack.position.y) * power * 7 - power * 8
-  }
-  if (damage) {
-    const t = phase(damage, ahead)
-    if (t < 0.43) {
-      x += Math.sin(t * 50) * (1 - t) * 8 * figure.scale
-      tint = 0xffb38f
-    }
-  }
-  if (figure.defeat) {
-    const t = phase(figure.defeat, ahead)
-    y += t * 12
-    stretch = 1 - t * 0.21
-    alpha = 1 - t
-  }
-  if (evolution && figure.id === PARTNER) {
-    const t = phase(evolution, ahead)
-    const flash = Math.max(0, 1 - Math.abs(t - 0.52) * 11)
-    y -= Math.sin(t * Math.PI) * 9 * figure.scale
-    stretch = 1 + Math.sin(t * Math.PI) * 0.15
-    alpha = 1 - flash * 0.90
-    tint = t < 0.54 ? 0xffdf9c : 0xffffff
-  }
-  if (capture) {
-    const t = phase(capture, ahead)
-    if (typeof capture.targetActor === 'number' && String(capture.targetActor) === figure.id) {
-      const entering = Math.max(0, Math.min(1, (t - BALL_LAND + 0.02) / 0.1))
-      const leaving = capture.captured ? 0 : Math.max(0, Math.min(1, (t - BALL_REVEAL) / 0.12))
-      const visible = Math.max(1 - entering, leaving)
-      alpha *= visible
-      stretch *= 0.2 + visible * 0.8
-      if (visible < 0.96) tint = 0xffc798
-    } else if (capture.caughtInstanceId && figure.id === followerId(capture.caughtInstanceId)) {
-      const joining = Math.max(0, Math.min(1, (t - BALL_REVEAL) / 0.14))
-      alpha *= joining
-      stretch *= 0.35 + joining * 0.65
-    }
-  }
-  return { x, y, alpha, tint, stretch }
+function FallbackFigure({ figure, effects, showEffects, evolution, capture }: { figure: Figure; effects: Effect[]; showEffects: boolean; evolution?: Effect; capture?: Effect }) {
+  const row = useRef<number | undefined>(undefined)
+  const pose = poseFor(figure, effects, 0, evolution, capture)
+  const frame = fieldFrame(figure, pose, row.current, performance.now())
+  useLayoutEffect(() => { row.current = frame?.row }, [frame?.row])
+  if (!frame) return null
+  const size = SPRITE_HEIGHT * figure.scale * pose.stretch / frame.extent
+  const aura = !showEffects ? '' : figure.teraType ? ' tera-glow' : figure.dynamax ? ' dynamax-glow' : figure.totem ? ' totem-glow' : ''
+  return <div className={'fallback-figure' + aura} style={{ left: figure.at.x + pose.x, top: figure.at.y + pose.y - 4,
+    opacity: pose.alpha, zIndex: Math.round(figure.at.y), width: frame.width, height: frame.height,
+    transform: 'scale(' + size + ') translate(' + -frame.anchorX + 'px,' + -frame.anchorY + 'px)',
+    backgroundImage: 'url("' + spriteSheetUrl(frame.key) + '")', backgroundPosition: -frame.x + 'px ' + -frame.y + 'px'
+  }}/>
 }
 
 function Stage({ game }: { game: GameSave | null }) {
@@ -320,50 +190,47 @@ function Stage({ game }: { game: GameSave | null }) {
     let sound: AudioContext | null = null
     let lastSoundEffect = -1
     const displays = new Map<string, Display>()
-    const textures = new Map<string, Promise<Texture>>()
+    const sheets = new Map<string, Promise<ImageSource>>()
     const world = new Container({ sortableChildren: true, eventMode: 'none' })
     const glows = new Graphics({ eventMode: 'none' })
     const particles = new Graphics({ eventMode: 'none' })
 
-    function texture(id: string) {
-      let pending = textures.get(id)
-      if (!pending) pending = characterTexture(id)
-      else textures.delete(id)
-      textures.set(id, pending)
+    function sheetFor(key: string) {
+      const cached = sheets.get(key)
+      if (cached) return cached
+      const pending = loadSheet(key)
+      sheets.set(key, pending)
       return pending
     }
 
-    function discardTexture(pending: Promise<Texture>) {
-      void pending.then(tex => tex.destroy(true), () => undefined)
+    function releaseSheet(pending: Promise<ImageSource>) {
+      void pending.then(source => source.destroy(), () => undefined)
     }
 
-    function pruneTextures(evolution?: Effect) {
-      if (textures.size <= MAX_TEXTURES) return
-      const used = new Set([evolution?.fromFormId ?? evolution?.fromSpeciesId, evolution?.toFormId ?? evolution?.toSpeciesId])
-      for (const { requestedId, displayedId } of displays.values()) {
-        used.add(requestedId)
-        used.add(displayedId)
-      }
-      for (const [id, pending] of textures) {
-        if (textures.size <= MAX_TEXTURES) break
-        if (used.has(id)) continue
-        textures.delete(id)
-        discardTexture(pending)
-      }
+    function clearSprite(view: Display) {
+      const texture = view.sprite.texture
+      view.sprite.texture = Texture.EMPTY
+      if (texture !== Texture.EMPTY) texture.destroy()
     }
 
-    function spriteFor(view: Display, requestedId: string) {
-      if (view.requestedId === requestedId) return
-      view.requestedId = requestedId
-      void texture(requestedId).then(tex => {
-        if (!live || view.root.destroyed || view.requestedId !== requestedId) return
-        view.sprite.texture = tex
-        view.displayedId = requestedId
-      }).catch(() => {
-        if (!live || view.root.destroyed || view.requestedId !== requestedId) return
-        view.sprite.texture = Texture.EMPTY
-        view.displayedId = ''
-      })
+    function showFrame(view: Display, region: NonNullable<ReturnType<typeof fieldFrame>>) {
+      const { key, x, y, width, height, anchorX, anchorY } = region
+      if (view.key !== key) {
+        clearSprite(view)
+        view.key = key
+        // Each actor owns its own mutable frame. Duplicate party members share only the pixels.
+        void sheetFor(key).then(source => {
+          if (!live || view.root.destroyed || view.key !== key) return
+          view.sprite.texture = new Texture({ source, dynamic: true, frame: new Rectangle(x, y, width, height) })
+        }).catch(() => {})
+      }
+      const texture = view.sprite.texture
+      if (texture !== Texture.EMPTY && (texture.frame.x !== x || texture.frame.y !== y ||
+          texture.frame.width !== width || texture.frame.height !== height)) {
+        texture.frame.set(x, y, width, height)
+        texture.update()
+      }
+      view.sprite.anchor.set(anchorX / width, anchorY / height)
     }
 
     function makeDisplay(figure: Figure) {
@@ -373,7 +240,7 @@ function Stage({ game }: { game: GameSave | null }) {
       sprite.anchor.set(0.5, 1)
       root.addChild(shape, sprite)
       root.position.set(figure.at.x, figure.at.y)
-      const view: Display = { root, shape, sprite, requestedId: '', displayedId: '' }
+      const view: Display = { root, shape, sprite, key: '' }
       displays.set(figure.id, view)
       world.addChild(root)
       return view
@@ -402,6 +269,8 @@ function Stage({ game }: { game: GameSave | null }) {
     }
 
     function destroy() {
+      for (const view of displays.values()) clearSprite(view)
+      displays.clear()
       if (app.renderer) app.destroy({ removeView: true }, { children: true })
     }
 
@@ -428,11 +297,17 @@ function Stage({ game }: { game: GameSave | null }) {
         const evolution = latestEffect(effects, effect => effect.kind === 'evolution')
         const capture = latestEffect(effects, effect => effect.kind === 'capture')
         const evolutionId = evolution?.toSpeciesId
-        if (evolutionId && !textures.has(evolutionId)) void texture(evolutionId).catch(() => {})
+        const visibleSheets = new Set<string>()
+        if (evolutionId) {
+          const key = spriteAtlasKey(species[evolutionId].pokedexNumber, evolution?.toFormId)
+          visibleSheets.add(key)
+          void sheetFor(key).catch(() => {})
+        }
         const roster = figures(state, evolution, capture, ahead)
         const visible = new Set(roster.map(figure => figure.id))
         for (const [key, view] of displays) {
           if (!visible.has(key)) {
+            clearSprite(view)
             view.root.destroy({ children: true })
             displays.delete(key)
           }
@@ -446,10 +321,14 @@ function Stage({ game }: { game: GameSave | null }) {
           const snap = Math.hypot(root.x - figure.at.x, root.y - figure.at.y) > 140
           root.x += (figure.at.x - root.x) * (snap ? 1 : blend)
           root.y += (figure.at.y - root.y) * (snap ? 1 : blend)
-          spriteFor(view, figure.formId ?? figure.speciesId)
-          const pose = poseFor(figure, effects, ahead, ticker.lastTime, evolution, capture)
-          const size = SPRITE_HEIGHT / Math.max(sprite.texture.width, sprite.texture.height, 1) * figure.scale * pose.stretch
-          sprite.scale.set(size * -figure.direction, size)
+          const pose = poseFor(figure, effects, ahead, evolution, capture)
+          const region = fieldFrame(figure, pose, view.row, ticker.lastTime)
+          if (!region) { root.visible = false; continue }
+          visibleSheets.add(region.key)
+          view.row = region.row
+          showFrame(view, region)
+          const size = SPRITE_HEIGHT / region.extent * figure.scale * pose.stretch
+          sprite.scale.set(size)
           sprite.position.set(pose.x, -4 + pose.y)
           sprite.tint = pose.tint
           sprite.alpha = pose.alpha
@@ -487,7 +366,11 @@ function Stage({ game }: { game: GameSave | null }) {
           else if (effect.kind === 'capture') drawCapture(particles, effect, t, SPRITE_HEIGHT * state.settings.spriteScale)
           else if (['damage', 'heal', 'level'].includes(effect.kind)) drawBurst(particles, effect, t, offset)
         }
-        pruneTextures(evolution)
+        for (const [key, pending] of sheets) {
+          if (visibleSheets.has(key)) continue
+          sheets.delete(key)
+          releaseSheet(pending)
+        }
         if (state.settings.sound) {
           const audible = latestEffect(state.effects, effect => ['level', 'evolution', 'reward', 'pickup'].includes(effect.kind) && effect.id > lastSoundEffect)
           if (audible) {
@@ -501,8 +384,8 @@ function Stage({ game }: { game: GameSave | null }) {
     return () => {
       live = false
       if (app.renderer) destroy()
-      for (const pending of textures.values()) discardTexture(pending)
-      textures.clear()
+      for (const pending of sheets.values()) releaseSheet(pending)
+      sheets.clear()
       if (sound) void sound.close()
     }
   }, [])
@@ -511,16 +394,8 @@ function Stage({ game }: { game: GameSave | null }) {
   const evolution = latestEffect(effects, effect => effect.kind === 'evolution')
   const capture = latestEffect(effects, effect => effect.kind === 'capture')
   return <div className="overlay-stage" ref={host} aria-hidden="true">
-    {fallback && game?.settings.overlayVisible && figures(game, evolution, capture).map(figure => {
-      const pose = poseFor(figure, effects, 0, 0, evolution, capture)
-      const size = (figure.formId?.endsWith('-gmax') ? 70 : 116) * figure.scale * pose.stretch
-      return <div key={figure.id} className={'fallback-figure' + (game.settings.effects && figure.teraType ? ' tera-glow' : game.settings.effects && figure.dynamax ? ' dynamax-glow' : figure.totem && game.settings.effects ? ' totem-glow' : '')} style={{
-        left: figure.at.x + pose.x, top: figure.at.y + pose.y, width: size, height: size,
-        opacity: pose.alpha, scale: (-figure.direction) + ' 1'
-      }}>
-        <Pokemon id={figure.speciesId} formId={figure.formId} className={figure.moving ? 'fallback-walk' : ''} />
-      </div>
-    })}
+    {fallback && game?.settings.overlayVisible && figures(game, evolution, capture).map(figure =>
+      <FallbackFigure key={figure.id} figure={figure} effects={effects} showEffects={game.settings.effects} evolution={evolution} capture={capture}/>)}
   </div>
 }
 
