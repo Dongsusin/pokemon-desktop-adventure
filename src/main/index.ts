@@ -5,6 +5,7 @@ import {
   adventureChannels,
   SLOTS,
   type AdventureCommand,
+  type ArenaInput,
   type AdventureSnapshot,
   type SlotNumber,
   type SlotSummary
@@ -13,6 +14,7 @@ import { parseCommand } from './commands'
 import { SaveRepository, type SaveRead } from './saveRepository'
 import { createWindows, loadAppIcon, overlayWorkArea, productName } from './windows'
 
+const arenaInterval = 50
 const simulationInterval = 100
 const autosaveInterval = 15_000
 const loginArgs = ['--tray']
@@ -59,10 +61,10 @@ function startDesktop(): void {
   tray.setToolTip(productName)
   tray.on('click', windows.showControl)
 
-  function snapshot(forOverlay = false): AdventureSnapshot {
+  function snapshot(omitBoxes = false): AdventureSnapshot {
     return {
-      // Only roaming party members are drawn in the desktop window.
-      game: forOverlay && game ? { ...game, boxes: [] } : game,
+      // Neither the desktop overlay nor the live battle screen uses the storage boxes.
+      game: omitBoxes && game ? { ...game, boxes: [] } : game,
       selectedSlot,
       slots: SLOTS.map((slot) => slot === selectedSlot ? summarize(slot, game) : summaries.get(slot)!),
       warning: saveWarning ?? loadWarning,
@@ -74,7 +76,7 @@ function startDesktop(): void {
     const targets = includeControl ? [windows.overlay, windows.control] : [windows.overlay]
     for (const window of targets) {
       if (!window.isDestroyed() && window.isVisible() && !window.webContents.isLoadingMainFrame()) {
-        window.webContents.send(adventureChannels.snapshotChanged, snapshot(window === windows.overlay))
+        window.webContents.send(adventureChannels.snapshotChanged, snapshot(window === windows.overlay || Boolean(game?.campaign.battle)))
       }
     }
   }
@@ -113,10 +115,11 @@ function startDesktop(): void {
   }
 
   function updatePresentation(): void {
-    windows.updateOverlay(Boolean(game?.settings.overlayVisible), game?.settings.alwaysOnTop ?? true)
+    windows.updateOverlay(Boolean(game?.settings.overlayVisible && !game.campaign.battle), game?.settings.alwaysOnTop ?? true)
     tray.setContextMenu(Menu.buildFromTemplate([
       { label: '관리 창 열기', click: windows.showControl },
-      { label: '바탕화면에서 보기', enabled: Boolean(game), click: () => runTrayCommand({ type: 'observe' }) },
+      { label: game?.campaign.battle ? '배틀 화면으로 돌아가기' : '바탕화면에서 보기', enabled: Boolean(game),
+        click: () => game?.campaign.battle ? windows.showControl() : runTrayCommand({ type: 'observe' }) },
       { type: 'separator' },
       {
         label: '자동 사냥',
@@ -226,8 +229,34 @@ function startDesktop(): void {
     if (changesLead && !canChangeLead(current)) throw new Error('현재 동작이 끝나면 선두를 바꿀 수 있습니다.')
   }
 
+  function runArenaInput(action: ArenaInput): AdventureSnapshot {
+    const current = requireGame()
+    const battle = current.campaign.battle
+    if (!battle) return snapshot()
+    if (action.type === 'arena-pause' && (battle.arena.paused === action.paused ||
+        (!action.paused && (!windows.control.isVisible() || windows.control.isMinimized())))) return snapshot(true)
+    const before = battle.opponentIndex
+    const accepted = dispatch(current, action)
+    if (accepted) {
+      const after = current.campaign.battle
+      if (before !== after?.opponentIndex || action.type === 'arena-pause' || action.type === 'arena-switch') saveCurrent()
+      if (!after) updatePresentation()
+      if (action.type !== 'arena-move') publish(true)
+    }
+    return snapshot(Boolean(current.campaign.battle))
+  }
+
+  function pauseArena(): boolean {
+    const arena = game?.campaign.battle?.arena
+    if (!arena || arena.paused) return false
+    runArenaInput({ type: 'arena-pause', paused: true })
+    return true
+  }
+
   function runCommand(command: AdventureCommand): AdventureSnapshot {
     switch (command.type) {
+      case 'arenaInput':
+        return runArenaInput(command.action)
       case 'selectSlot':
         selectSlot(command.slot)
         break
@@ -331,6 +360,10 @@ function startDesktop(): void {
         break
       case 'observe': {
         const current = requireGame()
+        if (current.campaign.battle) {
+          windows.showControl()
+          break
+        }
         if (!current.settings.overlayVisible) {
           dispatch(current, { type: 'update-settings', settings: { overlayVisible: true } })
           saveCurrent()
@@ -345,7 +378,7 @@ function startDesktop(): void {
         break
     }
     updatePresentation()
-    if (command.type === 'observe' || (command.type === 'evolve' && game?.settings.overlayVisible && game.settings.effects)) {
+    if ((command.type === 'observe' && !game?.campaign.battle) || (command.type === 'evolve' && game?.settings.overlayVisible && game.settings.effects)) {
       windows.observe()
     }
     publish(true)
@@ -377,6 +410,9 @@ function startDesktop(): void {
   if (!process.argv.includes('--tray') || !game) {
     windows.control.once('ready-to-show', windows.showControl)
   }
+  windows.control.on('blur', pauseArena)
+  windows.control.on('hide', pauseArena)
+  windows.control.on('minimize', pauseArena)
   windows.control.on('show', () => publish(true))
   windows.control.on('restore', () => publish(true))
   app.on('second-instance', windows.showControl)
@@ -384,12 +420,21 @@ function startDesktop(): void {
 
   let lastTick = performance.now()
   let controlInterval = 0
-  const step = setInterval(() => {
+  let step = setTimeout(advanceSimulation, simulationInterval)
+  function advanceSimulation(): void {
+    step = setTimeout(advanceSimulation, game?.campaign.battle ? arenaInterval : simulationInterval)
     const now = performance.now()
     const elapsed = Math.min(now - lastTick, 500)
     lastTick = now
     if (!game) return
+    const previousOpponent = game.campaign.battle?.opponentIndex
+    const wasChoosingReplacement = game.campaign.battle?.arena.needsSwitch
     tick(game, elapsed, overlayWorkArea())
+    if (previousOpponent !== undefined && (previousOpponent !== game.campaign.battle?.opponentIndex ||
+        wasChoosingReplacement !== game.campaign.battle?.arena.needsSwitch)) {
+      saveCurrent()
+      if (!game.campaign.battle) updatePresentation()
+    }
     const latest = game.history.filter((entry) => entry.id > lastNotice)
     if (latest.length > 0) {
       lastNotice = Math.max(...latest.map((entry) => entry.id))
@@ -399,17 +444,19 @@ function startDesktop(): void {
       }
     }
     controlInterval = (controlInterval + 1) % 3
-    publish(controlInterval === 0)
-  }, simulationInterval)
+    publish(previousOpponent !== undefined || controlInterval === 0)
+  }
   const autosave = setInterval(() => saveCurrent(), autosaveInterval)
 
   windows.control.on('session-end', () => saveCurrent())
-  powerMonitor.on('suspend', () => saveCurrent())
+  powerMonitor.on('suspend', () => {
+    if (!pauseArena()) saveCurrent()
+  })
   powerMonitor.on('resume', () => { lastTick = performance.now() })
   app.on('before-quit', () => {
     if (quitting) return
     quitting = true
-    clearInterval(step)
+    clearTimeout(step)
     clearInterval(autosave)
     if (!saveCurrent() && saveWarning) dialog.showErrorBox(productName, saveWarning)
     tray.destroy()

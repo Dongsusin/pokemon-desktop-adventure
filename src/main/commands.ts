@@ -1,5 +1,5 @@
 import { captureBallIds, items, MAX_PARTY_SIZE, type Settings } from '../game/engine'
-import { isSlot, type AdventureCommand } from '../preload/contracts'
+import { isSlot, type AdventureCommand, type ArenaInput } from '../preload/contracts'
 import { isRegionId, worldLocationById } from '../game/regions/world'
 
 function record(value: unknown): value is Record<string, unknown> {
@@ -43,9 +43,37 @@ function knownItem(value: unknown): value is string {
   return typeof value === 'string' && Object.hasOwn(items, value)
 }
 
+function arenaAxis(value: unknown): value is -1 | 0 | 1 {
+  return value === -1 || value === 0 || value === 1
+}
+
+function parseArenaInput(value: unknown): ArenaInput | null {
+  if (!record(value)) return null
+  switch (value.type) {
+    case 'arena-move':
+      return arenaAxis(value.x) && arenaAxis(value.y) ? { type: value.type, x: value.x, y: value.y } : null
+    case 'arena-skill':
+      return typeof value.slot === 'number' && Number.isInteger(value.slot) && value.slot >= 0 && value.slot < 4
+        ? { type: value.type, slot: value.slot } : null
+    case 'arena-switch':
+      return memberId(value.instanceId) ? { type: value.type, instanceId: value.instanceId } : null
+    case 'arena-pause':
+      return typeof value.paused === 'boolean' ? { type: value.type, paused: value.paused } : null
+    case 'arena-dodge':
+    case 'arena-surrender':
+      return { type: value.type }
+    default:
+      return null
+  }
+}
+
 export function parseCommand(value: unknown): AdventureCommand | null {
   if (!record(value)) return null
   switch (value.type) {
+    case 'arenaInput': {
+      const action = parseArenaInput(value.action)
+      return action ? { type: 'arenaInput', action } : null
+    }
     case 'selectSlot':
       return isSlot(value.slot) ? { type: value.type, slot: value.slot } : null
     case 'start': {

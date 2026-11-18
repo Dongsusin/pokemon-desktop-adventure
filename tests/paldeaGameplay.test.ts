@@ -1,3 +1,4 @@
+import { castSkill, idleUntilHit } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
 import {
   canChallengeFinale, createGame, currentTrainer, dispatch, effectiveLevel, hydrateSave, levelCap,
@@ -40,9 +41,7 @@ function travel(game: GameSave, locationId: string) {
 function defeatOpponent(game: GameSave) {
   expect(game.campaign.battle).not.toBeNull()
   game.wild[0].currentHP = 1
-  game.runtime.turn = 'player'
-  game.runtime.stateIn = 0
-  tick(game, 100, bounds)
+  castSkill(game)
 }
 
 function faceAce(game: GameSave) {
@@ -117,9 +116,7 @@ describe('Paldea campaign and Terastallization', () => {
     travel(game, square)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(true)
     game.player.currentHP = 1
-    game.runtime.turn = 'wild'
-    game.runtime.stateIn = 0
-    tick(game, 100, bounds)
+    idleUntilHit(game)
     game = reload(game)
     expect(game.campaign).toMatchObject({ badges, champion: true, battle: null, leagueIndex: null })
     expect(game.campaign.finaleWon).toBeUndefined()
@@ -169,7 +166,7 @@ describe('Paldea campaign and Terastallization', () => {
     expect(teraAttackMultiplier('ground', ['ground'], 'ground', restored.teraType!, restored.abilityId)).toBe(0)
   })
 
-  it('chooses a neutral attack against Rika and lets Water Absorb heal her ace when Water Gun is forced', () => {
+  it('applies a commanded neutral attack against Rika and lets Water Absorb heal her ace when Water Gun is selected', () => {
     const game = arriveFromGalar('squirtle')
     game.campaign.badges = [...badges]
     travel(game, league)
@@ -178,18 +175,14 @@ describe('Paldea campaign and Terastallization', () => {
     expect(ace).toMatchObject({ speciesId: 'clodsire', teraType: 'ground', abilityId: 'water-absorb' })
 
     game.player.moveIds = ['waterGun', 'tackle']
-    game.runtime.turn = 'player'
-    game.runtime.stateIn = 0
-    tick(game, 100, bounds)
+    castSkill(game, 'tackle')
     expect(game.effects.filter(effect => effect.kind === 'attack').at(-1)?.moveType).toBe('normal')
     expect(ace.currentHP).toBeLessThan(ace.maxHP)
 
     const before = Math.floor(ace.maxHP / 2)
     ace.currentHP = before
     game.player.moveIds = ['waterGun']
-    game.runtime.turn = 'player'
-    game.runtime.stateIn = 0
-    tick(game, 100, bounds)
+    castSkill(game, 'waterGun')
     expect(game.effects.filter(effect => effect.kind === 'attack').at(-1)?.moveType).toBe('water')
     expect(ace.currentHP).toBe(before + Math.max(1, Math.floor(ace.maxHP / 4)))
   })
@@ -201,9 +194,7 @@ describe('Paldea campaign and Terastallization', () => {
     expect(ace).toMatchObject({ speciesId: 'toxtricity', formId: 'toxtricity-low-key', teraType: 'ghost' })
     const hp = ace.currentHP
     game.player.moveIds = ['tackle']
-    game.runtime.turn = 'player'
-    game.runtime.stateIn = 0
-    tick(game, 100, bounds)
+    castSkill(game, 'tackle')
     expect(ace.currentHP).toBe(hp)
     expect(game.effects.some(effect => effect.kind === 'damage' && effect.text === '효과 없음')).toBe(true)
   })

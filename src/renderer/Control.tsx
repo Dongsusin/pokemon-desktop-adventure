@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { species, starterIds, wildIds } from '../game/catalog'
 import {
   activityLabels, availableEquipment, canEvolve, canThrowBall, canTransferRegion, captureBallIds, defaultSettings,
-  effectiveLevel, evolutionFor, items, levelCap, MAX_PARTY_SIZE, moves, movesFor, playerStats, requiredExp, statsFor
+  currentTrainer, effectiveLevel, evolutionFor, items, levelCap, MAX_PARTY_SIZE, moves, movesFor, playerStats, requiredExp, statsFor
 } from '../game/engine'
 import type { GameSave, Settings } from '../game/engine'
 import type { AdventureCommand, AdventureSnapshot } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName, statNames, types, useAdventure } from './shared'
 import { Party } from './Party'
+import { TrainerArena, BattleResult, type TrainerResult } from './TrainerArena'
 import { RegionMap } from './RegionMap'
 import { Campaign, TrainerBattleCard, type ChallengeKind } from './Campaign'
 import { battleForm, formStats } from '../game/forms'
@@ -399,6 +400,23 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
   const [tab, setTab] = useState<typeof tabs[number]>('상태')
   const [mapFocus, setMapFocus] = useState<string>()
   const region = worldRegions[game.regionId]
+  const [result, setResult] = useState<TrainerResult | null>(null)
+  const bout = useRef<{ name: string; wins: number; logId: number; speciesId: string; formId?: string } | null>(null)
+  const trainerId = game.campaign.battle?.trainerId
+  useEffect(() => {
+    const trainer = currentTrainer(game)
+    if (trainer) {
+      bout.current ??= { name: trainer.name, wins: game.wins, logId: game.history[0]?.id ?? 0, speciesId: game.player.speciesId }
+      bout.current.speciesId = game.player.speciesId
+      bout.current.formId = game.player.formId
+    } else if (bout.current) {
+      const record = bout.current
+      bout.current = null
+      const message = game.history.find(entry => entry.id > record.logId && entry.kind === 'battle')?.text ?? ''
+      setResult({ ...record, message, won: game.wins > record.wins })
+      setTab('도전')
+    }
+  }, [trainerId, game.player.instanceId, game.player.speciesId, game.player.formId])
   const destinations = regionOrder.filter(id => canTransferRegion(game, id))
   function showMap(locationId?: string) {
     setMapFocus(locationId)
@@ -408,6 +426,9 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     send(kind === 'gym' ? { type: 'challengeGym' } : kind === 'finale' ? { type: 'challengeFinale' } : { type: 'challengeLeague', trainerId })
     setTab('도전')
   }
+
+  if (game.campaign.battle) return <TrainerArena key={game.campaign.battle.trainerId} game={game} />
+  if (result) return <BattleResult result={result} sound={game.settings.sound} close={() => setResult(null)} />
 
   return <>
     <div className="page-heading dashboard-heading">
@@ -462,8 +483,8 @@ export function Control() {
 
   if (!current) return <div className="loading" role={error ? 'alert' : 'status'}>{error || '모험을 불러오는 중…'}</div>
   return <>
-    <Header snapshot={current} send={send} busy={busy} />
-    <main className="shell">
+    {!current.game?.campaign.battle && <Header snapshot={current} send={send} busy={busy} />}
+    <main className={current.game?.campaign.battle ? 'shell arena-shell' : 'shell'}>
       {(current.warning || message) && <p className="notice" role={current.warning ? 'alert' : 'status'}>{current.warning || message}</p>}
       {current.game
         ? <Dashboard key={current.selectedSlot} game={current.game} snapshot={current} send={send} busy={busy} />

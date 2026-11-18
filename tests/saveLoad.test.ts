@@ -168,6 +168,20 @@ describe('desktop command validation', () => {
     expect(parseCommand({ ...move, instanceId: '' })).toBeNull()
   })
 
+  it('validates real-time battle input separately from desktop actions', () => {
+    const input = (action: unknown) => parseCommand({ type: 'arenaInput', action })
+    for (const action of [
+      { type: 'arena-move', x: -1, y: 1 }, { type: 'arena-move', x: 0, y: 0 },
+      { type: 'arena-skill', slot: 3 }, { type: 'arena-pause', paused: false },
+      { type: 'arena-switch', instanceId: 'caught-7' }, { type: 'arena-dodge' }, { type: 'arena-surrender' }
+    ]) expect(input(action)).toEqual({ type: 'arenaInput', action })
+    for (const action of [
+      null, { type: 'arena-move', x: 3, y: 0 }, { type: 'arena-move', x: 0.5, y: 0 },
+      { type: 'arena-skill', slot: 4 }, { type: 'arena-skill', slot: -1 }, { type: 'arena-switch', instanceId: '' },
+      { type: 'arena-pause', paused: 'false' }, { type: 'equip-item', itemId: null }
+    ]) expect(input(action)).toBeNull()
+  })
+
   it('normalizes supported settings and requires a separate login command', () => {
     expect(parseCommand({
       type: 'settings',

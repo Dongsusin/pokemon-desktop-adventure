@@ -1,4 +1,6 @@
 import { species, starterIds, wildIds } from './catalog'
+import { arenaDistance, createArena, dodgeArena, moveArena, moveRange, restoreArena, stepArena,
+  type ArenaFeedback, type TrainerArena } from './trainerArena'
 import { battleForm, formStats, hasWildMidnightForm, locationForm, validForm, wildEncounterForm } from './forms'
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
 import { teraAttackMultiplier } from './regions/paldeaTera'
@@ -272,6 +274,7 @@ interface Runtime {
 }
 
 interface TrainerBattle {
+  arena: TrainerArena
   trainerId: string
   opponentIndex: number
 }
@@ -318,7 +321,16 @@ export interface GameSave {
   runtime: Runtime
 }
 
+export type ArenaAction =
+  | { type: 'arena-move'; x: number; y: number }
+  | { type: 'arena-skill'; slot: number }
+  | { type: 'arena-switch'; instanceId: string }
+  | { type: 'arena-pause'; paused: boolean }
+  | { type: 'arena-dodge' }
+  | { type: 'arena-surrender' }
+
 export type GameAction =
+  | ArenaAction
   | { type: 'travel'; locationId: string }
   | { type: 'transfer-region'; regionId: RegionId }
   | { type: 'challenge-gym' }
@@ -810,7 +822,8 @@ function leadAsMember(game: GameSave, active: boolean): PartyPokemon {
 function installLead(game: GameSave, member: PartyPokemon): void {
   const { instanceId, speciesId, formId, level, exp, moveIds, heldItemId, position, direction } = member
   const fullHP = statsFor(speciesId, level, heldItemId, formId).hp
-  const maxHP = statsFor(speciesId, effectiveLevel(game, level), heldItemId, formId).hp
+  const cappedHP = statsFor(speciesId, effectiveLevel(game, level), heldItemId, formId).hp
+  const maxHP = game.wild[0]?.maxActionsLeft ? dynamaxHP(cappedHP) : cappedHP
   const currentHP = resizeHP(member.currentHP, fullHP, maxHP)
   const state = currentHP > 0 ? 'IDLE' : 'RECOVER'
   game.player = {
@@ -894,6 +907,124 @@ function swapBoxPokemon(game: GameSave, partyId: string, boxId: string): boolean
   stored.box[stored.slot] = outgoing
   game.followers[partyIndex] = stored.pokemon
   return true
+}
+
+function arenaNotice(game: GameSave, arena: TrainerArena, notice: Omit<ArenaFeedback, 'id'>): void {
+  arena.feedback = { ...notice, id: game.runtime.nextId++ }
+}
+
+export function arenaSkills(game: GameSave) {
+  const arena = game.campaign.battle?.arena
+  const target = game.wild.find(enemy => enemy.id === game.runtime.targetId)
+  if (!arena || !target) return []
+  return game.player.moveIds.map(id => {
+    const base = moves[id]
+    const move = target.maxActionsLeft ? stadiumMove(base) : base
+    const range = moveRange(move)
+    return {
+      move, range,
+      cooldownMs: Math.max(arena.skillLockMs, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
+      unlocked: base.unlockLevel <= effectiveLevel(game),
+      inRange: move.category === 'healing' || arenaDistance(arena.player, arena.enemy) <= range,
+    }
+  })
+}
+
+function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: string): boolean {
+  if ((arena.paused && !arena.needsSwitch) || arena.switchCooldownMs > 0) return false
+  const index = game.followers.findIndex(member => member.instanceId === id && member.currentHP > 0)
+  if (index < 0) return false
+  const incoming = game.followers[index]
+  const position = { ...game.player.position }
+  game.followers[index] = leadAsMember(game, true)
+  installLead(game, incoming)
+  game.player.position = position
+  game.runtime.targetId = target.id
+  game.runtime.pausedState = 'BATTLE'
+  transition(game, 'BATTLE')
+  addUnique(arena.participants, id)
+  arena.direction = { x: 0, y: 0 }
+  arena.switchCooldownMs = 1450
+  arena.skillLockMs = 350
+  if (arena.needsSwitch) arena.enemyInMs = 850
+  arena.needsSwitch = false
+  arenaNotice(game, arena, { actor: 'player', kind: 'switch', text: species[incoming.speciesId].nameKo + ' 출전!' })
+  return true
+}
+
+function restoreTrainerParty(game: GameSave, arena: TrainerArena, healParticipants: boolean): void {
+  if (healParticipants) {
+    heal(game, playerStats(game).hp)
+    for (const member of game.followers) {
+      if (arena.participants.includes(member.instanceId)) {
+        member.currentHP = statsFor(member.speciesId, member.level, member.heldItemId, member.formId).hp
+      }
+    }
+  }
+  const first = arena.partyOrder[0]
+  if (first !== game.player.instanceId) {
+    const index = game.followers.findIndex(member => member.instanceId === first)
+    if (index >= 0) {
+      const openingLead = game.followers[index]
+      game.followers[index] = leadAsMember(game, true)
+      installLead(game, openingLead)
+    }
+  }
+  game.followers.sort((a, b) => arena.partyOrder.indexOf(a.instanceId) - arena.partyOrder.indexOf(b.instanceId))
+}
+
+function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
+  const arena = game.campaign.battle?.arena
+  const target = findTarget(game)
+  if (!arena || !target?.trainerId) return false
+  switch (action.type) {
+    case 'arena-pause':
+      if (typeof action.paused !== 'boolean') return false
+      arena.paused = action.paused
+      arena.direction = { x: 0, y: 0 }
+      return true
+    case 'arena-surrender': {
+      const trainer = currentTrainer(game)
+      if (!trainer) return false
+      trainerDefeat(game, trainer, true)
+      return true
+    }
+    case 'arena-move':
+      return moveArena(arena, action.x, action.y)
+    case 'arena-switch':
+      return arenaSwitch(game, arena, target, action.instanceId)
+    case 'arena-dodge':
+      if (!dodgeArena(arena)) return false
+      arenaNotice(game, arena, { actor: 'player', kind: 'dodge', text: '회피' })
+      return true
+    case 'arena-skill': {
+      if (arena.paused || arena.needsSwitch || !Number.isInteger(action.slot)) return false
+      const skill = arenaSkills(game)[action.slot]
+      if (!skill?.unlocked || skill.cooldownMs > 0 || !skill.inRange) return false
+      if (skill.move.category === 'healing' && game.player.currentHP >= playerStats(game).hp) return false
+      arena.skillLockMs = 380
+      attack(game, target, { playerTurn: true, move: moves[game.player.moveIds[action.slot]] })
+      return true
+    }
+  }
+}
+
+function updateTrainerArena(game: GameSave, elapsed: number): void {
+  const arena = game.campaign.battle!.arena
+  const opponent = findTarget(game)
+  if (!opponent || arena.paused || arena.needsSwitch) return
+  game.runtime.clock += elapsed
+  const technique = wildMove(opponent)
+  const selected = opponent.maxActionsLeft ? stadiumMove(technique, opponent.dynamax === 'gigantamax' ? opponent.speciesId : undefined) : technique
+  const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
+  const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
+  const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
+  const strike = stepArena(arena, elapsed, playerSpeed, enemySpeed, selected)
+  if (strike === 'hit') attack(game, opponent, { playerTurn: false, move: technique })
+  if (strike === 'miss') {
+    spendMaxAction(game, opponent)
+    arenaNotice(game, arena, { actor: 'enemy', kind: 'miss', text: selected.nameKo + ' · 빗나감', moveType: selected.type })
+  }
 }
 
 function throwBall(game: GameSave, itemId: CaptureBallId): boolean {
@@ -1180,7 +1311,7 @@ function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentInde
   const member = trainer.team[opponentIndex]
   const { speciesId, level } = member
   const formId = member.formId ?? locationForm(regionId, trainer.locationId, speciesId)
-  // Only the partner fights here, so a full opposing team uses smaller HP totals.
+  // Trainer teams use their campaign HP scaling independently of wild encounters.
   const baseHP = Math.max(8, Math.round(encounterMaxHP(speciesId, level, formId) * TRAINER_HEALTH_MULTIPLIER))
   const maxHP = member.dynamax && remainingActions > 0 ? dynamaxHP(baseHP) : baseHP
   return { id, trainerId: trainer.id, ...(member.teraType && { teraType: member.teraType }), ...(member.abilityId && { abilityId: member.abilityId }), ...(member.dynamax && { dynamax: member.dynamax, maxActionsLeft: remainingActions }), ...(formId && { formId }), speciesId, level, currentHP: maxHP, maxHP, position, direction }
@@ -1216,7 +1347,7 @@ function startChallenge(game: GameSave, trainer: KantoTrainer): boolean {
   game.runtime.autoCaptureTargetId = null
   game.runtime.cooldowns = {}
   if (trainer.role !== 'gym' && trainer.id !== worldRegions[game.regionId].finaleTrainer?.id) game.campaign.leagueIndex ??= 0
-  game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0 }
+  game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
   const { x, y } = game.player.position
   const inward = x > 145 * game.settings.spriteScale ? -1 : 1
   sendTrainerOpponent(game, trainer, { x: x + inward * 92, y }, 1050)
@@ -1232,6 +1363,17 @@ function endDynamax(game: GameSave, target: Wild) {
   target.currentHP = resizeHP(target.currentHP, target.maxHP, baseHP)
   target.maxHP = baseHP
   game.player.currentHP = resizeHP(game.player.currentHP, playerMax, playerStats(game).hp)
+  const arena = game.campaign.battle?.arena
+  if (arena?.telegraph) {
+    // A charged Max Move cannot connect after the stadium transformation ends.
+    arena.telegraph = null
+    arena.enemyInMs = 650
+  }
+}
+
+function spendMaxAction(game: GameSave, target: Wild) {
+  if (target.maxActionsLeft === 1) endDynamax(game, target)
+  else if (target.maxActionsLeft) target.maxActionsLeft--
 }
 
 function clearChallenge(game: GameSave): void {
@@ -1252,7 +1394,11 @@ function restAfterChallenge(game: GameSave): void {
 function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): void {
   const battle = game.campaign.battle!
   if (battle.opponentIndex + 1 < trainer.team.length) {
+    if (opponent.maxActionsLeft) endDynamax(game, opponent)
     battle.opponentIndex++
+    battle.arena.telegraph = null
+    battle.arena.enemyInMs = 950
+    battle.arena.enemy = { x: battle.arena.player.x > 0.55 ? 0.26 : 0.74, y: 0.50 }
     sendTrainerOpponent(game, trainer, opponent.position, 900)
     return
   }
@@ -1289,18 +1435,21 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
 
   const earned = addExperience(game, experience)
   game.coins += coins
+  restoreTrainerParty(game, battle.arena, true)
   restAfterChallenge(game)
   const rewards = formatRewards(earned, coins)
   addLog(game, 'battle', rewards ? result + ' · ' + rewards : result)
   addEffect(game, 'reward', game.player.position, 2400, { text: result, actor: 'partner' })
 }
 
-function trainerDefeat(game: GameSave, trainer: KantoTrainer): void {
+function trainerDefeat(game: GameSave, trainer: KantoTrainer, surrendered = false): void {
+  const arena = game.campaign.battle!.arena
   game.losses++
   clearChallenge(game)
   resetLeagueRun(game.campaign)
+  restoreTrainerParty(game, arena, true)
   restAfterChallenge(game)
-  const result = trainer.name + '에게 패배'
+  const result = trainer.name + (surrendered ? ' 도전 포기' : '에게 패배')
   addLog(game, 'battle', result)
   addEffect(game, 'travel', game.player.position, 1900, { text: result })
 }
@@ -1350,10 +1499,11 @@ function victory(game: GameSave, wild: Wild): void {
   }
 }
 
-function attack(game: GameSave, target: Wild): void {
+function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean }): void {
   const player = game.player
-  const playerTurn = game.runtime.turn === 'player'
-  const baseMove = playerTurn ? chooseMove(game, target) : wildMove(target)
+  const playerTurn = manual?.playerTurn ?? (game.runtime.turn === 'player')
+  const baseMove = manual?.move ?? (playerTurn ? chooseMove(game, target) : wildMove(target))
+  const arena = game.campaign.battle?.arena
   const selected = target.maxActionsLeft ? stadiumMove(baseMove, !playerTurn && target.dynamax === 'gigantamax' ? target.speciesId : undefined) : baseMove
   const stats = playerStats(game)
   const enemyStats = opponentStats(game, target)
@@ -1362,11 +1512,14 @@ function attack(game: GameSave, target: Wild): void {
   const actor = playerTurn ? 'partner' : target.id
   const targetActor = playerTurn ? target.id : 'partner'
   faceTarget(game, target)
-  if (selected.cooldownMs && playerTurn) game.runtime.cooldowns[selected.id] = game.runtime.clock + selected.cooldownMs
+  if (playerTurn && (manual || selected.cooldownMs)) {
+    game.runtime.cooldowns[selected.id] = game.runtime.clock + (manual ? Math.max(620, selected.cooldownMs) : selected.cooldownMs)
+  }
 
   if (selected.category === 'healing') {
     const amount = heal(game, Math.ceil(stats.hp * selected.power / 100))
     addEffect(game, 'heal', player.position, 900, { text: '+' + amount + ' HP' })
+    if (arena) arenaNotice(game, arena, { actor: 'player', kind: 'heal', text: selected.nameKo + ' · +' + amount + ' HP', moveType: selected.type })
   } else {
     const damage = damageWithMultiplier(
       selected,
@@ -1383,8 +1536,11 @@ function attack(game: GameSave, target: Wild): void {
       const recovered = Math.min(target.maxHP - target.currentHP, Math.max(1, Math.floor(target.maxHP / 4)))
       target.currentHP += recovered
       addEffect(game, 'heal', target.position, 900, { text: '저수 · +' + recovered + ' HP', actor: target.id })
+      if (arena) arenaNotice(game, arena, { actor: 'enemy', kind: 'heal', text: '저수 · +' + recovered + ' HP', moveType: selected.type })
     } else {
       addEffect(game, 'damage', recipient.position, 820, { text: damage ? '−' + damage : '효과 없음', actor: targetActor, moveType: selected.type })
+      if (arena) arenaNotice(game, arena, { actor: playerTurn ? 'player' : 'enemy', kind: 'hit',
+        text: selected.nameKo + (damage ? ' · −' + damage + ' HP' : ' · 효과 없음'), moveType: selected.type })
     }
   }
 
@@ -1393,11 +1549,17 @@ function attack(game: GameSave, target: Wild): void {
     if (trainer) trainerVictory(game, trainer, target)
     else victory(game, target)
   } else if (player.currentHP === 0) {
-    if (trainer) trainerDefeat(game, trainer)
+    if (trainer && arena && game.followers.some(member => member.currentHP > 0)) {
+      spendMaxAction(game, target)
+      arena.needsSwitch = true
+      arena.telegraph = null
+      arena.direction = { x: 0, y: 0 }
+      arena.switchCooldownMs = 0
+      arenaNotice(game, arena, { actor: 'system', kind: 'switch', text: species[player.speciesId].nameKo + ' 기절 · 다음 포켓몬을 선택하세요.' })
+    } else if (trainer) trainerDefeat(game, trainer)
     else defeat(game, target)
   } else {
-    if (target.maxActionsLeft === 1) endDynamax(game, target)
-    else if (target.maxActionsLeft) target.maxActionsLeft--
+    spendMaxAction(game, target)
     game.runtime.turn = playerTurn ? 'wild' : 'player'
     game.runtime.stateIn = TURN_MS
   }
@@ -1428,9 +1590,11 @@ function travel(game: GameSave, locationId: unknown): boolean {
 function travelTo(game: GameSave, location: KantoLocation): void {
   const trainer = currentTrainer(game)
   if (trainer) {
+    const arena = game.campaign.battle!.arena
     game.losses++
     addLog(game, 'battle', trainer.name + ' 도전 중단')
     clearChallenge(game)
+    restoreTrainerParty(game, arena, false)
   }
   resetLeagueRun(game.campaign)
 
@@ -1549,16 +1713,21 @@ function walk(game: GameSave, elapsed: number, bounds: Bounds): void {
 function update(game: GameSave, elapsed: number, bounds: Bounds): void {
   const player = game.player
   const runtime = game.runtime
-  for (const follower of game.followers) {
-    if (follower.active) walkFollower(follower, elapsed, bounds, game.settings.spriteScale)
-  }
-  runtime.captureIn = Math.max(0, runtime.captureIn - elapsed)
+  if (game.campaign.battle?.arena.paused || game.campaign.battle?.arena.needsSwitch) return
   if (game.effects.length) {
     for (const effect of game.effects) effect.remainingMs -= elapsed
     game.effects = game.effects.filter((effect) => effect.remainingMs > 0)
   }
 
-  if (!game.autoBattle && !game.campaign.battle && player.state !== 'EVOLUTION' && !isRoaming(player.state)) return
+  if (game.campaign.battle) {
+    updateTrainerArena(game, elapsed)
+    return
+  }
+  for (const follower of game.followers) {
+    if (follower.active) walkFollower(follower, elapsed, bounds, game.settings.spriteScale)
+  }
+  runtime.captureIn = Math.max(0, runtime.captureIn - elapsed)
+  if (!game.autoBattle && player.state !== 'EVOLUTION' && !isRoaming(player.state)) return
   runtime.clock += elapsed
   runtime.stateIn -= elapsed
   for (let index = game.wild.length - 1; index >= 0; index--) {
@@ -1566,7 +1735,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
     if (wild.id !== runtime.targetId && wild.expiresAt !== undefined && wild.expiresAt <= runtime.clock) game.wild.splice(index, 1)
   }
   const location = worldRegions[game.regionId].locationById[game.locationId]
-  if (game.autoBattle && !game.campaign.battle && (location.encounters.length || location.legends?.length) &&
+  if (game.autoBattle && (location.encounters.length || location.legends?.length) &&
       player.state !== 'FAINT' && player.state !== 'EVOLUTION' && game.wild.length < MAX_WILD) {
     runtime.spawnIn -= elapsed
     if (runtime.spawnIn <= 0) {
@@ -1630,10 +1799,6 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
     case 'BATTLE': {
       const target = findTarget(game)
       if (!target) {
-        if (game.campaign.battle) {
-          clearChallenge(game)
-          resetLeagueRun(game.campaign)
-        }
         runtime.targetId = null
         transition(game, 'IDLE')
       } else if (runtime.stateIn <= 0) {
@@ -1738,6 +1903,13 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
   if (!isRecord(action)) return false
   const player = game.player
   switch (action.type) {
+    case 'arena-move':
+    case 'arena-dodge':
+    case 'arena-skill':
+    case 'arena-switch':
+    case 'arena-pause':
+    case 'arena-surrender':
+      return handleArenaAction(game, action)
     case 'travel':
       return travel(game, action.locationId)
     case 'transfer-region':
@@ -1785,13 +1957,15 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
       return true
     }
     case 'use-item':
-      return typeof action.itemId === 'string' && hasKey(items, action.itemId) && consume(game, action.itemId)
+      return !game.campaign.battle && typeof action.itemId === 'string' && hasKey(items, action.itemId) && consume(game, action.itemId)
     case 'equip-item':
+      if (game.campaign.battle) return false
       if (action.itemId !== null && (typeof action.itemId !== 'string' || !hasKey(items, action.itemId) ||
           items[action.itemId].kind !== 'equipment' || availableEquipment(game, action.itemId) < 1)) return false
       player.heldItemId = action.itemId
       return true
     case 'set-moves': {
+      if (game.campaign.battle) return false
       const validIds = validMoveIds(action.moveIds, player.speciesId, player.level, player.formId)
       if (!Array.isArray(action.moveIds) || validIds.length !== action.moveIds.length || !validIds.includes('tackle')) return false
       player.moveIds = validIds
@@ -1800,13 +1974,13 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     case 'throw-ball':
       return isCaptureBallId(action.itemId) && throwBall(game, action.itemId)
     case 'set-follower-active':
-      return typeof action.instanceId === 'string' && typeof action.active === 'boolean' &&
+      return !game.campaign.battle && typeof action.instanceId === 'string' && typeof action.active === 'boolean' &&
         (action.boxIndex === undefined || (!action.active && Number.isInteger(action.boxIndex))) &&
         setFollowerActive(game, action.instanceId, action.active, action.boxIndex)
     case 'move-party-member':
-      return typeof action.instanceId === 'string' && movePartyMember(game, action.instanceId, action.toIndex)
+      return !game.campaign.battle && typeof action.instanceId === 'string' && movePartyMember(game, action.instanceId, action.toIndex)
     case 'swap-box-pokemon':
-      return typeof action.partyInstanceId === 'string' && typeof action.boxInstanceId === 'string' &&
+      return !game.campaign.battle && typeof action.partyInstanceId === 'string' && typeof action.boxInstanceId === 'string' &&
         swapBoxPokemon(game, action.partyInstanceId, action.boxInstanceId)
     case 'evolve':
       if (!['IDLE', 'WANDER', 'RECOVER'].includes(activeState(game))) return false
@@ -1823,8 +1997,10 @@ export function applyOffline(game: GameSave, now = Date.now()): OfflineReward {
   const last = Date.parse(game.lastSavedAt)
   if (!Number.isFinite(last) || !Number.isFinite(now) || now <= last || now > 8640000000000000) return reward
   game.lastSavedAt = new Date(now).toISOString()
+  // A saved arena resumes on its own clock, including remaining technique cooldowns.
+  if (game.campaign.battle) return reward
   game.runtime.clock = Math.max(game.runtime.clock, now)
-  if (!game.autoBattle || game.campaign.battle) return reward
+  if (!game.autoBattle) return reward
   const location = worldRegions[game.regionId].locationById[game.locationId]
   const slots = regionalWeather(game, location.id, new Date(now))?.encounters ?? location.encounters
   const possible = slots.filter((slot) => slot.level <= encounterLevelLimit(game))
@@ -2093,7 +2269,7 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   const index = value.battle.opponentIndex
   if (eligibleTrainer && eligibleTrainer.id === value.battle.trainerId && typeof index === 'number' &&
       Number.isInteger(index) && index >= 0 && index < eligibleTrainer.team.length) {
-    campaign.battle = { trainerId: eligibleTrainer.id, opponentIndex: index }
+    campaign.battle = { trainerId: eligibleTrainer.id, opponentIndex: index, arena: createArena([]) }
   }
   return campaign
 }
@@ -2172,7 +2348,7 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId) : newCampaign()
   const effective = Math.min(level, region.levelCaps[campaign.badges.length])
   const baseHP = statsFor(speciesId, effective, heldItemId, formId).hp
-  const trainerEnemy = campaign.battle && rawPlayer.currentHP > 0
+  let trainerEnemy = campaign.battle
     ? readTrainerOpponent(region, value.wild, campaign, starterSpeciesId, runtime.targetId) : undefined
   const maxHP = trainerEnemy?.maxActionsLeft ? dynamaxHP(baseHP) : baseHP
   const currentHP = clamp(Math.floor(rawPlayer.currentHP), 0, maxHP)
@@ -2190,10 +2366,21 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   if (!wild.some((entry) => entry.id === runtime.autoCaptureTargetId)) runtime.autoCaptureTargetId = null
   const leaderId = rawPlayer.instanceId.slice(0, 128)
   const { followers, boxes } = readOwnedPokemon(value, leaderId, position, runtime, inventory, heldItemId)
+  if (campaign.battle && trainerEnemy) {
+    const rawArena = isRecord(savedCampaign) && isRecord(savedCampaign.battle) ? savedCampaign.battle.arena : undefined
+    if (currentHP === 0 && !followers.some(member => member.currentHP > 0)) {
+      campaign.battle = null
+      trainerEnemy = undefined
+      wild.length = 0
+      resetLeagueRun(campaign)
+    } else {
+      campaign.battle.arena = restoreArena(rawArena, [leaderId, ...followers.map(member => member.instanceId)], currentHP === 0)
+    }
+  }
   const autoBattle = value.autoBattle !== false
   let state = trainerEnemy ? 'BATTLE' as const : readActivity(rawPlayer.state, 'IDLE')
   if (state === 'PAUSED') state = runtime.pausedState
-  if (currentHP === 0 && state !== 'FAINT') state = 'RECOVER'
+  if (!trainerEnemy && currentHP === 0 && state !== 'FAINT') state = 'RECOVER'
   if (currentHP > 0 && state === 'FAINT') state = 'RECOVER'
   if (['SEARCH', 'CHASE', 'BATTLE'].includes(state) && !wild.some((entry) => entry.id === runtime.targetId)) state = 'IDLE'
   if (!['SEARCH', 'CHASE', 'BATTLE'].includes(state)) runtime.targetId = null

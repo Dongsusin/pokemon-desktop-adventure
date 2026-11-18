@@ -1,3 +1,4 @@
+import { castSkill, finishChallenge, idleUntilHit } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
 import { species, starterIds, wildIds } from '../src/game/catalog'
 import { kantoLocationById, kantoLocations } from '../src/game/regions/kanto'
@@ -722,11 +723,6 @@ describe('regional gyms and Pokémon Leagues', () => {
     game.player.moveIds = movesFor(speciesId, level).map(move => move.id)
   }
 
-  function finishChallenge(game: GameSave) {
-    for (let step = 0; game.campaign.battle && step < 1800; step++) tick(game, 200, bounds)
-    expect(game.campaign.battle).toBeNull()
-  }
-
   it('runs a complete first gym at low level without consuming balls or requiring auto-hunt', () => {
     const game = makeGame('squirtle', 1)
     train(game, 'squirtle', 12)
@@ -880,8 +876,7 @@ describe('regional gyms and Pokémon Leagues', () => {
         const control = structuredClone(saved)
         control.player.level = effectiveLevel(saved)
         for (const challenger of [saved, control]) {
-          challenger.runtime.stateIn = 0
-          tick(challenger, 200, bounds)
+          castSkill(challenger)
         }
         const cappedDamage = saved.effects.find(entry => entry.kind === 'damage')
         expect(cappedDamage?.text).toMatch(/^−\d+$/)
@@ -987,9 +982,7 @@ describe('regional gyms and Pokémon Leagues', () => {
         const lost = structuredClone(game)
         expect(dispatch(lost, { type: 'challenge-league' })).toBe(true)
         lost.player.currentHP = 1
-        lost.runtime.turn = 'wild'
-        lost.runtime.stateIn = 0
-        tick(lost, 200, bounds)
+        idleUntilHit(lost)
         expect(lost.campaign.leagueIndex).toBeNull()
         expect(lost.campaign.eliteWins).toBeUndefined()
         expect(lost.campaign.badges).toHaveLength(region.gymTrainers.length)
@@ -1016,7 +1009,9 @@ describe('regional gyms and Pokémon Leagues', () => {
     run(game, 3)
     expect(game.campaign.battle).toBeTruthy()
     const restored = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
-    expect(restored.campaign).toEqual(game.campaign)
+    expect(restored.campaign.battle?.trainerId).toBe(game.campaign.battle?.trainerId)
+    expect(restored.campaign.battle?.opponentIndex).toBe(game.campaign.battle?.opponentIndex)
+    expect(restored.campaign.battle?.arena.paused).toBe(true)
     expect(restored.wild).toEqual(game.wild)
     expect(restored.player.state).toBe('BATTLE')
     expect(restored.autoBattle).toBe(false)
@@ -1051,9 +1046,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     game.player.currentHP = 1
     expect(dispatch(game, { type: 'challenge-league' })).toBe(true)
     expect(currentTrainer(game)?.id).toBe('agatha')
-    game.runtime.turn = 'wild'
-    game.runtime.stateIn = 0
-    tick(game, 200, bounds)
+    idleUntilHit(game)
     expect(game.losses).toBe(1)
     expect(game.campaign).toEqual({ badges, champion: false, leagueIndex: null, battle: null })
     expect(game.coins).toBe(0)

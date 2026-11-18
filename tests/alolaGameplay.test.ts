@@ -1,3 +1,4 @@
+import { castSkill } from './trainerArenaDriver'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -91,9 +92,9 @@ describe('Alola forms and Totem battles', () => {
     game.player.level = 25
     Object.assign(game.runtime, { stateIn: 0, turn: 'player' })
     const ordinary = structuredClone(game)
-    delete ordinary.wild[0].trainerId
-    tick(game, 200, bounds)
-    tick(ordinary, 200, bounds)
+    ordinary.wild[0].trainerId = 'alola-hala' // Same species, but without the Totem’s aura.
+    castSkill(game, 'tackle')
+    castSkill(ordinary, 'tackle')
     expect(game.wild[0].currentHP).toBeGreaterThan(ordinary.wild[0].currentHP)
 
     const water = arriveInAlola()
@@ -104,7 +105,7 @@ describe('Alola forms and Totem battles', () => {
     expect(battleForm(water.wild[0])).toBe('wishiwashi-school')
     water.wild[0].currentHP = Math.floor(water.wild[0].maxHP / 4)
     const resumed = hydrateSave(water, 1)!
-    expect(resumed.campaign.battle).toEqual(water.campaign.battle)
+    expect(resumed.campaign.battle).toMatchObject({ trainerId: trials[index].id, opponentIndex: 0, arena: { paused: true } })
     expect(resumed.wild).toEqual(water.wild)
     expect(battleForm(resumed.wild[0])).toBeUndefined()
   })

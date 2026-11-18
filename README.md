@@ -4,7 +4,7 @@ Windows 바탕화면에서 포켓몬과 함께하는 자동 육성 게임입니�
 
 ## 실행
 
-Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.16.0/Pokemon-Desktop-Adventure-0.16.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
+Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.17.0/Pokemon-Desktop-Adventure-0.17.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
 
 소스 코드로 실행하려면 Windows 10 또는 11의 PowerShell에서 프로젝트 폴더를 엽니다. Node.js 22.12 이상과 npm이 필요합니다.
 
@@ -26,13 +26,29 @@ npm run dev
 
 프리져는 쌍둥이섬, 썬더는 무인발전소, 파이어는 챔피언로드, 뮤츠는 블루동굴에 출현 판정당 약 0.65% 확률로 나타납니다. 체육관의 실제 위치와 관장, 석영고원 리그 위치를 확인할 수 있습니다. [지도와 지형 이미지 출처](assets/maps/kanto/SOURCES.md)
 
+## 체육관·리그 실시간 배틀
+
+![웅의 꼬마돌이 돌떨구기를 예고하고, 꼬부기가 붉은 공격 범위에 서 있는 경기장](docs/screenshots/trainer-battle.png)
+
+관동부터 팔데아까지 **체육관 도전**이나 **리그 도전**을 누르면 관리 창이 전용 배틀 화면으로 바뀝니다. 바탕화면의 일반 사냥·자동 포획·아이템 획득은 기존처럼 진행됩니다. 전투 중에는 현재 포켓몬을 직접 움직여 기술의 사거리에 들어가고, 바닥에 표시되는 상대의 공격 범위에서 벗어나세요. 기술은 현재 상대를 자동으로 조준합니다. [참고한 포켓몬 레조넌스의 배틀 소개](https://reso.jhcloud.kr/)
+
+| 조작 | 키 |
+| --- | --- |
+| 이동 | 방향키 |
+| 장착 기술 1~4 | Q · W · E · R |
+| 회피 | Space |
+| 파티 포켓몬 교체 | 1~6 |
+| 일시정지·계속 | Esc |
+
+마우스로 경기장 바닥을 클릭해 이동하고, 화면 버튼으로 기술·회피·교체를 조작할 수도 있습니다. 출전한 포켓몬이 쓰러지면 남은 파티원 중 다음 포켓몬을 고릅니다. 대전이 끝나면 출전 전의 파티 순서로 돌아갑니다. 창을 숨기거나 다른 창으로 전환하면 일시정지되며, 저장된 도전은 다시 열어 이어갈 수 있습니다.
+
 ## 체육관과 관동 리그
 
-1. **도전** 탭에 표시된 순서대로 다음 체육관이 있는 도시로 이동합니다. 지도 상세 화면이나 **도전** 탭에서 **체육관 도전**을 누릅니다. 대표 포켓몬이 관장의 팀과 자동으로 전투하고, 팀 전체를 이기면 배지를 얻습니다.
+1. **도전** 탭에 표시된 순서대로 다음 체육관이 있는 도시로 이동합니다. 지도 상세 화면이나 **도전** 탭에서 **체육관 도전**을 누릅니다. 배틀 화면에서 파티를 직접 조작해 관장의 마지막 포켓몬까지 이기면 배지를 얻습니다.
 2. **도전** 탭에서 배지 8개와 각 체육관 위치를 확인할 수 있습니다. 배지를 모두 얻으면 석영고원에서 **리그 도전**을 시작합니다.
 3. 칸나, 시바, 국화, 목호를 차례로 이긴 뒤 챔피언 그린을 이기면 관동 리그 우승이 저장됩니다. 대전 사이에 대표 포켓몬의 HP가 회복됩니다. 리그에서 패배하거나 석영고원을 떠나면 칸나부터 다시 도전합니다.
 
-관장과 리그 상대의 팀과 레벨은 《포켓몬스터 레드》 데이터를 사용하며 전투는 이 게임의 자동전투 규칙을 따릅니다. 그린의 마지막 팀 구성은 스타팅 타입에 따라 달라집니다. [원작 트레이너 파티](https://github.com/pret/pokered/blob/ba9c0568f64ae602fadda577a08c66639f93082a/data/trainers/parties.asm) · [체육관 배지 도트](https://github.com/pret/pokered/blob/ba9c0568f64ae602fadda577a08c66639f93082a/gfx/trainer_card/badges.png)
+관장과 리그 상대의 팀과 레벨은 《포켓몬스터 레드》 데이터를 사용합니다. 그린의 마지막 팀 구성은 스타팅 타입에 따라 달라집니다. [원작 트레이너 파티](https://github.com/pret/pokered/blob/ba9c0568f64ae602fadda577a08c66639f93082a/data/trainers/parties.asm) · [체육관 배지 도트](https://github.com/pret/pokered/blob/ba9c0568f64ae602fadda577a08c66639f93082a/gfx/trainer_card/badges.png)
 
 ## 성도지방과 성도 리그
 
