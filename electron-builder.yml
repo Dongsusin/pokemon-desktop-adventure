@@ -1,0 +1,24 @@
+appId: local.pokemon.desktop.adventure
+productName: Pokémon Desktop Adventure
+artifactName: Pokemon-Desktop-Adventure-${version}-Setup.${ext}
+directories:
+  output: dist
+files:
+  - out/**
+  - package.json
+  - assets/app-icon.png
+asar: true
+win:
+  icon: assets/app-icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  signAndEditExecutable: false
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  installerIcon: assets/app-icon.ico
+  uninstallerIcon: assets/app-icon.ico

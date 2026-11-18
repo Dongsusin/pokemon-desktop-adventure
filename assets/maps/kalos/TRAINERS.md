@@ -1,0 +1,7 @@
+# 칼로스 체육관과 리그
+
+《포켓몬스터 X》 첫 도전의 관장 8명, 사천왕 4명, 챔피언 카르네가 쓰는 포켓몬 44마리의 전국도감 번호, 레벨과 파티 순서를 게임 추출 자료에서 확인했습니다. 체육관 순서에 해당하는 원작 트레이너 번호는 6, 76, 21, 22, 23, 24, 25, 26입니다. 파키라, 즈미, 드라세나, 간피의 번호는 각각 269, 271, 270, 187이며, 카르네는 276입니다. 미국판과 유럽판의 해당 기록이 일치합니다. [유럽판 트레이너 데이터](https://github.com/JonatanUHC/PokeFeur/blob/012259145f9f29fb33d64ecc218dff1c966bb1fd/vanilla_exports/pokemon_x_europe_en_ja_fr_de_es_it_ko.js) · [미국판 트레이너 데이터](https://github.com/JonatanUHC/PokeFeur/blob/012259145f9f29fb33d64ecc218dff1c966bb1fd/vanilla_exports/pokemon_x_usa_en_ja_fr_de_es_it_ko_decrypted.js)
+
+관장과 배지, 사천왕과 챔피언의 이름은 한국어판 게임 표기를 따릅니다. 사천왕은 원하는 순서로 도전하며 네 명을 이기면 카르네와 대결합니다. 전투에서는 전국도감의 기본 모습과 이 게임의 전투 규칙을 적용합니다. 카르네의 마지막 포켓몬은 원작에서 가디안나이트를 지닌 Lv.68 가디안이며, 여기서는 기본 모습으로 배틀합니다. [한국어판 이름과 배지](https://github.com/abcboy101/poke-corpus/blob/1df697e384e7d3ef5994c011151e6820f9fd839e/corpus/XY/ko_common.txt)
+
+칼로스 배지 8개의 컬러 이미지는 포켓몬 글로벌 링크의 공식 일러스트를 보존한 자료에서 가져왔습니다. 투명 여백을 다듬고 비율에 맞춰 16×16 칸에 배치했으며, 미획득 칸은 같은 그림을 회색 계열로 표시합니다. 이미지 권리는 원작 권리자에게 있습니다. [버그](https://archives.bulbagarden.net/wiki/File:Bug_Badge.png) · [월](https://archives.bulbagarden.net/wiki/File:Cliff_Badge.png) · [파이트](https://archives.bulbagarden.net/wiki/File:Rumble_Badge.png) · [플랜트](https://archives.bulbagarden.net/wiki/File:Plant_Badge.png) · [볼티지](https://archives.bulbagarden.net/wiki/File:Voltage_Badge.png) · [페어리](https://archives.bulbagarden.net/wiki/File:Fairy_Badge.png) · [사이킥](https://archives.bulbagarden.net/wiki/File:Psychic_Badge.png) · [아이스버그](https://archives.bulbagarden.net/wiki/File:Iceberg_Badge.png)
