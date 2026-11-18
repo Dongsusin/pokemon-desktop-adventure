@@ -282,6 +282,10 @@ progress::-webkit-progress-value { background: #71a66e; border-radius: 7px; }
 .item-icon.epic, .rarity.epic { color: #7b537e; background: #eee5f1; }
 .rarity { font-size: 10px; padding: 4px 6px; border-radius: 10px; color: #5c715e; background: #edf1e8; }
 .rarity.uncommon { color: #587c45; background: #e6efdc; }
+.friendly-shop summary { cursor:pointer; font-weight:750; }
+.friendly-shop summary span { float:right; color:var(--muted); font-size:13px; }
+.shop-controls { display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center; margin-top:12px; font-size:12px; }
+.shop-controls input { width:5em; padding:3px; }
 .bag-list strong span { color: var(--muted); font-weight: 650; }
 .dex-filters { margin-bottom: 9px; }
 .dex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 6px; }

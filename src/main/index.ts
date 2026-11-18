@@ -340,6 +340,10 @@ function startDesktop(): void {
         }
         saveCurrent()
         break
+      case 'buyItem':
+        if (!dispatch(requireGame(), command)) throw new Error('현재 장소와 구매 수량, 잔액을 다시 확인해 주세요.')
+        saveCurrent()
+        break
       case 'useItem':
         if (!dispatch(requireGame(), { type: 'use-item', itemId: command.itemId })) {
           throw new Error('지금은 이 아이템을 사용할 수 없습니다.')

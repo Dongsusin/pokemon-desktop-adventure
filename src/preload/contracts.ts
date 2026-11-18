@@ -1,4 +1,4 @@
-import type { CaptureBallId, GameAction, GameSave, Settings } from '../game/engine'
+import type { CaptureBallId, GameAction, GameSave, Settings, ShopPurchase } from '../game/engine'
 
 import type { RegionId } from '../game/regions/world'
 
@@ -28,6 +28,7 @@ export interface AdventureSnapshot {
 export type ArenaInput = Extract<GameAction, { type: `arena-${string}` }>
 
 export type AdventureCommand =
+  | ShopPurchase
   | { type: 'arenaInput'; action: ArenaInput }
   | { type: 'selectSlot'; slot: SlotNumber }
   | { type: 'start'; speciesId: string; settings?: Partial<Settings>; autoBattle?: boolean }

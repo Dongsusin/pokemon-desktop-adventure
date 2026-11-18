@@ -342,7 +342,15 @@ export type ArenaAction =
   | { type: 'arena-dodge' }
   | { type: 'arena-surrender' }
 
+export type ShopPurchase = {
+  type: 'buyItem'
+  itemId: string
+  quantity: number
+  expectedOwned: number
+}
+
 export type GameAction =
+  | ShopPurchase
   | ArenaAction
   | { type: 'travel'; locationId: string }
   | { type: 'transfer-region'; regionId: RegionId }
@@ -588,6 +596,40 @@ export function playerStats(game: GameSave): Stats {
   const stats = statsFor(game.player.speciesId, effectiveLevel(game), game.player.heldItemId, game.player.formId)
   if (game.wild[0]?.maxActionsLeft) stats.hp = dynamaxHP(stats.hp)
   return stats
+}
+
+export const shopStock = [
+  { itemId: 'pokeball', price: 20, badges: 0 },
+  { itemId: 'greatBall', price: 50, badges: 2 },
+  { itemId: 'ultraBall', price: 100, badges: 4 },
+  { itemId: 'potion', price: 30, badges: 0 },
+  { itemId: 'superPotion', price: 75, badges: 2 },
+] as const
+
+export function hasShop(game: GameSave): boolean {
+  const place = worldRegions[game.regionId].locationById[game.locationId]
+  return place?.kind === 'town' || place?.kind === 'city'
+}
+
+export function shopPurchaseLimit(game: GameSave, offer: typeof shopStock[number]): number {
+  if (!hasShop(game) || game.campaign.battle || game.campaign.badges.length < offer.badges) return 0
+  const owned = game.inventory[offer.itemId] ?? 0
+  if (!owned && Object.keys(game.inventory).length >= MAX_INVENTORY_SLOTS) return 0
+  return Math.min(Math.floor(game.coins / offer.price), Number.MAX_SAFE_INTEGER - owned)
+}
+
+function buyItem(game: GameSave, order: ShopPurchase): boolean {
+  const offer = shopStock.find(entry => entry.itemId === order.itemId)
+  if (!offer || !Number.isSafeInteger(order.quantity) || order.quantity < 1 ||
+      order.quantity > shopPurchaseLimit(game, offer)) return false
+  const owned = game.inventory[offer.itemId] ?? 0
+  // Two clicks on the same displayed stock count must only charge once.
+  if (owned !== order.expectedOwned) return false
+  const cost = order.quantity * offer.price
+  game.coins -= cost
+  game.inventory[offer.itemId] = owned + order.quantity
+  addLog(game, 'loot', items[offer.itemId].nameKo + ' ' + order.quantity + '개 구매 · −' + cost + ' 코인')
+  return true
 }
 
 /** Owned copies available to the lead, including its currently equipped copy. */
@@ -2167,6 +2209,8 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
       }
       return true
     }
+    case 'buyItem':
+      return buyItem(game, action)
     case 'use-item':
       return !game.campaign.battle && typeof action.itemId === 'string' && hasKey(items, action.itemId) && consume(game, action.itemId)
     case 'take-box-item': {

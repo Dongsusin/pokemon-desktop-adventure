@@ -1,4 +1,4 @@
-import { captureBallIds, items, MAX_PARTY_SIZE, type Settings } from '../game/engine'
+import { captureBallIds, items, MAX_PARTY_SIZE, shopStock, type Settings } from '../game/engine'
 import { isSlot, type AdventureCommand, type ArenaInput } from '../preload/contracts'
 import { isRegionId, worldLocationById } from '../game/regions/world'
 
@@ -93,6 +93,13 @@ export function parseCommand(value: unknown): AdventureCommand | null {
       return memberId(value.instanceId) ? { type: 'takeBoxItem', instanceId: value.instanceId } : null
     case 'equip':
       return value.itemId === null || knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null
+    case 'buyItem': {
+      const offer = shopStock.find(entry => entry.itemId === value.itemId)
+      const { quantity, expectedOwned } = value
+      return offer && typeof quantity === 'number' && Number.isSafeInteger(quantity) && quantity > 0 &&
+        typeof expectedOwned === 'number' && Number.isSafeInteger(expectedOwned) && expectedOwned >= 0
+        ? { type: 'buyItem', itemId: offer.itemId, quantity, expectedOwned } : null
+    }
     case 'useItem':
       return knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null
     case 'travel':

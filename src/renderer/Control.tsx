@@ -13,6 +13,7 @@ import type { GameSave, Settings } from '../game/engine'
 import type { AdventureCommand, AdventureSnapshot } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName, statNames, types, useAdventure } from './shared'
 import { Party } from './Party'
+import { FriendlyShop } from './FriendlyShop'
 import { TrainerArena, BattleResult, type TrainerResult } from './TrainerArena'
 import { RegionMap } from './RegionMap'
 import { Campaign, TrainerBattleCard, type ChallengeKind } from './Campaign'
@@ -474,7 +475,7 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     {tab === '포켓몬' && <Partner game={game} send={send} />}
     {tab === '파티' && <Party game={game} busy={busy} send={send} />}
     {tab === '도감' && <Pokedex game={game} />}
-    {tab === '가방' && <Bag game={game} send={send} />}
+    {tab === '가방' && <div className="dashboard-stack"><FriendlyShop game={game} busy={busy} buy={send} /><Bag game={game} send={send} /></div>}
     {tab === '전투 기록' && <Card title="전투 기록"><History game={game} /></Card>}
     {tab === '설정' && <SettingsPane game={game} snapshot={snapshot} send={send} />}
   </>
@@ -494,6 +495,7 @@ export function Control() {
     void window.adventure.dispatch(action).then(next => {
       setResponse(next)
       if (action.type === 'save' && !next.warning) setMessage('저장했습니다.')
+      if (action.type === 'buyItem' && !next.warning) setMessage(items[action.itemId].nameKo + ' ' + action.quantity + '개를 가방에 담았습니다.')
     }).catch(() => setMessage('변경 사항을 적용하지 못했습니다.')).finally(() => setBusy(false))
   }
 
