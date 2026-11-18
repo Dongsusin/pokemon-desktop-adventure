@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { species } from '../game/catalog'
+import { isSpeciesMotionSupported } from '../game/motionEligibility'
 import { BOX_SIZE, canChangeLead, effectiveLevel, MAX_PARTY_SIZE, type GameSave, type PartyPokemon } from '../game/engine'
 import type { AdventureCommand } from '../preload/contracts'
 import { Pokemon, pokemonName } from './shared'
@@ -26,6 +27,7 @@ export function Party({ game, busy, send }: {
   const box = game.boxes[pageIndex] ?? []
   const occupied = box.filter(Boolean).length
   const selected = box.find(member => member?.instanceId === selectedId)
+  const archived = Boolean(selected && !isSpeciesMotionSupported(selected.speciesId, selected.formId))
   const fullParty = party.length >= MAX_PARTY_SIZE
   const leadLocked = !canChangeLead(game)
   const selectedSwap = party.find(member => member.instanceId === swapId)
@@ -88,28 +90,29 @@ export function Party({ game, busy, send }: {
       <ol className="box-slots" aria-label={'박스 ' + (pageIndex + 1) + ' 포켓몬'}>
         {Array.from({ length: BOX_SIZE }, (_, i) => {
           const member = box[i]
+          const label = member && nameOf(member) + ' · Lv. ' + member.level + (isSpeciesMotionSupported(member.speciesId, member.formId) ? '' : ' · 보관 전용')
           return <li key={i}>{member ? <button className="box-slot" data-member={member.instanceId} aria-pressed={selectedId === member.instanceId}
-            aria-label={(i + 1) + '번 칸 · ' + nameOf(member) + ' · Lv. ' + member.level}
-            title={nameOf(member) + ' · Lv. ' + member.level} onClick={() => { setSelectedId(member.instanceId); setSwapId('') }}>
+            aria-label={(i + 1) + '번 칸 · ' + label}
+            title={label || undefined} onClick={() => { setSelectedId(member.instanceId); setSwapId('') }}>
             <Pokemon id={member.speciesId} formId={member.formId} /><span>{species[member.speciesId].nameKo}</span>
           </button> : <span className="box-slot box-empty" aria-label={(i + 1) + '번 빈칸'} />}</li>
         })}
       </ol>
       {selected ? <div className="box-inspector" role="group" aria-label="선택한 포켓몬">
         <div className="storage-selection"><Pokemon id={selected.speciesId} formId={selected.formId} />
-          <div><strong>{nameOf(selected)}</strong><small>Lv. {selected.level} · 박스 {pageIndex + 1}</small></div>
+          <div><strong>{nameOf(selected)}</strong><small>Lv. {selected.level} · 박스 {pageIndex + 1}{archived && ' · 전용 모션 미지원 (보관 전용)'}</small></div>
         </div>
         <div className="storage-box-actions">
-          {!fullParty && <button className="small-button" disabled={busy}
+          {!fullParty && <button className="small-button" disabled={busy || archived}
             onClick={() => { send({ type: 'setFollowerActive', instanceId: selected.instanceId, active: true }); boxSelect.current?.focus() }}>파티로 꺼내기</button>}
           <div className="storage-swap">
-            <label>교체할 파티 포켓몬<select value={swapId} onChange={e => setSwapId(e.target.value)}>
+            <label>교체할 파티 포켓몬<select disabled={archived} value={swapId} onChange={e => setSwapId(e.target.value)}>
               <option value="">포켓몬 선택</option>
               {party.map((member, i) => <option key={member.instanceId} value={member.instanceId} disabled={i === 0 && leadLocked}>
                 {i + 1}. {i === 0 ? '선두 · ' : ''}{nameOf(member)} · Lv. {member.level}
               </option>)}
             </select></label>
-            <button className="small-button" disabled={busy || !selectedSwap || (selectedSwap === game.player && leadLocked)}
+            <button className="small-button" disabled={busy || archived || !selectedSwap || (selectedSwap === game.player && leadLocked)}
               onClick={() => { send({ type: 'swapBoxPokemon', partyInstanceId: swapId, boxInstanceId: selected.instanceId }); setSelectedId(swapId); setSwapId(''); boxSelect.current?.focus() }}>교체하기</button>
           </div>
         </div>

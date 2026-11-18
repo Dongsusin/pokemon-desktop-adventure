@@ -1,0 +1,69 @@
+CREDITS FOR THE IMPORTED ESSENTIALS ANIMATION ART, ANIMATION SOUNDS AND BATTLE SPRITES
+=====================================================================================
+
+Unofficial, non-commercial fan project. Pokemon characters, names, sounds and artwork belong to Nintendo,
+Creatures Inc. and GAME FREAK inc. Nothing here is re-licensed by this project. Names only, no contact details.
+The project-wide credits are in CREDITS.txt at the project root (sections 2 and 6 cover the same sources).
+
+Every file listed below was copied unmodified (byte-identical, checked by SHA-1) on 2026-10-14 for milestone M4
+(battle look). Scaling, tinting and blending happen at run time only.
+
+
+SOURCE GAME
+   Copied from a local copy of the original source (resources),
+   whose Graphics and Audio folders carry the Pokemon Essentials resources of the Korean fan game
+   "Pokemon: Another Red" by YOUNG (Pokemon Essentials v21.1), the same game the rest of the asset pack comes from.
+   The pack's assets/Data/PkmnAnimations.rxdata (1,532 animations) names its pictures by these exact file names:
+   all 431 cel sheets it uses are here, and 157 of its 161 background / foreground pictures. Missing in the source
+   game as well: "PRAS- Sketch and Lick", "PRAS- Darkness BG", "PRAS- White BG", "uwu".
+   Engine: Pokemon Essentials, created by Poccil (Peter O.) and Maruno (full contributor list: root CREDITS.txt).
+
+
+1. ANIMATION SHEETS (this folder: 705 PNG files, 23,607,111 bytes)
+   Essentials cel sheets: 192 x 192 cells, 5 per row. Families, by file-name prefix:
+
+   PRAS- ...            474  Pokemon Reborn animation sheets (PRAS), the move-animation set of the Pokemon Reborn
+                             team that Essentials games share. Credit: Pokemon Reborn Team.
+   GEN8- ...             67  Generation 8 move sheets (Essentials community set; no author is named in the files).
+   Gen 9 - / Gen9- /
+   GEN9- ...             19  Generation 9 move sheets (Essentials community set; no author is named in the files).
+   Custom_ ...           17  further Generation 9 move sheets made for the source game or its plug-ins
+                             (no author is named in the files).
+   NNN-Name00            15  RPG Maker XP run-time package animation sheets (003-Attack01 ... 030-Explosion01).
+                             RPG Maker XP: Enterbrain / KADOKAWA; licensed to RPG Maker XP users.
+   Word0                 12  RPG Maker VX Ace run-time package style sheets (Earth1, Fire3, Heal3, Heal5, Ice1,
+                             Light1, Special5, State1, Sword5, Sword6, Thunder2, Wind1). Enterbrain / KADOKAWA.
+   frlg ...              12  emote bubbles in the style of Pokemon FireRed / LeafGreen.
+   Follower_ / Overworld /
+   Pokemon-Follow         7  overworld and follower animations (Following Pokemon EX: see root CREDITS.txt).
+   other                 82  untagged sheets kept by the source game (for example "dragon claw", "element fangs",
+                             "fire blast", "Crunch", "punches", "teeth", "Psycho Cut"); no author is named.
+
+   Name notes for code: most names contain spaces; some contain ' + ( ) ! or extra dots ("finger.spoon",
+   "anim sheet.2", "T. Shock"); "PRAS- Rototiller .png" has a space before the extension. Build URLs with
+   encodeURIComponent per path segment. This CREDITS.txt is the only non-PNG file here: skip it when listing.
+
+
+2. ANIMATION SOUNDS (assets/Audio/SE/Anim: 1,479 files, 42,216,766 bytes; 1,175 WAV, 260 OGG, 44 MP3)
+   PRSFX- ...         1,271  Pokemon Reborn sound effects. Credit: Pokemon Reborn Team; sound: Pokemon Mystery
+                             Universe, Amethyst; original rip: Neslug (the same collection as root CREDITS.txt
+                             section 2; its permission text is tools/battle-assets/credits/audio-POKEMON-REBORN-LICENSE.txt).
+   GEN8- / Gen 9 ...     18  Generation 8 / 9 move sounds (no author is named in the files).
+   other                190  untagged cue sounds kept by the source game (RPG Maker style cues such as "Blow1",
+                             "Fire2", and game recordings). Game recordings belong to Nintendo, Creatures Inc. and
+                             GAME FREAK inc.
+
+
+3. BATTLE SPRITES AND ICONS (assets/Graphics/Pokemon)
+   Front         1,601 PNG   38,994,766 bytes
+   Front shiny   1,570 PNG   33,796,109 bytes
+   Icons         1,470 PNG + 1 Paint.NET source (RAGINGBOLT.pdn)   2,941,141 bytes
+   Icons shiny   1,468 PNG    1,710,914 bytes
+   Essentials battle sprites and 2-frame party icons as distributed with the source game (Pokemon Essentials and
+   its Generation 9 Pack by Caruban; the sprite artists are credited in the credit lists of those resources).
+   Not copied: the two desktop.ini files (Windows folder metadata) of Front and Front shiny.
+
+
+KEEP IN MIND
+   - Stay non-commercial. Keep this file next to the sheets when the folder is copied.
+   - Do not edit the files; derive anything new at run time or into a separate generated folder.

@@ -1,13 +1,14 @@
 import { species, starterIds, wildIds } from './catalog'
+import { isSpeciesMotionSupported, isMoveMotionSupported } from './motionEligibility'
+import { supportedEncounters, supportedWildForms } from './regions/motionEncounters'
 import { arenaDistance, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
 import { arenaBodyPoint } from './arenaMuzzle'
 import { beamClashPower, escapeBeamClash } from './arenaBeams'
 import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, moveArena, restoreArena, stepArena,
   type ArenaFeedback, type TrainerArena } from './trainerArena'
-import { battleForm, formStats, hasWildMidnightForm, locationForm, validForm, wildEncounterForm } from './forms'
+import { battleForm, formStats, locationForm, validForm, wildEncounterForm } from './forms'
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
 import { teraAttackMultiplier } from './regions/paldeaTera'
-import { gigantamaxMoves, stadiumMove } from './regions/galarMaxMoves'
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
@@ -294,7 +295,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 15
+const SAVE_SCHEMA_VERSION = 16
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -439,7 +440,7 @@ export function movesFor(speciesId: string, level: number, formId?: string): Mov
   const types = formStats(speciesId, formId).types
   const technique = types.map(type => wildTechniques[type]).find(Boolean)
   const ids = moveSets[types[0]] ?? (technique ? ['tackle', technique.id, 'recover'] : ['tackle', 'recover'])
-  return ids.map((id) => moves[id]).filter((entry) => level >= entry.unlockLevel)
+  return ids.map((id) => moves[id]).filter((entry) => level >= entry.unlockLevel && isMoveMotionSupported(speciesId, formId, entry.id))
 }
 
 const typeStrengths: Record<string, readonly string[]> = {
@@ -507,7 +508,7 @@ function newRuntime(now: number, seed: number): Runtime {
 }
 
 export function createGame(speciesId: string, slot: number, bounds: Bounds, now = Date.now(), seed = Math.floor(Math.random() * 4294967296)): GameSave {
-  if (!starterIds.includes(speciesId)) throw new RangeError('선택할 수 없는 스타팅 포켓몬입니다.')
+  if (!starterIds.includes(speciesId) || !isSpeciesMotionSupported(speciesId)) throw new RangeError('선택할 수 없는 스타팅 포켓몬입니다.')
   if (!Number.isInteger(slot) || slot < 1 || slot > 3) throw new RangeError('저장 슬롯은 1~3 사이여야 합니다.')
   const speciesIdPart = species[speciesId].pokedexNumber.toString(16)
   const instanceId = [now.toString(36), seed.toString(36), speciesIdPart, slot].join('-')
@@ -679,12 +680,17 @@ const regionalLevelEvolutions: Record<string, Evolution | null> = {
   'meowth-alola': null, 'sandshrew-alola': null, 'darumaka-galar': null, 'yamask-galar': null,
 }
 
-export function evolutionFor(speciesId: string, formId?: string): Evolution | undefined {
+function levelEvolution(speciesId: string, formId?: string): Evolution | undefined {
   if (formId && Object.hasOwn(regionalLevelEvolutions, formId)) return regionalLevelEvolutions[formId] ?? undefined
   const rule = species[speciesId].evolvesTo
   if (!rule || !formId) return rule
   const nextForm = validForm(rule.speciesId, rule.speciesId + formId.slice(speciesId.length))
   return nextForm ? { ...rule, formId: nextForm } : rule
+}
+
+export function evolutionFor(speciesId: string, formId?: string): Evolution | undefined {
+  const rule = levelEvolution(speciesId, formId)
+  return rule && isSpeciesMotionSupported(speciesId, formId) && isSpeciesMotionSupported(rule.speciesId, rule.formId) ? rule : undefined
 }
 
 export function canEvolve(game: GameSave): boolean {
@@ -760,7 +766,8 @@ export function captureChance(wild: Wild, itemId: CaptureBallId): number {
 function captureTarget(game: GameSave): Wild | undefined {
   if (!game.autoBattle || game.player.state !== 'BATTLE' || game.runtime.captureIn > 0) return
   const target = findTarget(game)
-  return target && !target.trainerId && target.currentHP > 0 ? target : undefined
+  return target && !target.trainerId && target.currentHP > 0 && isSpeciesMotionSupported(target.speciesId, target.formId) &&
+    isSpeciesMotionSupported(target.speciesId, target.formId === 'wishiwashi-school' ? undefined : target.formId) ? target : undefined
 }
 
 export function canThrowBall(game: GameSave, itemId: string): boolean {
@@ -831,7 +838,7 @@ function installLead(game: GameSave, member: PartyPokemon): void {
   const state = currentHP > 0 ? 'IDLE' : 'RECOVER'
   game.player = {
     instanceId, speciesId, ...(formId && { formId }), level, exp: exp ?? 0,
-    moveIds: moveIds ?? movesFor(speciesId, level, formId).map(move => move.id), heldItemId: heldItemId ?? null,
+    moveIds: equippedMoves(moveIds, speciesId, level, formId), heldItemId: heldItemId ?? null,
     currentHP, ...(fullHP !== maxHP && { uncappedHP: member.currentHP }), position, direction, roamSeed: member.roamSeed,
     state: state === 'RECOVER' && !game.autoBattle ? 'PAUSED' : state,
   }
@@ -852,6 +859,9 @@ function movePartyMember(game: GameSave, instanceId: string, toIndex: number): b
   if (!Number.isInteger(toIndex) || toIndex < 0 || toIndex > game.followers.length) return false
   const fromIndex = [game.player, ...game.followers].findIndex(member => member.instanceId === instanceId)
   if (fromIndex < 0) return false
+  const selected = fromIndex ? game.followers[fromIndex - 1] : game.player
+  if (!isSpeciesMotionSupported(selected.speciesId, selected.formId)) return false
+  if (fromIndex === 0 && toIndex > 0 && !isSpeciesMotionSupported(game.followers[0].speciesId, game.followers[0].formId)) return false
   if (fromIndex === toIndex) return true
   if (fromIndex > 0 && toIndex > 0) {
     const [member] = game.followers.splice(fromIndex - 1, 1)
@@ -869,7 +879,7 @@ function movePartyMember(game: GameSave, instanceId: string, toIndex: number): b
 function setFollowerActive(game: GameSave, instanceId: string, active: boolean, boxIndex?: number): boolean {
   if (game.player.instanceId === instanceId) {
     if (active) return true
-    if (!game.followers.length || !canChangeLead(game)) return false
+    if (!game.followers.length || !canChangeLead(game) || !isSpeciesMotionSupported(game.followers[0].speciesId, game.followers[0].formId)) return false
     if (storeInBox(game.boxes, leadAsMember(game, false), boxIndex) === undefined) return false
     installLead(game, game.followers.shift()!)
     return true
@@ -879,7 +889,7 @@ function setFollowerActive(game: GameSave, instanceId: string, active: boolean, 
     const stored = findBoxSlot(game.boxes, instanceId)
     if (!stored) return false
     if (!active) return boxIndex === undefined || boxIndex === stored.index
-    if (game.followers.length >= MAX_PARTY_SIZE - 1) return false
+    if (game.followers.length >= MAX_PARTY_SIZE - 1 || !isSpeciesMotionSupported(stored.pokemon.speciesId, stored.pokemon.formId)) return false
     stored.box[stored.slot] = null
     setRoaming(stored.pokemon, true)
     game.followers.push(stored.pokemon)
@@ -898,7 +908,7 @@ function swapBoxPokemon(game: GameSave, partyId: string, boxId: string): boolean
   const isLead = partyId === game.player.instanceId
   if (isLead ? !canChangeLead(game) : partyIndex < 0) return false
   const stored = findBoxSlot(game.boxes, boxId)
-  if (!stored) return false
+  if (!stored || !isSpeciesMotionSupported(stored.pokemon.speciesId, stored.pokemon.formId)) return false
   if (isLead) {
     stored.box[stored.slot] = leadAsMember(game, false)
     installLead(game, stored.pokemon)
@@ -933,16 +943,15 @@ export function arenaSkills(game: GameSave) {
   if (!arena || !target) return []
   const casting = arena.casts.find(cast => cast.side === 'player')
   const refs = arenaSpriteRefs(game, target)
-  return game.player.moveIds.map(id => {
-    const base = moves[id]
-    const move = target.maxActionsLeft ? stadiumMove(base) : base
+  return game.player.moveIds.filter(id => isMoveMotionSupported(game.player.speciesId, game.player.formId, id)).map(id => {
+    const move = moves[id]
     const profile = arenaMoveProfile(move)
     const range = profile.range
     const preview = createArenaCast(0, 'player', move, arena.player, arena.enemy, refs)
     return {
       move, range, profile,
       cooldownMs: Math.max(arena.skillLockMs, casting ? castDuration(casting) - casting.elapsedMs : 0, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
-      unlocked: base.unlockLevel <= effectiveLevel(game),
+      unlocked: move.unlockLevel <= effectiveLevel(game),
       inRange: move.category === 'healing' || arenaDistance(preview.origin, preview.profile.kind === 'burst' ? arena.enemy : preview.target) <= range,
     }
   })
@@ -953,6 +962,7 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   const index = game.followers.findIndex(member => member.instanceId === id && member.currentHP > 0)
   if (index < 0) return false
   const incoming = game.followers[index]
+  if (!isSpeciesMotionSupported(incoming.speciesId, incoming.formId)) return false
   const position = { ...game.player.position }
   game.followers[index] = leadAsMember(game, true)
   installLead(game, incoming)
@@ -1044,17 +1054,17 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const opponent = findTarget(game)
   if (!opponent || arena.paused || arena.needsSwitch) return
   game.runtime.clock += elapsed
-  const technique = wildMove(opponent)
-  const selected = opponent.maxActionsLeft ? stadiumMove(technique, opponent.dynamax === 'gigantamax' ? opponent.speciesId : undefined) : technique
+  const selected = wildMove(opponent)
   const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
   const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
   const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
   const refs = arenaSpriteRefs(game, opponent)
   const outcome = arena.lastClash
+  const wasDynamaxed = Boolean(opponent.maxActionsLeft)
   const impacts = stepArena(arena, elapsed, playerSpeed, enemySpeed, selected, refs, (a, b) => {
     const strength = (cast: ArenaCast, other: ArenaCast) => {
       const player = cast.side === 'player'
-      const move = player && opponent.maxActionsLeft ? stadiumMove(moves[cast.moveId]) : player ? moves[cast.moveId] : selected
+      const move = player ? moves[cast.moveId] : selected
       const stats = player ? playerStats(game) : opponentStats(game, opponent)
       const level = player ? effectiveLevel(game) : opponent.level
       const types = player ? formStats(game.player.speciesId, game.player.formId).types : formStats(opponent.speciesId, battleForm(opponent)).types
@@ -1072,13 +1082,9 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   }
   for (const { cast, hit, position, beamShare, silent } of impacts) {
     if (game.campaign.battle?.arena !== arena || arena.needsSwitch || findTarget(game) !== opponent) break
-    // If another impact ended Dynamax in this same slice, its pending Max
-    // technique was cancelled. Never replace it with a new base-form hit.
-    if (cast.moveName.startsWith('다이') || cast.moveName.startsWith('거다이')) {
-      if (!opponent.maxActionsLeft) continue
-    }
+    if (wasDynamaxed && !opponent.maxActionsLeft) break
     const playerTurn = cast.side === 'player'
-    if (hit) attack(game, opponent, { playerTurn, move: playerTurn ? moves[cast.moveId] : technique, cast, position, beamShare })
+    if (hit) attack(game, opponent, { playerTurn, move: playerTurn ? moves[cast.moveId] : selected, cast, position, beamShare })
     else {
       if (!cast.beam?.spent) spendMaxAction(game, opponent)
       if (cast.beam) cast.beam.spent = true
@@ -1169,8 +1175,18 @@ function weightedEncounter<T extends { weight: number }>(game: GameSave, choices
   return choices.find((entry) => (draw -= entry.weight) < 0)
 }
 
+type WeatherPool = NonNullable<ReturnType<typeof getGalarWeatherEncounters>>
+const playableWeather = new WeakMap<WeatherPool, WeatherPool>()
+
 export function regionalWeather(game: GameSave, locationId: string, date = new Date()) {
-  return game.regionId === 'galar' ? getGalarWeatherEncounters(locationId, date, game.campaign.badges.length, game.campaign.champion) : undefined
+  if (game.regionId !== 'galar') return
+  const forecast = getGalarWeatherEncounters(locationId, date, game.campaign.badges.length, game.campaign.champion)
+  if (!forecast) return
+  const cached = playableWeather.get(forecast)
+  if (cached) return cached
+  const filtered = { ...forecast, encounters: supportedEncounters('galar', locationId, forecast.encounters) }
+  playableWeather.set(forecast, filtered)
+  return filtered
 }
 
 function nextEncounter(game: GameSave, location: KantoLocation): KantoEncounter | undefined {
@@ -1190,9 +1206,9 @@ function spawn(game: GameSave, bounds: Bounds, location: KantoLocation): void {
   const angle = randomBetween(game, 0, 2 * Math.PI)
   const { x, y } = game.player.position
   const position = bounded({ x: x + Math.cos(angle) * distance, y: y + Math.sin(angle) * distance }, bounds, game.settings.spriteScale)
-  const midnight = hasWildMidnightForm(game.regionId, location.id, wildId) && random(game) < 0.5
-  const forms = game.regionId === 'paldea' ? paldeaWildForms(location.id, wildId, level) : undefined
-  const formId = forms?.length ? weightedEncounter(game, forms)?.formId : wildEncounterForm(game.regionId, location.id, wildId, level, midnight)
+  const forms = supportedWildForms(game.regionId, location.id, wildId, level)
+  if (!forms.length) return
+  const formId = forms.length === 1 ? forms[0].formId : weightedEncounter(game, forms)?.formId
   const maxHP = encounterMaxHP(wildId, level, formId)
   game.wild.push({
     id: game.runtime.nextId++,
@@ -1215,7 +1231,7 @@ function chooseTarget(game: GameSave): Wild | undefined {
   let target: Wild | undefined
   let closest = SEARCH_RANGE
   for (const wild of game.wild) {
-    if (wild.level > levelLimit) continue
+    if (wild.level > levelLimit || !isSpeciesMotionSupported(wild.speciesId, wild.formId)) continue
     const distance = Math.hypot(wild.position.x - position.x, wild.position.y - position.y)
     if (distance < SEARCH_RANGE && legends?.some((slot) => slot.speciesId === wild.speciesId)) return wild
     if (distance < closest) {
@@ -1242,7 +1258,7 @@ function chooseMove(game: GameSave, wild: Wild): Move {
   let best = moves.tackle
   let bestScore = -1
   for (const id of game.player.moveIds) {
-    if ((game.runtime.cooldowns[id] ?? 0) > game.runtime.clock) continue
+    if (!isMoveMotionSupported(game.player.speciesId, game.player.formId, id) || (game.runtime.cooldowns[id] ?? 0) > game.runtime.clock) continue
     const candidate = moves[id]
     if (candidate.unlockLevel > level) continue
     if (candidate.category === 'healing') {
@@ -1288,12 +1304,12 @@ for (const technique of Object.values(wildTechniques)) {
 }
 
 function wildMove(wild: Wild): Move {
-  if (wild.teraType) return wildTechniques[wild.teraType] ?? moves.tackle
-  const signature = wild.maxActionsLeft && wild.dynamax === 'gigantamax' && gigantamaxMoves[wild.speciesId]
-  if (signature) return wildTechniques[signature.type]
-  const types = formStats(wild.speciesId, battleForm(wild)).types
-  const moveType = types.find((type) => hasKey(wildTechniques, type))
-  return moveType ? wildTechniques[moveType] : moves.scratch
+  const formId = battleForm(wild)
+  const types = formStats(wild.speciesId, formId).types
+  const candidates = [...(wild.teraType ? [wild.teraType] : []), ...types].map(type => wildTechniques[type])
+  candidates.push(moves.scratch, moves.tackle)
+  // Every playable form has a body-attack clip for Tackle.
+  return candidates.find(candidate => candidate && isMoveMotionSupported(wild.speciesId, formId, candidate.id)) ?? moves.tackle
 }
 
 function newCampaign(progress: RegionProgress = { badges: [], champion: false }): Campaign {
@@ -1305,18 +1321,50 @@ function remainingGym(region: WorldRegion, badges: string[]): KantoTrainer | und
 }
 
 export function nextGymTrainer(game: GameSave): KantoTrainer | undefined {
-  return remainingGym(worldRegions[game.regionId], game.campaign.badges)
+  const region = worldRegions[game.regionId]
+  const trainer = remainingGym(region, game.campaign.badges)
+  return trainer && resolveTrainer(region, trainer, game.starterSpeciesId)
 }
 
-function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, speciesId: string): KantoTrainer {
+function originalTrainer(region: WorldRegion, trainer: KantoTrainer, speciesId: string): KantoTrainer {
   if (region.trainerForStarter) return region.trainerForStarter(trainer, speciesId)
   return trainer.role === 'champion' ? region.championForStarter?.(speciesId) ?? trainer : trainer
+}
+
+function supportedTrainerMember(region: WorldRegion, trainer: KantoTrainer, member: KantoTrainerMember): KantoTrainerMember[] {
+  const formId = member.formId ?? locationForm(region.id, trainer.locationId, member.speciesId)
+  if (!isSpeciesMotionSupported(member.speciesId, formId)) return []
+  if (formId === 'wishiwashi-school' && !isSpeciesMotionSupported(member.speciesId)) return []
+  if (member.dynamax === 'gigantamax' && !isSpeciesMotionSupported(member.speciesId, member.speciesId + '-gmax')) {
+    return [{ ...member, dynamax: 'dynamax' }]
+  }
+  return [member]
+}
+
+const resolvedTrainers = new WeakMap<KantoTrainer, Map<string, KantoTrainer>>()
+export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, starterSpeciesId: string): KantoTrainer {
+  const key = region.id + ':' + (species[starterSpeciesId]?.types[0] ?? '')
+  const cache = resolvedTrainers.get(trainer) ?? new Map<string, KantoTrainer>()
+  const previous = cache.get(key)
+  if (previous) return previous
+  const original = originalTrainer(region, trainer, starterSpeciesId)
+  const team = original.team.flatMap(member => supportedTrainerMember(region, original, member))
+  // Use the Alolan Raticate totem at Verdant Cavern when Gumshoos lacks a clip.
+  if (!team.length && original.id === 'alola-gumshoos') {
+    team.push(...supportedTrainerMember(region, original, { speciesId: 'raticate', level: original.team[0].level }))
+  }
+  if (!team.length) throw new Error('출전 가능한 포켓몬이 없는 트레이너: ' + original.id)
+  const name = original.trialKind === 'totem' ? '주인 ' + species[team[0].speciesId].nameKo : original.name
+  const result = { ...original, name, team }
+  cache.set(key, result)
+  resolvedTrainers.set(trainer, cache)
+  return result
 }
 
 function eligibleLeagueOpponents(region: WorldRegion, campaign: Campaign, speciesId: string): KantoTrainer[] {
   if (region.freeEliteOrder) {
     const remaining = region.leagueTrainers.filter(trainer => trainer.role === 'elite' && !campaign.eliteWins?.includes(trainer.id))
-    if (remaining.length) return remaining
+    if (remaining.length) return remaining.map(trainer => resolveTrainer(region, trainer, speciesId))
   }
   const next = region.leagueTrainers[campaign.leagueIndex ?? 0]
   return next ? [resolveTrainer(region, next, speciesId)] : []
@@ -1345,7 +1393,7 @@ export function currentTrainer(game: GameSave): KantoTrainer | undefined {
 }
 
 function canChallenge(game: GameSave): boolean {
-  return !game.campaign.battle && game.player.currentHP > 0 &&
+  return !game.campaign.battle && game.player.currentHP > 0 && isSpeciesMotionSupported(game.player.speciesId, game.player.formId) &&
     (['IDLE', 'WANDER', 'RECOVER'] as Activity[]).includes(activeState(game))
 }
 
@@ -1564,9 +1612,8 @@ function victory(game: GameSave, wild: Wild): void {
 function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean; cast: ArenaCast; position: Position; beamShare?: number }): void {
   const player = game.player
   const playerTurn = manual?.playerTurn ?? (game.runtime.turn === 'player')
-  const baseMove = manual?.move ?? (playerTurn ? chooseMove(game, target) : wildMove(target))
+  const selected = manual?.move ?? (playerTurn ? chooseMove(game, target) : wildMove(target))
   const arena = game.campaign.battle?.arena
-  const selected = target.maxActionsLeft ? stadiumMove(baseMove, !playerTurn && target.dynamax === 'gigantamax' ? target.speciesId : undefined) : baseMove
   const stats = playerStats(game)
   const enemyStats = opponentStats(game, target)
   const source = playerTurn ? player : target
@@ -1629,7 +1676,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     if (trainer) trainerVictory(game, trainer, target)
     else victory(game, target)
   } else if (player.currentHP === 0) {
-    if (trainer && arena && game.followers.some(member => member.currentHP > 0)) {
+    if (trainer && arena && game.followers.some(member => member.currentHP > 0 && isSpeciesMotionSupported(member.speciesId, member.formId))) {
       if (firstBeamContact) spendMaxAction(game, target)
       arena.needsSwitch = true
       clearArenaCasts(arena)
@@ -2153,9 +2200,12 @@ function readWild(value: unknown, clock: number, regionId: RegionId, location: K
       ? isGalarWildEncounter(location.id, entry.speciesId, level, campaign.champion, campaign.badges.length)
       : location.encounters.some(matches)
     if (!ordinary && !legends.some(matches)) continue
+    const savedForm = validForm(entry.speciesId, entry.formId)
+    if (savedForm && !isSpeciesMotionSupported(entry.speciesId, savedForm)) continue
     const forms = regionId === 'paldea' ? paldeaWildForms(location.id, entry.speciesId, level) : undefined
     const formId = forms?.length ? (forms.find(row => row.formId === entry.formId) ?? forms[0]).formId
       : wildEncounterForm(regionId, location.id, entry.speciesId, level, entry.formId === 'lycanroc-midnight')
+    if (!isSpeciesMotionSupported(entry.speciesId, formId)) continue
     const maxHP = encounterMaxHP(entry.speciesId, level, formId)
     const currentHP = integer(entry.currentHP, maxHP, 1, maxHP)
     const expiresAt = finite(entry.expiresAt, clock + 90000, 0, clock + 90000)
@@ -2174,6 +2224,9 @@ function storedForm(speciesId: string, raw: unknown) {
 }
 
 function equippedMoves(raw: unknown, speciesId: string, level: number, formId?: string): string[] {
+  if (!isSpeciesMotionSupported(speciesId, formId)) {
+    return Array.isArray(raw) ? [...new Set(raw.filter((id): id is string => typeof id === 'string' && hasKey(moves, id)))].slice(0, 4) : []
+  }
   const chosen = validMoveIds(raw, speciesId, level, formId)
   return chosen.includes('tackle') ? chosen : movesFor(speciesId, level, formId).map(move => move.id)
 }
@@ -2220,7 +2273,7 @@ function readOwnedPokemon(value: Record<string, unknown>, leaderId: string, lead
     knownIds.add(instanceId)
     return {
       instanceId, speciesId, level, ...(formId && { formId }),
-      currentHP: integer(entry.currentHP, maxHP, value.schemaVersion === SAVE_SCHEMA_VERSION ? 0 : 1, maxHP),
+      currentHP: integer(entry.currentHP, maxHP, typeof value.schemaVersion === 'number' && value.schemaVersion >= 15 ? 0 : 1, maxHP),
       ...(entry.exp !== undefined && { exp: integer(entry.exp, 0, 0, Math.max(0, requiredExp(level) - 1)) }),
       ...(entry.moveIds !== undefined && { moveIds: equippedMoves(entry.moveIds, speciesId, level, formId) }),
       ...(entry.heldItemId !== undefined && { heldItemId }),
@@ -2321,7 +2374,7 @@ function readRegionProgress(region: WorldRegion, value: unknown): RegionProgress
   return { badges, champion, ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }) }
 }
 
-function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string): Campaign {
+function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number): Campaign {
   const campaign = newCampaign(readRegionProgress(region, value))
   if (!isRecord(value)) return campaign
   const gym = remainingGym(region, campaign.badges)
@@ -2350,9 +2403,22 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
     : campaign.leagueIndex !== null ? eligibleLeagueOpponents(region, campaign, speciesId)
       .find(trainer => trainer.id === savedTrainerId) : availableFinale
   const index = value.battle.opponentIndex
-  if (eligibleTrainer && eligibleTrainer.id === value.battle.trainerId && typeof index === 'number' &&
-      Number.isInteger(index) && index >= 0 && index < eligibleTrainer.team.length) {
-    campaign.battle = { trainerId: eligibleTrainer.id, opponentIndex: index, arena: createArena([]) }
+  if (eligibleTrainer?.id !== savedTrainerId || typeof index !== 'number' || !Number.isInteger(index) || index < 0) return campaign
+  const definition = region.trainerById[savedTrainerId]
+  if (!definition) return campaign
+  const team = resolveTrainer(region, definition, speciesId).team
+  let opponentIndex = index
+  if (version < 16) {
+    const oldTeam = originalTrainer(region, definition, speciesId).team
+    const member = oldTeam[index]
+    if (!member || !isSpeciesMotionSupported(member.speciesId, member.formId ?? locationForm(region.id, definition.locationId, member.speciesId))) return campaign
+    // The same species and level can occur more than once in an original team.
+    const sameMember = (slot: KantoTrainerMember) => slot.speciesId === member.speciesId && slot.level === member.level && slot.formId === member.formId
+    let occurrence = oldTeam.slice(0, index).filter(sameMember).length
+    opponentIndex = team.findIndex(slot => sameMember(slot) && occurrence-- === 0)
+  }
+  if (opponentIndex >= 0 && opponentIndex < team.length) {
+    campaign.battle = { trainerId: savedTrainerId, opponentIndex, arena: createArena([]) }
   }
   return campaign
 }
@@ -2364,6 +2430,7 @@ function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Camp
   if (!definition) return
   const trainer = resolveTrainer(region, definition, speciesId)
   const slot = trainer.team[battle.opponentIndex]
+  if (!slot) return
   for (const entry of value.slice(0, MAX_WILD)) {
     if (!isRecord(entry) || entry.id !== targetId || entry.trainerId !== trainer.id || entry.speciesId !== slot.speciesId ||
         entry.level !== slot.level || typeof entry.currentHP !== 'number' || entry.currentHP <= 0 || !Number.isFinite(entry.currentHP)) continue
@@ -2373,6 +2440,49 @@ function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Camp
     opponent.currentHP = integer(entry.currentHP, opponent.maxHP, 1, opponent.maxHP)
     return opponent
   }
+}
+
+/** Move retired species to stable PC slots once, including the original partner. */
+function restorePlayableParty(game: GameSave): void {
+  const playable = (member: { speciesId: string; formId?: string }) => isSpeciesMotionSupported(member.speciesId, member.formId)
+  const archived = game.followers.filter(member => !playable(member))
+  game.followers = game.followers.filter(playable)
+  if (!playable(game.player)) {
+    archived.unshift(leadAsMember(game, false))
+    let next = game.followers.shift()
+    if (!next) {
+      for (const box of game.boxes) {
+        const slot = box.findIndex(member => member !== null && playable(member))
+        if (slot >= 0) {
+          next = box[slot]!
+          box[slot] = null
+          break
+        }
+      }
+    }
+    if (!next) {
+      const speciesId = isSpeciesMotionSupported(game.starterSpeciesId) ? game.starterSpeciesId : starterIds.find(id => isSpeciesMotionSupported(id))!
+      next = {
+        instanceId: 'caught-' + game.runtime.nextId++, speciesId, level: 5, currentHP: statsFor(speciesId, 5).hp,
+        position: game.player.position, direction: game.player.direction, active: true, state: 'IDLE', destination: null,
+        restMs: 0, roamSeed: game.runtime.encounterSeed,
+      }
+      addUnique(game.pokedexSeen, speciesId)
+      addUnique(game.pokedexCaught, speciesId)
+      addLog(game, 'recovery', `출전 가능한 보유 포켓몬이 없어 ${species[speciesId].nameKo}(Lv.5)이 파티에 합류했습니다.`)
+    }
+    game.campaign.battle = null
+    game.wild = []
+    game.runtime.captureIn = 0
+    game.runtime.autoCaptureTargetId = null
+    game.runtime.drop = null
+    installLead(game, { ...next, position: game.player.position })
+  }
+  for (const member of archived) {
+    setRoaming(member, false)
+    storeInBox(game.boxes, member)
+  }
+  if (archived.length) addLog(game, 'recovery', `전용 모션이 없는 파티 포켓몬 ${archived.length}마리를 PC 박스에 보관했습니다.`)
 }
 
 /** Validate essential fields and rebuild the rest from known keys, allowing additive save changes. */
@@ -2428,7 +2538,7 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   const fallbackLocationId = regionId === 'kanto' ? LEGACY_LOCATION_ID : region.startLocationId
   const location = savedLocation ?? region.locationById[fallbackLocationId]
   delete regionProgress[regionId]
-  const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId) : newCampaign()
+  const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId, value.schemaVersion) : newCampaign()
   const effective = Math.min(level, region.levelCaps[campaign.badges.length])
   const baseHP = statsFor(speciesId, effective, heldItemId, formId).hp
   let trainerEnemy = campaign.battle
@@ -2451,17 +2561,20 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   const { followers, boxes } = readOwnedPokemon(value, leaderId, position, runtime, inventory, heldItemId)
   if (campaign.battle && trainerEnemy) {
     const rawArena = isRecord(savedCampaign) && isRecord(savedCampaign.battle) ? savedCampaign.battle.arena : undefined
-    if (currentHP === 0 && !followers.some(member => member.currentHP > 0)) {
+    const playableFollowers = followers.filter(member => isSpeciesMotionSupported(member.speciesId, member.formId))
+    if (isSpeciesMotionSupported(speciesId, formId) && currentHP === 0 && !playableFollowers.some(member => member.currentHP > 0)) {
       campaign.battle = null
       trainerEnemy = undefined
       wild.length = 0
-      resetLeagueRun(campaign)
+      if (!followers.some(member => member.currentHP > 0)) resetLeagueRun(campaign)
     } else {
       const foe = trainerEnemy
-      const foeBase = wildMove(foe)
-      const foeMove = foe.maxActionsLeft ? stadiumMove(foeBase, foe.dynamax === 'gigantamax' ? foe.speciesId : undefined) : foeBase
-      campaign.battle.arena = restoreArena(rawArena, [leaderId, ...followers.map(member => member.instanceId)], currentHP === 0, foeMove, id =>
-        moveIds.includes(id) ? (foe.maxActionsLeft ? stadiumMove(moves[id]) : moves[id]) : undefined, spriteRefs(speciesId, formId, foe))
+      const clearedMaxCasts = value.schemaVersion < 16 && foe.maxActionsLeft && isRecord(rawArena)
+        ? { ...rawArena, casts: [], beamClash: undefined } : rawArena
+      if (isSpeciesMotionSupported(speciesId, formId)) {
+        campaign.battle.arena = restoreArena(clearedMaxCasts, [leaderId, ...playableFollowers.map(member => member.instanceId)],
+          currentHP === 0, wildMove(foe), id => moveIds.includes(id) ? moves[id] : undefined, spriteRefs(speciesId, formId, foe))
+      }
     }
   }
   const autoBattle = value.autoBattle !== false
@@ -2544,6 +2657,7 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
       transition(hydrated, autoBattle ? 'RECOVER' : 'IDLE', autoBattle ? RECOVERY_MS : 700)
     }
   }
+  restorePlayableParty(hydrated)
   if (runtime.evolutionFrom) evolutionEffect(hydrated, runtime.evolutionFrom, runtime.stateIn)
   return hydrated
 }

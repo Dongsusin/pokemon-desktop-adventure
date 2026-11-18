@@ -32,20 +32,21 @@ function faceKabu() {
 }
 
 describe('Galar stadiums and encounter eligibility', () => {
-  it('restores both Dynamax HP bars, the G-Max sprite and the remaining turns, then reverts after three exchanges', () => {
+  it('restores both Dynamax HP bars and supported moves, then reverts after three exchanges', () => {
     let game = faceKabu()
     const base = statsFor(game.player.speciesId, effectiveLevel(game)).hp
     const target = game.wild[0]
     expect(target.maxActionsLeft).toBe(6)
     expect(playerStats(game).hp).toBe(Math.floor(base * 1.5))
-    expect(battleForm(target)).toBe('centiskorch-gmax')
+    expect(target.dynamax).toBe('dynamax')
+    expect(battleForm(target)).toBeUndefined()
     for (let remaining = 5; remaining >= 0; remaining--) {
       game.wild[0].currentHP = game.wild[0].maxHP
       game.player.currentHP = playerStats(game).hp
       if (remaining % 2 === 1) idleUntilHit(game)
       else castSkill(game)
       expect(game.wild[0].maxActionsLeft).toBe(remaining)
-      if (remaining === 5) expect(game.effects.some(effect => effect.text === '거다이백화')).toBe(true)
+      if (remaining === 5) expect(game.effects.some(effect => effect.text === '불꽃세례')).toBe(true)
       const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
       expect(saved.wild).toEqual(game.wild)
       expect(saved.player.currentHP).toBe(game.player.currentHP)

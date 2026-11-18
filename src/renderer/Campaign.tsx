@@ -1,5 +1,5 @@
 import {
-  canChallengeFinale, canChallengeGym, canChallengeLeague, currentTrainer, leagueOpponents, levelCap, nextGymTrainer,
+  canChallengeFinale, canChallengeGym, canChallengeLeague, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
   type GameSave
 } from '../game/engine'
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
@@ -118,13 +118,14 @@ export function Campaign({ game, busy, begin, locate }: {
   const leagueTitle = regionName + (region.id === 'paldea' ? ' 챔피언 테스트' : region.id === 'galar' ? ' 챔피언컵' : ' 리그')
   const progressTitle = regionName + (region.id === 'alola' ? ' 섬 순례' : ' 배지')
   const badgeSheet = new URL('maps/' + region.id + '/gym-badges.png', document.baseURI).href
-  const gym = region.gymTrainerByLocationId[game.locationId]
+  const localGym = region.gymTrainerByLocationId[game.locationId]
+  const gym = localGym && resolveTrainer(region, localGym, game.starterSpeciesId)
   const atLeague = game.locationId === region.leagueLocationId
   const stage = game.campaign.leagueIndex
   const inBattle = Boolean(game.campaign.battle)
   const options = atLeague && !inBattle ? leagueOpponents(game) : []
   const next = options.length === 1 ? options[0] : undefined
-  const finale = region.finaleTrainer && (region.trainerForStarter?.(region.finaleTrainer, game.starterSpeciesId) ?? region.finaleTrainer)
+  const finale = region.finaleTrainer && resolveTrainer(region, region.finaleTrainer, game.starterSpeciesId)
 
   return <div className="campaign-layout">
     <section className="card campaign-badges" aria-label={progressTitle}>

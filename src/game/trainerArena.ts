@@ -137,6 +137,15 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
       if (cast.elapsedMs >= castDuration(cast)) continue
       cast.resolved = saved.resolved === true || cast.elapsedMs >= cast.profile.startupMs + cast.profile.activeMs
       if (cast.resolved) cast.result = saved.result === 'hit' ? 'hit' : 'miss'
+      if (!cast.beam && cast.result === 'hit' && object(saved.impact) && object(saved.impact.position)) {
+        const { x, y } = saved.impact.position
+        const time = saved.impact.elapsedMs
+        if (typeof x === 'number' && Number.isFinite(x) && x >= -.5 && x <= 1.5 &&
+            typeof y === 'number' && Number.isFinite(y) && y >= -.5 && y <= 1.5 &&
+            typeof time === 'number' && time >= cast.profile.startupMs && time <= cast.elapsedMs) {
+          cast.impact = { position: { x, y }, elapsedMs: time }
+        }
+      }
       if (cast.beam) {
         const rounds = beamRounds(cast)
         const elapsedPulses = clamp(Math.floor((cast.elapsedMs - cast.profile.startupMs + .00001) / beamPulseMs), 0, rounds)
@@ -337,7 +346,10 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
     if (!hit && cast.elapsedMs < p.startupMs + p.activeMs) continue
     cast.resolved = true
     cast.result = hit ? 'hit' : 'miss'
-    impacts.push({ cast, hit, position: { ...(p.kind === 'self' ? arena[cast.side] : arena[victim]) } })
+    const at = p.kind === 'self' ? arena[cast.side] : arena[victim]
+    const position = cast.victimOffset ? { x: at.x + cast.victimOffset.x, y: at.y + cast.victimOffset.y } : { ...at }
+    if (hit) cast.impact = { position, elapsedMs: cast.elapsedMs }
+    impacts.push({ cast, hit, position })
   }
   arena.casts = arena.casts.filter(cast => cast.elapsedMs < castDuration(cast))
   for (const field of ['skillLockMs', 'switchCooldownMs', 'invulnerableMs', 'dodgeMs'] as const) {

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { worldRegions, type RegionId } from '../game/regions/world'
-import { paldeaWildForms } from '../game/regions/paldea-encounters'
+import { supportedWildForms } from '../game/regions/motionEncounters'
 import { PALDEA_MAP_WIDTH, PALDEA_MAP_HEIGHT, paldeaAreaByLocationId } from '../game/regions/paldea'
 import { GALAR_MAP_WIDTH, GALAR_MAP_HEIGHT, galarAreaByLocationId } from '../game/regions/galar'
 import { ALOLA_MAP_WIDTH, ALOLA_MAP_HEIGHT, alolaIslandByLocationId } from '../game/regions/alola'
@@ -17,7 +17,7 @@ import {
 import type { KantoLocation } from '../game/regions/kanto'
 import { species } from '../game/catalog'
 import { regionalWeather, eligibleLegends, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
-import { formLabel, hasWildMidnightForm, locationForm } from '../game/forms'
+import { formLabel } from '../game/forms'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
 import { Pokemon, types } from './shared'
 import './region-map.css'
@@ -146,10 +146,10 @@ function RangeList({ location, game }: { location: KantoLocation; game: GameSave
   const forecast = regionalWeather(game, location.id)
   const slots = forecast?.encounters ?? location.encounters
   const entries = useMemo(() => poolSummary(slots).map(entry => {
-    const forms = game.regionId === 'paldea' ? paldeaWildForms(location.id, entry.id) : undefined
-    const formId = forms?.length ? forms[0].formId : locationForm(game.regionId, location.id, entry.id)
-    const description = forms?.map(row => formLabel(row.formId) ?? '기본 모습').join(' · ') ??
-      (hasWildMidnightForm(game.regionId, location.id, entry.id) ? '한낮·한밤중의 모습' : formLabel(formId))
+    const forms = new Set([...entry.levels].flatMap(level =>
+      supportedWildForms(game.regionId, location.id, entry.id, level).map(choice => choice.formId)))
+    const formId = [...forms][0]
+    const description = forms.size === 1 ? formLabel(formId) : [...forms].map(id => formLabel(id) ?? '기본 모습').join(' · ')
     return { ...entry, formId, description }
   }), [slots, game.regionId, location.id])
   const rareEntries = eligibleLegends(location, game.starterSpeciesId, true)
@@ -173,7 +173,7 @@ function RangeList({ location, game }: { location: KantoLocation; game: GameSave
         {rareEntries.map(entry => <li key={entry.speciesId}>
           <Pokemon id={entry.speciesId} />
           <div><strong>{species[entry.speciesId].nameKo}</strong><small>Lv. {entry.level}</small></div>
-          <span>{available.includes(entry) ? (rarePercent * entry.weight / rareWeight).toLocaleString('ko-KR') + '%' : location.afterFinale ? '네모에게 승리 후 출현' : entry.championOnly ? '리그 우승 후 출현' : '배지 ' + entry.minBadges + '개 필요'}</span>
+          <span>{available.some(choice => choice.speciesId === entry.speciesId) ? (rarePercent * entry.weight / rareWeight).toLocaleString('ko-KR') + '%' : location.afterFinale ? '네모에게 승리 후 출현' : entry.championOnly ? '리그 우승 후 출현' : '배지 ' + entry.minBadges + '개 필요'}</span>
         </li>)}
       </ul>
     </div>}

@@ -7,6 +7,7 @@ import { worldRegions } from '../game/regions/world'
 import { Pokemon, pokemonName, types } from './shared'
 import { ArenaEffects, moveColors } from './ArenaEffects'
 import { ArenaFighter } from './ArenaFighter'
+import { nativeBodyStyle } from './NativeMove'
 import { ArenaTrainers } from './ArenaTrainers'
 import { useMoveSounds } from './useMoveSounds'
 import { createArenaCast, arenaHeightRatio } from '../game/arenaMoves'
@@ -238,10 +239,10 @@ export function TrainerArena({ game }: { game: GameSave }) {
         <ArenaTrainers trainer={trainer}/>
         {goal && isPlaying && <i className="ring-goal" aria-hidden="true" style={point(goal)}/>}
         <ArenaEffects casts={arena.casts} clash={arena.beamClash} lastClash={arena.lastClash} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
-        <ArenaFighter side="enemy" pos={arena.enemy} opponent={arena.player} id={opponentId} formId={opponentForm}
+        <ArenaFighter side="enemy" pos={arena.enemy} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'enemy') : undefined} id={opponentId} formId={opponentForm}
           health={(foe?.currentHP ?? 0)/(foe?.maxHP ?? 1)} playing={isPlaying} feedback={feedback}
           casting={arena.casts.find(cast=>cast.side==='enemy')} dynamax={!!foe?.maxActionsLeft} tera={foe?.teraType}/>
-        <ArenaFighter side="player" pos={arena.player} direction={arena.direction} opponent={arena.enemy} id={player.speciesId} formId={player.formId}
+        <ArenaFighter side="player" pos={arena.player} direction={arena.direction} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'player') : undefined} id={player.speciesId} formId={player.formId}
           health={player.currentHP/maxHP} playing={isPlaying} feedback={feedback} casting={arena.casts.find(cast=>cast.side==='player')}
           invincible={arena.dodgeMs > 0 || arena.invulnerableMs > 0} dynamax={!!foe?.maxActionsLeft} tera={foe?.teraType ? playerType : undefined}/>
         {feedback && game.settings.effects && <Impact key={feedback.id} feedback={feedback} pos={feedback.actor==='enemy' ? arena.player : arena.enemy}/>}

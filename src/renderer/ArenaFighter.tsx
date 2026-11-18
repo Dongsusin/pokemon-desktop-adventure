@@ -8,8 +8,8 @@ import type { ArenaFeedback } from '../game/trainerArena'
 import { BattleSprite, battleSpriteFootprint } from './BattleSprite'
 import { pokemonName, TeraIcon } from './shared'
 
-export function ArenaFighter({ side, id, formId, pos, direction, opponent, casting, feedback, health, playing, invincible, dynamax, tera }: {
-  side: 'player' | 'enemy'; id: string; formId?: string; pos: Position; direction?: Position; opponent: Position
+export function ArenaFighter({ side, id, formId, pos, direction, casting, bodyStyle, feedback, health, playing, invincible, dynamax, tera }: {
+  side: 'player' | 'enemy'; id: string; formId?: string; pos: Position; direction?: Position; bodyStyle?: CSSProperties
   casting?: ArenaCast; feedback: ArenaFeedback | null; health: number; playing: boolean; invincible?: boolean; dynamax?: boolean; tera?: string
 }) {
   const previous = useRef(pos)
@@ -42,13 +42,11 @@ export function ArenaFighter({ side, id, formId, pos, direction, opponent, casti
   useLayoutEffect(() => { lastMotion.current = motion }, [motion])
   const name = pokemonName(id, formId)
   const size = battleSpriteFootprint(species[id].pokedexNumber, formId, Boolean(dynamax))
-  const towards = Math.sign(opponent.x - pos.x) || 1
-  const style = { left: pos.x*100+'%', top: pos.y*100+'%', '--actor-size': size+'%', '--recoil': -towards*12+'%',
-    '--lean': (aim.x >= 0 ? 1 : -1)*5+'deg', zIndex: 3 + Math.round(pos.y * 70) } as CSSProperties
+  const style = { left: pos.x*100+'%', top: pos.y*100+'%', '--actor-size': size+'%', zIndex: 3 + Math.round(pos.y * 70) } as CSSProperties
   return <div className={'ring-fighter ' + side + (dynamax ? ' dynamax' : '')} data-motion={motion}
     data-side={side} data-emitting={ranged && acting ? true : undefined} data-beam-hit={heldBeam && hurt ? true : undefined} data-x={pos.x} data-y={pos.y} data-species={id} style={style}>
     <i className="ring-fighter-shadow"/>
-    <div className="ring-fighter-motion">
+    <div className="ring-fighter-motion" style={bodyStyle}>
       <BattleSprite id={species[id].pokedexNumber} formId={formId} facing={aim} motion={motion} paused={!playing} heldBeam={casting?.profile.kind === 'beam'} castFrame={spriteFrame} className="ring-actor-image" alt={name}/>
     </div>
     <div className="ring-fighter-label"><b>{name}</b><i><span style={{width: Math.max(0,Math.min(1,health))*100+'%'}}/></i></div>

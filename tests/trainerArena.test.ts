@@ -187,7 +187,7 @@ describe('real-time trainer arena', () => {
 
   it('saves an in-flight projectile, freezes it while paused and never reapplies its hit on recovery', () => {
     const game = gym(false, 'charmander'), a = arena(game)
-    game.player.moveIds = ['ember']
+    game.player.moveIds = ['ember', 'tackle']
     a.player = { x: 0.27, y: 0.5 }
     a.enemy = { x: 0.55, y: 0.5 }
     a.enemyInMs = 20000
@@ -207,10 +207,13 @@ describe('real-time trainer arena', () => {
     dispatch(saved, { type: 'arena-pause', paused: false })
     for (let i = 0; i < 160 && !savedCast.resolved; i++) tick(saved, 12, bounds)
     expect(savedCast.result).toBe('hit')
+    expect(savedCast.impact?.position.x).toBeCloseTo(arena(saved).enemy.x + (savedCast.victimOffset?.x ?? 0), 2)
+    expect(savedCast.impact?.position.y).toBeCloseTo(arena(saved).enemy.y + (savedCast.victimOffset?.y ?? 0), 2)
+    expect(savedCast.impact!.elapsedMs).toBeGreaterThanOrEqual(savedCast.profile.startupMs)
     expect(saved.wild[0].currentHP).toBeLessThan(hp)
     const landed = hydrateSave(JSON.parse(JSON.stringify(saved)), 1)!
     const after = landed.wild[0].currentHP
-    expect(arena(landed).casts.find(c => c.id === cast.id)?.result).toBe('hit')
+    expect(arena(landed).casts.find(c => c.id === cast.id)?.impact).toEqual(savedCast.impact)
     dispatch(landed, { type: 'arena-pause', paused: false })
     frames(landed, 8)
     expect(landed.wild[0].currentHP).toBe(after)

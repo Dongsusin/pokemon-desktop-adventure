@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import {
   arenaBodyPoint, arenaMuzzlePoint, battleDirectionRow, battleSpriteFootprint,
-  canvasGroundAnchor, firingPose, mirrorFront, type ArenaSpriteRef
+  canvasGroundAnchor, firingPose, type ArenaSpriteRef
 } from '../src/game/arenaMuzzle'
 
 const feet = { x: .47, y: .55 }
 const right = { x: 1, y: 0 }
-const left = { x: -1, y: 0 }
 const atlas: Record<string, { idle: Strip; shoot?: Strip; attack?: Strip }> =
   JSON.parse(readFileSync('src/renderer/battle-atlases.json', 'utf8'))
 type Strip = [number, number, number, number, number, number, number[]]
@@ -22,7 +21,7 @@ describe('battle-art firing origins', () => {
       const sprite = /^\d+$/.test(key) ? { dex: Number(key) } : { dex: 0, formId: key }
       const pose = firingPose(sprite)!
       const selected = art.shoot ?? art.attack ?? art.idle
-      if (!pose || pose.frame < 0 || pose.frame >= selected[6].length || pose.mouth.length !== (pose.front ? 2 : 16)) {
+      if (!pose || pose.frame < 0 || pose.frame >= selected[6].length || pose.mouth.length !== 16) {
         throw Error('No matching emission frame for ' + key)
       }
       for (let row = 0; row < 8; row++) {
@@ -47,28 +46,10 @@ describe('battle-art firing origins', () => {
     }
   })
 
-  it('fires from the left-facing beaks of Bombirdier, Flamigo and Espathra', () => {
-    // Measured on their first shipped RGBA frame relative to the planted feet.
-    for (const [dex, x, y] of [[962,-36.7,-28.6],[973,-10.2,-65.8],[956,-30.2,-46.1]]) {
-      const pose = firingPose({ dex })!
-      expect(pose.front).toBe('left')
-      expect(pose.mouth).toEqual([x,y])
-      expect(mirrorFront(pose.front, left)).toBe(false)
-      expect(arenaMuzzlePoint(feet, left, { dex }).x).toBeLessThan(feet.x)
-      expect(arenaMuzzlePoint(feet, right, { dex }).x).toBeGreaterThan(feet.x)
-    }
-  })
-
-  it('mirrors fronts around their native facing, including Chien-Pao, and respects giant forms', () => {
-    for (const dex of [1002,1008]) {
-      const sprite = { dex }
-      const front = firingPose(sprite)!.front
-      expect(mirrorFront(front, right)).toBe(dex === 1008)
-      expect(mirrorFront(front, left)).toBe(dex === 1002)
-      expect(arenaMuzzlePoint(feet, right, sprite).x).toBeGreaterThan(feet.x)
-      expect(arenaMuzzlePoint(feet, left, sprite).x).toBeLessThan(feet.x)
-    }
-    const giant: ArenaSpriteRef = { dex: 6, formId: 'charizard-gmax', dynamax: true }
+  it('omits front-only actors and missing forms, and scales supported Dynamax actors', () => {
+    for (const dex of [962, 973, 956, 1002, 1008]) expect(firingPose({ dex })).toBeUndefined()
+    expect(firingPose({ dex: 6, formId: 'charizard-gmax' })).toBeUndefined()
+    const giant: ArenaSpriteRef = { dex: 6, dynamax: true }
     const regular = relative(arenaMuzzlePoint(feet, right, { ...giant, dynamax:false }))
     const scaled = relative(arenaMuzzlePoint(feet, right, giant))
     expect(scaled[0]).toBeCloseTo(regular[0]*1.42)

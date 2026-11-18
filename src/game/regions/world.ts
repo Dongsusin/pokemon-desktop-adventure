@@ -1,3 +1,4 @@
+import { supportedEncounters } from './motionEncounters'
 import { kantoLocations, kantoLocationById, kantoRegion, type KantoLocation } from './kanto'
 import {
   kantoGymTrainerByLocationId, kantoGymTrainers, kantoLeagueChampionForStarter, kantoLeagueTrainers,
@@ -71,7 +72,7 @@ export interface WorldRegion {
 // League qualification unlocks 100, as specified for this game.
 const badgeLevelCaps = [25, 30, 35, 40, 45, 50, 55, 60, 100] as const
 
-export const worldRegions: Readonly<Record<RegionId, WorldRegion>> = {
+const regionalData: Readonly<Record<RegionId, WorldRegion>> = {
   kanto: {
     ...kantoRegion,
     firstSaveVersion: 1,
@@ -180,6 +181,17 @@ export const worldRegions: Readonly<Record<RegionId, WorldRegion>> = {
     levelCaps: badgeLevelCaps,
   },
 }
+
+// Every map lookup shares the same playable encounter tables, including offline exploration.
+export const worldRegions = Object.fromEntries<WorldRegion>(regionOrder.map(id => {
+  const region = regionalData[id]
+  const locations = region.locations.map(location => ({
+    ...location,
+    encounters: supportedEncounters(id, location.id, location.encounters),
+    legends: location.legends && supportedEncounters(id, location.id, location.legends),
+  }))
+  return [id, { ...region, locations, locationById: Object.fromEntries(locations.map(location => [location.id, location])) }]
+})) as Readonly<Record<RegionId, WorldRegion>>
 
 export const worldLocationById: Readonly<Record<string, KantoLocation>> =
   Object.assign(Object.create(null), ...regionOrder.map(id => worldRegions[id].locationById))

@@ -92,6 +92,7 @@ export interface ArenaCast {
   legacyWarning?: boolean
   emitter?: { feet: Position; targetFeet: Position; facing: Position }
   victimOffset?: Position
+  impact?: { position: Position; elapsedMs: number }
   clashBreakthrough?: boolean
   beamStop?: Position
   beam?: { pulses: number; hits: number; lastHit?: Position; budget?: number; applied: number; spent: boolean }

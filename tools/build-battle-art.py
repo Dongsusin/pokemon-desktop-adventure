@@ -7,6 +7,7 @@ from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 from battle_emitters import build_emitters, firing_pose
+from battle_motions import build_motion_catalog
 
 # Pass the extracted resources/app.asar from the published Windows v3.0.0 ZIP.
 # Read only the pictures, their frame measurements, arena bounds and artist credits.
@@ -70,7 +71,7 @@ def atlas(entry):
         anim = sprite['anims'].get(action)
         if action == 'shoot':
             resolved = firing_pose(sprite)
-            # The renderer already falls back to Attack or Idle when Shoot is absent.
+            # Only record a distinct published cast pose. Attack-only species can still join.
             implicit = sprite['anims'].get('attack') or sprite['anims']['idle']
             if isinstance(anim, dict) or resolved != implicit:
                 anim = resolved
@@ -124,52 +125,6 @@ def battle_floor(key, ground):
             floor.alpha_composite(tile, (round(floor.width*x-tile.width/2),round(floor.height*y-tile.height/2)))
     floor.convert('RGB').save(out/'grounds'/(key+'.png'))
 
-def add_fronts(manifest):
-    index = json.loads(read('dist/data/pokerogue-sprites.json'))
-    species = json.loads(read('dist/data/species.json'))['species']
-    official = index['species']
-    mapping = {str(s['dex']): key for key,s in species.items() if '_' not in key and key in official}
-    # These twelve forms have a dedicated front animation in the reference library.
-    missing_forms = {
-        'stunfisk-galar':'STUNFISK_1', 'dudunsparce-three-segment':'DUDUNSPARCE_1',
-        'squawkabilly-blue-plumage':'SQUAWKABILLY_1','squawkabilly-yellow-plumage':'SQUAWKABILLY_2',
-        'squawkabilly-white-plumage':'SQUAWKABILLY_3'
-    }
-    for mon in ['machamp','drednaw','coalossal','centiskorch','hatterene','grimmsnarl','duraludon']:
-        missing_forms[mon+'-gmax'] = mon.upper()+'_1'
-    mapping.update(missing_forms)
-    used = []
-    for dex, original in sorted(mapping.items()):
-        if dex in manifest:
-            continue
-        src = 'assets/Graphics/PokeRogue/pokemon/'+official[original]['normal']
-        raw = json.loads(read(src+'.json'))
-        texture = raw['textures'][0] if 'textures' in raw else raw
-        sheet = picture(src+'.png')
-        frames = sorted(texture['frames'], key=lambda f: int(f['filename'].split('.')[0]))
-        w = max(f['sourceSize']['w'] for f in frames)
-        h = max(f['sourceSize']['h'] for f in frames)
-        cols = min(16,len(frames))
-        atlas = Image.new('RGBA',(w*cols,h*((len(frames)+cols-1)//cols)))
-        for i, frame in enumerate(frames):
-            bounds = frame['frame']
-            sw,sh = bounds['w'],bounds['h']
-            if frame['rotated']:
-                sw,sh = sh,sw
-            img = sheet.crop((bounds['x'],bounds['y'],bounds['x']+sw,bounds['y']+sh))
-            if frame['rotated']:
-                img = img.transpose(Image.Transpose.ROTATE_90)
-            at = frame['spriteSourceSize']
-            assert img.size == (at['w'],at['h']), (dex,img.size,at)
-            atlas.paste(img,(w*(i%cols)+at['x'],h*(i//cols)+at['y']))
-        atlas.save(out/'sprites'/(dex+'.png'))
-        manifest[dex] = {'idle':[0,w,h,w//2,int(h*.89),1,[index['frameMs']*60//1000]*len(frames)],'columns':cols}
-        used.append(f"{dex}\t{original}\t{official[original]['normal']}")
-    assert all(str(i) in manifest for i in range(1,1026))
-    (out/'FRONT-SPRITES.txt').write_text('\n'.join(used)+'\n',encoding='utf-8')
-    for name in ['CREDITS.txt','LICENSE.txt','LICENSE-AGPL-3.0.txt']:
-        (out/('FRONT-'+name)).write_bytes(read('assets/Graphics/PokeRogue/'+name))
-
 def main():
     (out/'sprites').mkdir(parents=True, exist_ok=True)
     (out/'grounds').mkdir(parents=True, exist_ok=True)
@@ -186,16 +141,21 @@ def main():
     for key, ground in grounds.items():
         if key.startswith('gym-') or key in generics:
             battle_floor(key, ground)
-    manifest, credits = {}, []
+    manifest, credits = {}, {}
     with ThreadPoolExecutor(max_workers=6) as pool:
         for key, records, credit in pool.map(atlas, sorted(chosen.items())):
             manifest[key] = records
-            credits.append(credit)
-    add_fronts(manifest)
+            credits[key] = credit
+    eligible = build_motion_catalog(root, out, manifest, chosen, read)
+    manifest = {key: atlas for key, atlas in manifest.items() if key in eligible}
+    # Remove previously generated front views and sets that failed the motion audit.
+    for png in (out/'sprites').glob('*.png'):
+        if png.stem not in eligible:
+            png.unlink()
     metrics = json.loads(read('assets/Battle/sprites8/index.json'))['sets']
     build_emitters(root,out,manifest,chosen,metrics)
     (root/'src/renderer/battle-atlases.json').write_text(json.dumps(manifest,separators=(',',':')),encoding='utf-8')
-    (out/'SPRITE-CREDITS.txt').write_text('\n\n'.join(credits)+'\n',encoding='utf-8')
+    (out/'SPRITE-CREDITS.txt').write_text('\n\n'.join(credits[key] for key in manifest)+'\n',encoding='utf-8')
     for source, dest in [('assets/Battle/movement/LICENSE.md','SPRITE-LICENSE.md'),('assets/Battle/movement/credit_names.txt','SPRITE-ARTISTS.txt'),('assets/Arenas/CREDITS.txt','GROUND-CREDITS.txt')]:
         (out/dest).write_bytes(read(source))
     print(f"{len(manifest)} atlases generated", flush=True)

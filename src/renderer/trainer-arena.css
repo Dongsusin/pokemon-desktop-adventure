@@ -52,8 +52,7 @@
 .ring-fighter.dynamax .ring-fighter-motion { filter:drop-shadow(0 0 4px #fb74a3); }
 .ring-fighter .ring-tera { position:absolute; left:70%; top:20%; }
 .ring-tera img { width:clamp(12px,1.95vw,23px); height:auto; }
-.ring-fighter[data-motion=attack] .ring-fighter-motion { transform:rotate(var(--lean)) scale(1.04,.98); }
-.ring-fighter[data-motion=hurt] .ring-fighter-motion { animation:ring-recoil .2s ease-out; }
+.ring-fighter[data-motion=hurt] .ring-fighter-motion { filter:brightness(1.35); }
 .ring-fighter[data-motion=dodge] .ring-fighter-motion { opacity:.76; filter:drop-shadow(-3px 0 #aafae2) drop-shadow(3px 0 #99d8ff); }
 .ring-fighter[data-motion=dodge] .ring-fighter-shadow { background:#c4f8e7a0; }
 .ring-impact { position:absolute; z-index:75; pointer-events:none; }
@@ -61,7 +60,6 @@
 .ring-impact.heal b { color:#b7ed8b; }
 .ring-impact.hit i { position:absolute; width:clamp(17px,3vw,42px); aspect-ratio:1; background:#fff9ce; clip-path:polygon(50% 0,58% 35%,85% 9%,69% 43%,100% 54%,66% 58%,82% 92%,54% 69%,40% 100%,38% 66%,0 81%,29% 55%,0 39%,35% 39%); animation:ring-flash .19s both; }
 @keyframes ring-popup { from{opacity:1;transform:translate(-30%,-70%) scale(1.22)} 60%{opacity:1} to{opacity:0;transform:translate(-22%,-205%)} }
-@keyframes ring-recoil { 30%{transform:translateX(var(--recoil));filter:brightness(2)} }
 @keyframes ring-flash { from{transform:translate(-50%,-50%) scale(.3)} 48%{opacity:1} to{opacity:0;transform:translate(-50%,-50%) scale(1.4)} }
 .ring-scrim { position:absolute; inset:0; z-index:85; display:grid; place-items:center; background:#201828a6; cursor:default; }
 .ring-pause-panel { background:#2b2539; border:2px solid #b2a0b1; box-shadow:0 0 0 3px #161321,0 5px 12px #100d17a0; padding:clamp(13px,2.3vw,26px); max-width:92%; text-align:center; }

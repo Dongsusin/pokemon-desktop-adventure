@@ -2,7 +2,11 @@
 
 실시간 배틀용 그림은 [Boying의 포켓몬 레조넌스 v3.0.0 Windows 배포본](https://reso.jhcloud.kr/)에 수록된 비영리 팬게임 리소스에서 가져왔습니다. 포켓몬 캐릭터의 권리는 Nintendo, Creatures, GAME FREAK 및 해당 권리자에게 있습니다.
 
-**포켓몬**. [PMDCollab SpriteCollab](https://github.com/PMDCollab/SpriteCollab)의 탐험대 계열 8방향 그림을 사용합니다. 원작 그림은 CHUNSOFT / Spike Chunsoft, Nintendo, Creatures, GAME FREAK의 작품입니다. 커뮤니티 그림은 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)으로 배포됩니다. 배틀에 사용하는 981종과 추가 46폼의 그림을 바닥 기준점에 맞춰 재배치하고, 종별 PNG에 묶었습니다. 방향 순서와 프레임 지속 시간은 배포본의 측정값입니다. 각 그림의 원작자와 동작별 기여 내역은 [SPRITE-CREDITS.txt](SPRITE-CREDITS.txt), 작가명 대조표는 [SPRITE-ARTISTS.txt](SPRITE-ARTISTS.txt), 라이선스 전문은 [SPRITE-LICENSE.md](SPRITE-LICENSE.md)에 있습니다. 방향별 세트가 없는 44종과 추가 12폼은 [PokéRogue](https://github.com/pagefaultgames/pokerogue-assets)의 종별 정면 도트를 사용합니다. 정면 세트 중 6종과 추가 9폼처럼 원본이 한 장인 경우에는 발을 기준으로 호흡, 걸음, 공격 예비 동작과 반동을 재생합니다. 원본 시트의 프레임을 순서대로 다시 묶었으며 해당 그림에는 CC BY-NC-SA 4.0이 적용됩니다. [원본별 목록](FRONT-SPRITES.txt) · [출처와 작가](FRONT-CREDITS.txt) · [그림 라이선스](FRONT-LICENSE.txt)
+**포켓몬**. [PMDCollab SpriteCollab](https://github.com/PMDCollab/SpriteCollab)의 탐험대 계열 8방향 그림을 사용합니다. 원작 그림은 CHUNSOFT / Spike Chunsoft, Nintendo, Creatures, GAME FREAK의 작품입니다. 커뮤니티 그림은 [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/)으로 배포됩니다. 961종과 추가 44폼의 그림을 바닥 기준점에 맞춰 종별 PNG에 묶었습니다. 방향 순서와 프레임 지속 시간은 배포본의 측정값입니다. [원작자·동작별 기여 내역](SPRITE-CREDITS.txt) · [작가명 대조표](SPRITE-ARTISTS.txt) · [라이선스 전문](SPRITE-LICENSE.md)
+
+**플레이 가능 모션**. v3.0.0의 `sprites8/sets`에서 해당 종 및 폼에 직접 지정된 Walk와 Attack을 확인합니다. 두 시트 모두 8방향의 모든 프레임에 그림이 있고 시간에 따라 픽셀이 실제로 바뀌어야 합니다. 빔·투사체·범위·회복 기술은 원본이 지정한 별도 발사 자세에도 같은 기준을 적용합니다. 이 조건을 만족하는 903개 세트가 발사 기술을 사용할 수 있습니다. 나머지 102개 세트에는 종별로 배울 수 있는 근접 기술만 허용합니다. [생성 및 판정 코드](../../tools/battle_motions.py)
+
+**기술별 이펙트**. 원본의 `dist/data/anims/moves`에서 기존 기술 23개의 이름과 일치하는 타임라인을 확인했습니다. 20fps의 셀 순서, 위치, 각도, 배율, 배경 및 포켓몬 색상 효과와 사용한 PNG를 묶었습니다. 염동력은 원본에서도 포켓몬·배경 효과로 표현됩니다. 이미지는 Pokémon Reborn Team의 PRAS 시트를 포함하며 원본 배포본의 크레딧을 함께 제공합니다. [기술별 타임라인](../../src/renderer/move-clips.json) · [원작자·그림 출처](moves/CREDITS.txt)
 
 **경기장**. Another Red의 Pokémon Essentials 커뮤니티 타일로 Boying이 구성한 전장 이미지에서 실제 플레이 구역을 잘라 사용합니다. 관동·성도·신오의 체육관 전용 배경 24개, 리그와 공용 지형 10개가 포함되어 있습니다. 회색체육관에는 같은 타일 팩의 Object rock과 Object boulder를 실제 배틀 영상에 맞춰 배치했습니다. 다른 지방의 체육관과 시련은 관장의 타입에 맞는 전장을 선택합니다. [전장 제작·원출처 크레딧](GROUND-CREDITS.txt)
 
@@ -10,4 +14,4 @@
 
 트레이너 측면 도트는 [원본 시트 목록](trainers/SOURCES.md), 기술 효과음은 [Pokémon Reborn 및 PokéRogue 크레딧](audio/SOURCES.md)에 기록했습니다.
 
-**발사 위치.** `sprites8/sets`의 몸통 치수, 방향별 발사점(`mouth`), 고정 자세(`hold`)로 1,008개 세트의 빔과 투사체를 배치합니다. 갸라도스에는 v3.0.0이 Shoot 4번 프레임에 적용하는 보정값을 사용합니다. 다른 발사 자세를 지정한 62개 세트는 해당 동작 그림을 같은 시트에 담았습니다. 원본 발사점이 없는 방향 도트 19개 세트의 자세별 실루엣, 정면 도트 56개 세트의 입·부리·손·기관을 그림에서 확인하여 보완했습니다. 도트의 바닥 기준점과 다이맥스 배율은 기술 경로와 화면 표시가 공유합니다. [변환·보완 좌표](../../tools/battle_emitters.py)
+**발사 위치**. 방향별 발사점(`mouth`)과 고정 자세(`hold`)를 종과 폼에 맞춰 적용합니다. 갸라도스에는 v3.0.0의 Shoot 4번 프레임 보정값을 사용합니다. 원본 발사점이 없는 방향 도트는 원본 발사 자세의 실루엣에서 위치를 측정했습니다. 도트의 바닥 기준점과 다이맥스 배율은 기술 경로와 화면 표시가 공유합니다. [변환·보완 좌표](../../tools/battle_emitters.py)

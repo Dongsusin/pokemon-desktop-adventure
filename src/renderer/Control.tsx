@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { species, starterIds, wildIds } from '../game/catalog'
+import { isSpeciesMotionSupported } from '../game/motionEligibility'
+import { BattleSprite } from './BattleSprite'
 import {
   activityLabels, availableEquipment, canEvolve, canThrowBall, canTransferRegion, captureBallIds, defaultSettings,
   currentTrainer, effectiveLevel, evolutionFor, items, levelCap, MAX_PARTY_SIZE, moves, movesFor, playerStats, requiredExp, statsFor
@@ -23,7 +25,8 @@ const rarityLabels = { common: '일반', uncommon: '고급', rare: '희귀', epi
 const encounterOptions = { cautious: '안전 우선', balanced: '균형', bold: '적극 탐험' }
 type Command = (action: AdventureCommand) => void
 const dexPageSize = 36
-const dexSpecies = wildIds.map(id => species[id])
+const playableStarters = starterIds.filter(id => isSpeciesMotionSupported(id))
+const dexSpecies = wildIds.filter(id => isSpeciesMotionSupported(id)).map(id => species[id])
 
 function TypeTag({ type }: { type: string }) {
   return <span className={'type-tag ' + type}><span aria-hidden="true" />{types[type] || type}</span>
@@ -43,11 +46,11 @@ function Habitat({ id, formId, mode = '대기' }: { id: string; formId?: string;
     <div className="distant-hill hill-b" />
     <div className="meadow" />
     {foliage.map(([x, y]) => <i className="grass-tuft" style={{ left: x + '%', top: y + '%' }} key={x} />)}
-    <div className={'habitat-partner pose-' + modes.indexOf(mode)}>
+    <div className="habitat-partner">
       <div className="sprite-shadow" />
-      <Pokemon id={id} formId={formId} label />
+      <BattleSprite id={pokemon.pokedexNumber} formId={formId} facing={{ x: 0, y: 1 }}
+        motion={mode === '공격' ? 'attack' : mode === '걷기' ? 'walk' : 'idle'} loop alt={pokemonName(id, formId)} />
     </div>
-    {mode === '공격' && <i className="habitat-spark" aria-hidden="true">✦</i>}
   </div>
 }
 
@@ -86,11 +89,11 @@ function Stats({ values }: { values: ReturnType<typeof statsFor> }) {
 function Onboarding({ send, busy }: { send: Command; busy: boolean }) {
   const [generation, getGeneration] = useState(0)
   const [type, setType] = useState('')
-  const [selected, setSelected] = useState('bulbasaur')
+  const [selected, setSelected] = useState(playableStarters[0])
   const [mode, setMode] = useState<typeof modes[number]>('대기')
   const [autoBattle, setAutoBattle] = useState(true)
   const [settings, setSettings] = useState<Settings>(defaultSettings)
-  const filtered = (gen: number, element: string) => starterIds.filter(id =>
+  const filtered = (gen: number, element: string) => playableStarters.filter(id =>
     (!gen || species[id].generation === gen) && (!element || species[id].types[0] === element))
   const list = filtered(generation, type)
   const id = list.includes(selected) ? selected : list[0]
@@ -105,6 +108,7 @@ function Onboarding({ send, busy }: { send: Command; busy: boolean }) {
     const next = filtered(gen, element)
     if (!next.includes(selected)) select(next[0])
   }
+  if (!pokemon) return <p className="empty">선택 가능한 파트너가 없습니다.</p>
   const starterRole = pokemon.baseStats.speed >= 65 ? '민첩한 공격형'
     : pokemon.baseStats.defense >= 60 ? '단단한 방어형' : '균형 잡힌 성장형'
 
@@ -118,11 +122,11 @@ function Onboarding({ send, busy }: { send: Command; busy: boolean }) {
         <div className="filter-row" aria-label="세대 필터">
           <button aria-pressed={generation === 0} onClick={() => updateFilters(0, type)}>전체</button>
           {generationLabels.map((region, i) => <button key={region} aria-label={(i + 1) + '세대 ' + region}
-            aria-pressed={generation === i + 1} onClick={() => updateFilters(i + 1, type)}>{i + 1}</button>)}
+            disabled={!filtered(i + 1, type).length} aria-pressed={generation === i + 1} onClick={() => updateFilters(i + 1, type)}>{i + 1}</button>)}
         </div>
         <div className="filter-row types-filter" aria-label="타입 필터">
           <button aria-pressed={!type} onClick={() => updateFilters(generation, '')}>모든 타입</button>
-          {typeClasses.map(element => <button key={element} aria-pressed={type === element} onClick={() => updateFilters(generation, element)}>
+          {typeClasses.map(element => <button key={element} disabled={!filtered(generation, element).length} aria-pressed={type === element} onClick={() => updateFilters(generation, element)}>
             <TypeTag type={element} />
           </button>)}
         </div>
@@ -286,7 +290,7 @@ function Pokedex({ game }: { game: GameSave }) {
   const [query, setQuery] = useState('')
   const [generation, setGeneration] = useState(0)
   const [page, setPage] = useState(0)
-  const seen = new Set([...game.pokedexSeen, ...game.pokedexCaught])
+  const seen = new Set([...game.pokedexSeen, ...game.pokedexCaught].filter(id => isSpeciesMotionSupported(id)))
   const caught = new Set(game.pokedexCaught)
   const search = query.normalize('NFKC').trim().toLowerCase().replace(/[\s-]/g, '')
   const dexNumber = /^#?\d+$/.test(search) ? Number(search.replace('#', '')) : null
@@ -490,6 +494,6 @@ export function Control() {
         ? <Dashboard key={current.selectedSlot} game={current.game} snapshot={current} send={send} busy={busy} />
         : <Onboarding key={current.selectedSlot} send={send} busy={busy} />}
     </main>
-    <footer><span>{current.game ? '자동 저장 · 슬롯 ' + current.selectedSlot : '1–9세대 · 스타팅 27종'}</span></footer>
+    <footer><span>{current.game ? '자동 저장 · 슬롯 ' + current.selectedSlot : '스타팅 포켓몬 ' + playableStarters.length + '종'}</span></footer>
   </>
 }
