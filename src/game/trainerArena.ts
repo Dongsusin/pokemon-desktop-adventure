@@ -47,6 +47,7 @@ export interface TrainerArena {
   skillLockMs: number
   switchCooldownMs: number
   enemyInMs: number
+  lastEnemyMoveId?: string
   telegraph: ArenaTelegraph | null
   feedback: ArenaFeedback | null
 }
@@ -83,7 +84,7 @@ function point(value: unknown, fallback: Position): Position {
   return object(value) ? { x: number(value.x, fallback.x, 0.05, 0.95), y: number(value.y, fallback.y, 0.10, 0.90) } : fallback
 }
 
-export function restoreArena(value: unknown, roster: string[], fainted: boolean, enemyMove: Move, playerMove: (id: string) => Move | undefined, sprites?: ArenaSpriteRefs): TrainerArena {
+export function restoreArena(value: unknown, roster: string[], fainted: boolean, enemyMoves: readonly Move[], playerMove: (id: string) => Move | undefined, sprites?: ArenaSpriteRefs): TrainerArena {
   const arena = createArena(roster)
   arena.paused = true
   arena.needsSwitch = fainted
@@ -114,13 +115,14 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
   arena.skillLockMs = number(value.skillLockMs, 0, 0, 4000)
   arena.switchCooldownMs = number(value.switchCooldownMs, 0, 0, 3000)
   arena.enemyInMs = number(value.enemyInMs, arena.enemyInMs, 0, 5000)
+  if (typeof value.lastEnemyMoveId === 'string' && enemyMoves.some(move => move.id === value.lastEnemyMoveId)) arena.lastEnemyMoveId = value.lastEnemyMoveId
   arena.nextCastId = Math.floor(number(value.nextCastId, 1, 1, Number.MAX_SAFE_INTEGER - 1))
   if (fainted) return arena
   if (Array.isArray(value.casts)) {
     for (const saved of value.casts.slice(0, 2)) {
       if (!object(saved) || (saved.side !== 'enemy' && saved.side !== 'player') || typeof saved.moveId !== 'string') continue
       if (arena.casts.some(cast => cast.side === saved.side)) continue
-      const move = saved.side === 'enemy' ? enemyMove : playerMove(saved.moveId)
+      const move = saved.side === 'enemy' ? enemyMoves.find(entry => entry.id === saved.moveId) : playerMove(saved.moveId)
       if (!move || move.id !== saved.moveId) continue
       const id = Math.floor(number(saved.id, arena.nextCastId, 1, Number.MAX_SAFE_INTEGER - 1))
       if (arena.casts.some(cast => cast.id === id)) continue
@@ -168,8 +170,8 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
     // v0.17 represented every warning as a stationary circle. Preserve this
     // already-committed impact before the opponent starts using its new moves.
     const warning = value.telegraph
-    if (object(warning) && typeof warning.moveName === 'string') {
-      const cast = createArenaCast(arena.nextCastId++, 'enemy', enemyMove, arena.enemy, point(warning.center, arena.player))
+    if (object(warning) && typeof warning.moveName === 'string' && enemyMoves.length) {
+      const cast = createArenaCast(arena.nextCastId++, 'enemy', enemyMoves[0], arena.enemy, point(warning.center, arena.player))
       setLegacyProfile(cast, warning.durationMs, warning.radius)
       cast.target = point(warning.center, arena.player)
       cast.elapsedMs = cast.profile.startupMs - number(warning.remainingMs, cast.profile.startupMs, 0, cast.profile.startupMs)
@@ -211,6 +213,7 @@ export function beginArenaCast(arena: TrainerArena, side: ArenaSide, move: Move,
   const cast = createArenaCast(arena.nextCastId++, side, move, arena[side], target, sprites)
   arena.casts.push(cast)
   if (side === 'player') arena.facing = arenaCastFrame(cast).direction
+  else arena.lastEnemyMoveId = move.id
   refreshTelegraph(arena)
   return cast
 }

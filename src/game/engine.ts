@@ -3,7 +3,7 @@ import { collectionItems, fieldItems, itemEvolution } from './collectionItems'
 import { RESEARCH_VISIT_CHANCE } from './regions/collectionEncounters'
 import { isSpeciesMotionSupported, isMoveMotionSupported } from './motionEligibility'
 import { supportedEncounters, supportedWildForms } from './regions/motionEncounters'
-import { arenaCastTouches, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
+import { arenaCastTouches, arenaDistance, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
 import { arenaBodyPoint } from './arenaMuzzle'
 import { beamClashPower, escapeBeamClash } from './arenaBeams'
 import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, moveArena, restoreArena, stepArena,
@@ -1076,7 +1076,12 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const opponent = findTarget(game)
   if (!opponent || arena.paused || arena.needsSwitch) return
   game.runtime.clock += elapsed
-  const selected = wildMove(opponent)
+  const skills = trainerTechniques(opponent)
+  // A committed cast keeps its own technique through movement, switches and beam clashes.
+  const castMove = (cast: ArenaCast) => cast.side === 'enemy'
+    ? skills.find(move => move.id === cast.moveId) ?? moves[cast.moveId] : moves[cast.moveId]
+  const committed = arena.casts.find(cast => cast.side === 'enemy')
+  const selected = committed ? castMove(committed) : chooseTrainerMove(game, opponent, arena, skills)
   const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
   const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
   const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
@@ -1086,7 +1091,7 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const impacts = stepArena(arena, elapsed, playerSpeed, enemySpeed, selected, refs, (a, b) => {
     const strength = (cast: ArenaCast, other: ArenaCast) => {
       const player = cast.side === 'player'
-      const move = player ? moves[cast.moveId] : selected
+      const move = castMove(cast)
       const stats = player ? playerStats(game) : opponentStats(game, opponent)
       const level = player ? effectiveLevel(game) : opponent.level
       const types = player ? formStats(game.player.speciesId, game.player.formId).types : formStats(opponent.speciesId, battleForm(opponent)).types
@@ -1106,7 +1111,7 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
     if (game.campaign.battle?.arena !== arena || arena.needsSwitch || findTarget(game) !== opponent) break
     if (wasDynamaxed && !opponent.maxActionsLeft) break
     const playerTurn = cast.side === 'player'
-    if (hit) attack(game, opponent, { playerTurn, move: playerTurn ? moves[cast.moveId] : selected, cast, position, beamShare })
+    if (hit) attack(game, opponent, { playerTurn, move: castMove(cast), cast, position, beamShare })
     else {
       if (!cast.beam?.spent) spendMaxAction(game, opponent)
       if (cast.beam) cast.beam.spent = true
@@ -1342,6 +1347,46 @@ function wildMove(wild: Wild): Move {
   return candidates.find(candidate => candidate && isMoveMotionSupported(wild.speciesId, formId, candidate.id)) ?? moves.tackle
 }
 
+const trainerSkills = new WeakMap<Wild, { formId?: string; moves: Move[] }>()
+
+function trainerTechniques(foe: Wild): Move[] {
+  const formId = battleForm(foe)
+  const cached = trainerSkills.get(foe)
+  if (cached && cached.formId === formId) return cached.moves
+  const { types } = formStats(foe.speciesId, formId)
+  // Keep the old signature first so saves with legacy warnings can resume it.
+  const candidates = [wildMove(foe), ...types.map(type => wildTechniques[type]), ...movesFor(foe.speciesId, foe.level, formId)]
+  const skills: Move[] = []
+  for (const move of candidates) {
+    if (move && move.id !== 'tackle' && move.category !== 'healing' && !skills.some(entry => entry.id === move.id) &&
+        isMoveMotionSupported(foe.speciesId, formId, move.id)) skills.push(move)
+    if (skills.length === 2) break
+  }
+  skills.push(moves.tackle)
+  trainerSkills.set(foe, { formId, moves: skills })
+  return skills
+}
+
+function chooseTrainerMove(game: GameSave, foe: Wild, arena: TrainerArena, skills: Move[]): Move {
+  const distance = arenaDistance(arena.enemy, arena.player)
+  let best = skills[0], bestScore = -1
+  for (const move of skills) {
+    const p = arenaMoveProfile(move)
+    const melee = p.kind === 'dash' || p.kind === 'cone'
+    // Keep distance with ranged moves and favor faster body attacks up close.
+    const distanceFit = melee === (distance <= .12) ? 1.8 : 1
+    const reach = distance <= p.range + p.radius ? 1 : .15
+    const variety = move.id === arena.lastEnemyMoveId ? .55 : 1
+    const signature = move === skills[0] ? 1.15 : 1
+    const score = matchup(game, foe, move, false) * reach * distanceFit * variety * signature
+    if (score > bestScore) {
+      best = move
+      bestScore = score
+    }
+  }
+  return best
+}
+
 function newCampaign(progress: RegionProgress = { badges: [], champion: false }): Campaign {
   return { ...progress, leagueIndex: null, battle: null }
 }
@@ -1459,6 +1504,7 @@ function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentInde
 
 function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Position, wait: number): void {
   const battle = game.campaign.battle!
+  delete battle.arena.lastEnemyMoveId
   const target = trainerOpponent(game.regionId, trainer, battle.opponentIndex, game.runtime.nextId++, position, -1)
   const previousHP = playerStats(game).hp
   game.wild = [target]
@@ -2624,7 +2670,7 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
         ? { ...rawArena, casts: [], beamClash: undefined } : rawArena
       if (isSpeciesMotionSupported(speciesId, formId)) {
         campaign.battle.arena = restoreArena(clearedMaxCasts, [leaderId, ...playableFollowers.map(member => member.instanceId)],
-          currentHP === 0, wildMove(foe), id => moveIds.includes(id) ? moves[id] : undefined, spriteRefs(speciesId, formId, foe))
+          currentHP === 0, trainerTechniques(foe), id => moveIds.includes(id) ? moves[id] : undefined, spriteRefs(speciesId, formId, foe))
       }
     }
   }

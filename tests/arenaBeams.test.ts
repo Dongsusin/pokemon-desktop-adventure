@@ -44,7 +44,7 @@ describe('sustained beams and clash resolution', () => {
     const times = a.casts.map(c => c.elapsedMs)
     expect(advance(a, 500)).toEqual([])
     expect(a.casts.map(c => c.elapsedMs)).toEqual(times)
-    const restored = restoreArena(JSON.parse(JSON.stringify(a)), ['starter'], false, moves.waterGun, id => moves[id])
+    const restored = restoreArena(JSON.parse(JSON.stringify(a)), ['starter'], false, [moves.waterGun], id => moves[id])
     expect(restored.beamClash).toEqual(a.beamClash)
     expect(advance(a, 2500).some(i => i.hit)).toBe(false)
     expect(advance(restored, 2500).some(i => i.hit)).toBe(false)

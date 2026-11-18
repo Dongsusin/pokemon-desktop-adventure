@@ -93,6 +93,47 @@ describe('real-time trainer arena', () => {
     expect(cast.result).toBe(hit ? 'hit' : 'miss')
   })
 
+  it('chooses a native trainer skill for distance, effectiveness and recent casts', () => {
+    function brockMove(distance: number, partner: string, previous?: string) {
+      const game = gym(), a = arena(game)
+      game.player.speciesId = partner
+      a.player = { x: .25, y: .5 }
+      a.enemy = { x: a.player.x + distance / 1200, y: .5 }
+      a.lastEnemyMoveId = previous
+      a.enemyInMs = 0
+      tick(game, 15, bounds)
+      return a.casts.find(cast => cast.side === 'enemy')?.moveId
+    }
+    expect(brockMove(65, 'squirtle')).toBe('tackle')
+    expect(brockMove(400, 'squirtle')).toBe('rockThrow')
+    expect(brockMove(400, 'squirtle', 'rockThrow')).toBe('mudShot')
+    expect(brockMove(400, 'pikachu')).toBe('mudShot')
+    expect(brockMove(400, 'pidgey', 'rockThrow')).toBe('rockThrow')
+  })
+
+  it('resumes a secondary enemy skill with the original target, damage and next decision', () => {
+    const game = gym(), a = arena(game)
+    a.player = { x: .25, y: .5 }
+    a.enemy = { x: .59, y: .5 }
+    a.enemyInMs = 0
+    a.lastEnemyMoveId = 'rockThrow'
+    tick(game, 10, bounds)
+    const committed = a.casts[0]
+    expect(committed.moveId).toBe('mudShot')
+    const resumed = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
+    expect(arena(resumed).casts[0]).toEqual(committed)
+    expect(arena(resumed).lastEnemyMoveId).toBe('mudShot')
+    dispatch(resumed, { type: 'arena-pause', paused: false })
+    for (let i = 0; i < 240; i++) {
+      tick(game, 16, bounds)
+      tick(resumed, 16, bounds)
+    }
+    expect(committed.result).toBe('hit')
+    expect(resumed.player.currentHP).toBe(game.player.currentHP)
+    expect(arena(resumed).casts).toEqual(a.casts)
+    expect(a.lastEnemyMoveId).toBe('rockThrow')
+  })
+
   it('shows an enemy attack before impact and lets the player escape its marked position', () => {
     const hit = gym()
     until(hit, () => Boolean(arena(hit).telegraph))
