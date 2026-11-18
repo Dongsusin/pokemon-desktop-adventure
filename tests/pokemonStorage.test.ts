@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { searchBoxes } from '../src/renderer/BoxSearch'
 import { BOX_SIZE, MAX_PARTY_SIZE, createGame, dispatch, hydrateSave, tick, type GameSave, type PartyPokemon } from '../src/game/engine'
 
 const bounds = { width: 1280, height: 720 }
@@ -26,6 +27,30 @@ function weakEncounter(game: GameSave) {
 }
 
 describe('Pokémon storage boxes', () => {
+  it('finds duplicate species across boxes by form, type, held item, exact number and archive status', () => {
+    const game = newGame()
+    const standard = { ...member(9, false), formId: undefined }
+    const regional = { ...member(10, false), heldItemId: 'muscleBand', level: 24 }
+    const archived = { ...member(11, false), speciesId: 'miraidon', formId: undefined, heldItemId: 'muscleBand' }
+    game.boxes = [[null, standard], [], [null, archived, null, regional]]
+    const filters = { query: '', type: '', held: '', archived: false }
+    const find = (changes: Partial<typeof filters>) => searchBoxes(game.boxes, { ...filters, ...changes })
+    expect(find({ query: 'ＷＯＯＰＥＲ' })).toEqual([
+      { member: standard, boxIndex: 0, slotIndex: 1 }, { member: regional, boxIndex: 2, slotIndex: 3 },
+    ])
+    expect(find({ query: '#0194', type: 'water', held: 'none' }).map(r => r.member)).toEqual([standard])
+    expect(find({ query: '우파', type: 'poison', held: 'muscleBand' }).map(r => r.member)).toEqual([regional])
+    expect(find({ query: '팔데아의 모습' }).map(r => r.member)).toEqual([regional])
+    expect(find({ query: '힘의 머리띠', archived: true })).toEqual([{ member: archived, boxIndex: 2, slotIndex: 1 }])
+    expect(find({ query: '우파', archived: true })).toEqual([])
+    const chosen = find({ query: 'MUSCLE BAND', type: 'poison' })[0]
+    expect(dispatch(game, { type: 'set-follower-active', instanceId: chosen.member.instanceId, active: true })).toBe(true)
+    expect(game.followers[0].instanceId).toBe(regional.instanceId)
+    expect(game.boxes[2][3]).toBeNull()
+    expect(find({ query: '우파' }).map(r => r.member)).toEqual([standard])
+    expect(game.boxes[2][1]).toEqual(archived)
+  })
+
   it('migrates each distinct v13 capture into a party or stable box slot, including multiple boxes of legacy reserves', () => {
     const game = newGame()
     const followers = [member(1, false), ...Array.from({ length: 6 }, (_, i) => member(i + 2)),

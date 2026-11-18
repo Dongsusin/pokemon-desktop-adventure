@@ -4,6 +4,7 @@ import { isSpeciesMotionSupported } from '../game/motionEligibility'
 import { BOX_SIZE, canChangeLead, effectiveLevel, items, MAX_PARTY_SIZE, type GameSave, type PartyPokemon } from '../game/engine'
 import type { AdventureCommand } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName } from './shared'
+import { BoxSearch } from './BoxSearch'
 import './party.css'
 
 type Member = Pick<PartyPokemon, 'instanceId' | 'speciesId' | 'level' | 'formId'>
@@ -19,6 +20,7 @@ export function Party({ game, busy, send }: {
   const [selectedId, setSelectedId] = useState('')
   const [swapId, setSwapId] = useState('')
   const boxSelect = useRef<HTMLSelectElement>(null)
+  const inspector = useRef<HTMLDivElement>(null)
   const party = [game.player, ...game.followers]
   const totalStored = game.boxes.reduce((count, box) => count + box.filter(Boolean).length, 0)
   const lastBox = game.boxes.at(-1)
@@ -26,7 +28,8 @@ export function Party({ game, busy, send }: {
   const pageIndex = Math.min(page, pageCount - 1)
   const box = game.boxes[pageIndex] ?? []
   const occupied = box.filter(Boolean).length
-  const selected = box.find(member => member?.instanceId === selectedId)
+  const selectedSlot = box.findIndex(member => member?.instanceId === selectedId)
+  const selected = box[selectedSlot]
   const archived = Boolean(selected && !isSpeciesMotionSupported(selected.speciesId, selected.formId))
   const fullParty = party.length >= MAX_PARTY_SIZE
   const leadLocked = !canChangeLead(game)
@@ -78,6 +81,12 @@ export function Party({ game, busy, send }: {
 
     <section className="card storage-box" aria-label="포켓몬 박스">
       <div className="storage-heading"><h2>포켓몬 박스</h2><span>전체 {totalStored.toLocaleString('ko-KR')}마리</span></div>
+      <BoxSearch boxes={game.boxes} choose={(boxIndex, instanceId) => {
+        setPage(boxIndex)
+        setSelectedId(instanceId)
+        setSwapId('')
+        requestAnimationFrame(() => inspector.current?.focus())
+      }} />
       <div className="box-toolbar">
         <div className="box-picker"><button className="small-button" aria-label="이전 박스" disabled={pageIndex === 0} onClick={() => showPage(pageIndex - 1)}>‹</button>
           <select aria-label="박스 선택" ref={boxSelect} value={pageIndex} onChange={e => showPage(Number(e.target.value))}>
@@ -98,9 +107,9 @@ export function Party({ game, busy, send }: {
           </button> : <span className="box-slot box-empty" aria-label={(i + 1) + '번 빈칸'} />}</li>
         })}
       </ol>
-      {selected ? <div className="box-inspector" role="group" aria-label="선택한 포켓몬">
+      {selected ? <div className="box-inspector" ref={inspector} tabIndex={-1} role="group" aria-label="선택한 포켓몬">
         <div className="storage-selection"><Pokemon id={selected.speciesId} formId={selected.formId} />
-          <div><strong>{nameOf(selected)}</strong><small>Lv. {selected.level} · 박스 {pageIndex + 1}{archived && ' · 전용 모션 미지원 (보관 전용)'}</small></div>
+          <div><strong>{nameOf(selected)}</strong><small>Lv. {selected.level} · 박스 {pageIndex + 1} · {selectedSlot + 1}번 칸{archived && ' · 전용 모션 미지원 (보관 전용)'}</small></div>
         </div>
         <div className="storage-box-actions">
           {selected.heldItemId && <button className="small-button box-held-item" disabled={busy}

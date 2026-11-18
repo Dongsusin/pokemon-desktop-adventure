@@ -21,6 +21,22 @@
 .storage-member small, .storage-selection small { color: var(--muted); font-size: 10px; }
 .storage-member .small-button { font-size: 10px; padding-inline: 6px; }
 .storage-vacancy { display: flex; justify-content: center; border: 1px dashed var(--border); background: transparent; color: var(--muted); font-size: 11px; }
+.box-search { margin-bottom:10px; }
+.box-search section { padding:9px; margin-top:6px; background:#edf2e7; border:1px solid var(--border); border-radius:7px; }
+.box-search-filters { display:flex; align-items:flex-end; flex-wrap:wrap; gap:6px; }
+.box-search-filters label { min-width:0; display:grid; gap:3px; color:var(--muted); font-size:11px; }
+.box-search-filters label:first-child { flex:1 1 145px; }
+.box-search-filters :is(input,select) { min-width:0; width:100%; }
+.box-search-summary,.box-search-pages { display:flex; align-items:center; justify-content:space-between; gap:6px; margin-top:8px; color:var(--muted); font-size:11px; }
+.box-search-summary label { display:inline-flex; align-items:center; gap:4px; color:var(--ink); }
+.box-search-results { display:grid; gap:3px; list-style:none; margin:6px 0 0; padding:0; max-height:240px; overflow:auto; }
+.box-search-results button { display:flex; align-items:center; gap:6px; width:100%; padding:3px 6px; text-align:left; border:1px solid var(--border); border-radius:5px; background:#f8faf4; color:var(--ink); }
+.box-search-results button:hover { border-color:#65875f; }
+.box-search-results .pokemon-sprite { width:35px; height:35px; }
+.box-search-results button>span { display:grid; gap:1px; }
+.box-search-results strong { font-size:12px; }
+.box-search-results small,.box-search-empty { color:var(--muted); font-size:11px; }
+.box-search-empty { margin:6px 0 0; }
 .box-toolbar { margin: 0 0 8px; }
 .box-picker { gap: 4px; }
 .box-picker select { font-weight: 700; }
