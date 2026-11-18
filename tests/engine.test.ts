@@ -450,14 +450,39 @@ describe('combat, inventory, and save recovery', () => {
     expect(hydrateSave({ ...legacy, schemaVersion: migrated.schemaVersion + 1 }, 1)).toBeNull()
   })
 
-  it('uses the abbreviated elemental damage formula and floors damage at one', () => {
+  it('combines both defensive types, including resistances and complete immunities', () => {
     const attacker = statsFor('charmander', 5)
     const defender = statsFor('bulbasaur', 5)
-    expect(typeMultiplier('fire', ['grass'])).toBe(1.5)
-    expect(typeMultiplier('grass', ['fire'])).toBe(0.75)
+    expect(typeMultiplier('fire', ['grass'])).toBe(2)
+    expect(typeMultiplier('fire', ['grass', 'steel'])).toBe(4)
+    expect(typeMultiplier('electric', ['water', 'ground'])).toBe(0)
+    expect(calculateDamage(moves.tackle, attacker, defender, 5, ['ghost'])).toBe(0)
+    expect(typeMultiplier('grass', ['fire'])).toBe(0.5)
     expect(typeMultiplier('fire', ['normal'])).toBe(1)
     expect(calculateDamage(moves.ember, attacker, defender, 5, ['grass'])).toBeGreaterThan(calculateDamage(moves.ember, attacker, defender, 5, ['water']))
     expect(calculateDamage(moves.tackle, { ...attacker, attack: 0 }, defender, 5, ['normal'])).toBe(1)
+  })
+
+  it('skips immune targets and disengages from an old saved or newly unequipped unwinnable fight', () => {
+    const game = makeRouteGame('squirtle')
+    game.player.moveIds = ['tackle']
+    const ghost: Wild = { id: 5, speciesId: 'gastly', position: { ...game.player.position }, level: 3,
+      maxHP: 10, currentHP: 10, direction: 1 }
+    const rat: Wild = { ...ghost, id: 6, speciesId: 'rattata' }
+    game.wild = [ghost, rat]
+    tick(game, 200, bounds)
+    expect(game.runtime.targetId).toBe(rat.id)
+    game.runtime.targetId = ghost.id
+    game.player.state = 'BATTLE'
+    game.runtime.stateIn = 0
+    tick(game, 200, bounds)
+    expect(game.runtime.targetId).toBeNull()
+    expect(game.player.state).toBe('IDLE')
+    expect(ghost.currentHP).toBe(10)
+    game.player.moveIds.push('waterGun')
+    game.runtime.cooldowns.waterGun = game.runtime.clock + 900
+    tick(game, 200, bounds)
+    expect(game.runtime.targetId).toBe(ghost.id)
   })
 
   it('consumes only usable items and requires owned equipment', () => {

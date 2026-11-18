@@ -8,7 +8,7 @@ import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, 
   type ArenaFeedback, type TrainerArena } from './trainerArena'
 import { battleForm, formStats, locationForm, validForm, wildEncounterForm } from './forms'
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
-import { teraAttackMultiplier } from './regions/paldeaTera'
+import { singleTypeEffectiveness, teraAttackMultiplier } from './regions/paldeaTera'
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
@@ -444,21 +444,8 @@ export function movesFor(speciesId: string, level: number, formId?: string): Mov
   return ids.map((id) => moves[id]).filter((entry) => level >= entry.unlockLevel && isMoveMotionSupported(speciesId, formId, entry.id))
 }
 
-const typeStrengths: Record<string, readonly string[]> = {
-  grass: ['water'],
-  fire: ['grass', 'bug'],
-  water: ['fire'],
-  bug: ['grass'],
-  flying: ['grass', 'bug'],
-}
-
-export function typeMultiplier(moveType: string, defenderTypes: string[]): number {
-  const advantage = typeStrengths[moveType] ?? []
-  return defenderTypes.reduce((factor, type) => {
-    if (advantage.includes(type)) return factor * 1.5
-    if ((typeStrengths[type] ?? []).includes(moveType) || (moveType === type && type in moveSets)) return factor * 0.75
-    return factor
-  }, 1)
+export function typeMultiplier(moveType: string, defenderTypes: readonly string[]): number {
+  return defenderTypes.reduce((factor, type) => factor * singleTypeEffectiveness(moveType, type), 1)
 }
 
 export function calculateDamage(attackMove: Move, attacker: Stats, defender: Stats, level: number, defenderTypes: string[], variance = 1): number {
@@ -1225,6 +1212,17 @@ function spawn(game: GameSave, bounds: Bounds, location: KantoLocation): void {
   addUnique(game.pokedexSeen, wildId)
 }
 
+function canHunt(game: GameSave, speciesId: string, formId?: string): boolean {
+  const defenderTypes = formStats(speciesId, formId).types
+  const level = effectiveLevel(game)
+  // A temporarily cooling-down attack can still finish the encounter.
+  return game.player.moveIds.some(id => {
+    const move = moves[id]
+    return move && move.category !== 'healing' && move.unlockLevel <= level &&
+      isMoveMotionSupported(game.player.speciesId, game.player.formId, id) && typeMultiplier(move.type, defenderTypes) > 0
+  })
+}
+
 function chooseTarget(game: GameSave): Wild | undefined {
   const position = game.player.position
   const levelLimit = encounterLevelLimit(game)
@@ -1232,7 +1230,7 @@ function chooseTarget(game: GameSave): Wild | undefined {
   let target: Wild | undefined
   let closest = SEARCH_RANGE
   for (const wild of game.wild) {
-    if (wild.level > levelLimit || !isSpeciesMotionSupported(wild.speciesId, wild.formId)) continue
+    if (wild.level > levelLimit || !isSpeciesMotionSupported(wild.speciesId, wild.formId) || !canHunt(game, wild.speciesId, battleForm(wild))) continue
     const distance = Math.hypot(wild.position.x - position.x, wild.position.y - position.y)
     if (distance < SEARCH_RANGE && legends?.some((slot) => slot.speciesId === wild.speciesId)) return wild
     if (distance < closest) {
@@ -1926,7 +1924,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
     }
     case 'BATTLE': {
       const target = findTarget(game)
-      if (!target) {
+      if (!target || !canHunt(game, target.speciesId, battleForm(target))) {
         runtime.targetId = null
         transition(game, 'IDLE')
       } else if (runtime.stateIn <= 0) {
@@ -2144,7 +2142,14 @@ export function applyOffline(game: GameSave, now = Date.now()): OfflineReward {
   if (!game.autoBattle) return reward
   const location = worldRegions[game.regionId].locationById[game.locationId]
   const slots = regionalWeather(game, location.id, new Date(now))?.encounters ?? location.encounters
-  const possible = slots.filter((slot) => slot.level <= encounterLevelLimit(game))
+  const limit = encounterLevelLimit(game)
+  const possible = slots.flatMap(slot => {
+    if (slot.level > limit) return []
+    const forms = supportedWildForms(game.regionId, location.id, slot.speciesId, slot.level)
+    const weight = forms.reduce((sum, form) => sum + form.weight, 0)
+    const huntable = forms.reduce((sum, form) => sum + (canHunt(game, slot.speciesId, form.formId) ? form.weight : 0), 0)
+    return huntable ? [{ ...slot, weight: slot.weight * huntable / weight }] : []
+  })
   const totalWeight = possible.reduce((total, slot) => total + slot.weight, 0)
   if (totalWeight <= 0) return reward
   reward.minutes = Math.floor(Math.min(now - last, MAX_OFFLINE_MS) / 60000)
