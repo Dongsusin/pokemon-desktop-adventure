@@ -10,7 +10,7 @@ import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, 
   type ArenaFeedback, type TrainerArena } from './trainerArena'
 import { battleForm, formStats, locationForm, validForm, wildEncounterForm } from './forms'
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
-import { singleTypeEffectiveness, teraAttackMultiplier } from './regions/paldeaTera'
+import { defensiveAbility, teraAttackMultiplier, typeMultiplier } from './regions/paldeaTera'
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
@@ -474,9 +474,7 @@ export function movesFor(speciesId: string, level: number, formId?: string): Mov
   return ids.map((id) => moves[id]).filter((entry) => level >= entry.unlockLevel && isMoveMotionSupported(speciesId, formId, entry.id))
 }
 
-export function typeMultiplier(moveType: string, defenderTypes: readonly string[]): number {
-  return defenderTypes.reduce((factor, type) => factor * singleTypeEffectiveness(moveType, type), 1)
-}
+export { typeMultiplier }
 
 export function calculateDamage(attackMove: Move, attacker: Stats, defender: Stats, level: number, defenderTypes: string[], variance = 1): number {
   return damageWithMultiplier(attackMove, attacker, defender, level, typeMultiplier(attackMove.type, defenderTypes), variance)
@@ -1019,6 +1017,7 @@ export function arenaSkills(game: GameSave) {
   if (!arena || !target) return []
   const casting = arena.casts.find(cast => cast.side === 'player')
   const refs = arenaSpriteRefs(game, target)
+  const defenderTypes = target.teraType ? [target.teraType] : formStats(target.speciesId, battleForm(target)).types
   return game.player.moveIds.filter(id => isMoveMotionSupported(game.player.speciesId, game.player.formId, id)).map(id => {
     const move = moves[id]
     const profile = arenaMoveProfile(move)
@@ -1026,6 +1025,8 @@ export function arenaSkills(game: GameSave) {
     const preview = createArenaCast(0, 'player', move, arena.player, arena.enemy, refs)
     return {
       move, range, profile, preview,
+      effectiveness: move.category === 'healing' ? null : defensiveAbility(move.type, target.abilityId) === 'absorb'
+        ? 'absorb' as const : typeMultiplier(move.type, defenderTypes, target.abilityId),
       cooldownMs: Math.max(arena.skillLockMs, casting ? castDuration(casting) - casting.elapsedMs : 0, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
       unlocked: move.unlockLevel <= effectiveLevel(game),
       inRange: arenaCastTouches(preview, 0, castDuration(preview), arena.enemy, arena.enemy),
@@ -1334,7 +1335,7 @@ function chooseTarget(game: GameSave): Wild | undefined {
 function matchup(game: GameSave, wild: Wild, move: Move, playerTurn: boolean) {
   const playerTypes = formStats(game.player.speciesId, game.player.formId).types
   const enemyTypes = formStats(wild.speciesId, battleForm(wild)).types
-  if (!wild.teraType) return typeMultiplier(move.type, playerTurn ? enemyTypes : playerTypes)
+  if (!wild.teraType) return typeMultiplier(move.type, playerTurn ? enemyTypes : playerTypes, playerTurn ? wild.abilityId : undefined)
   const partnerTera = playerTypes[0]
   return playerTurn ? teraAttackMultiplier(move.type, playerTypes, partnerTera, wild.teraType, wild.abilityId)
     : teraAttackMultiplier(move.type, enemyTypes, wild.teraType, partnerTera)
@@ -1818,7 +1819,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     addEffect(game, 'attack', source.position, 560, {
       target: { ...recipient.position }, moveId: selected.id, moveType: selected.type, text: selected.nameKo, actor, targetActor
     })
-    if (firstBeamContact && playerTurn && target.abilityId === 'water-absorb' && selected.type === 'water') {
+    if (firstBeamContact && playerTurn && defensiveAbility(selected.type, target.abilityId) === 'absorb') {
       const recovered = Math.min(target.maxHP - target.currentHP, Math.max(1, Math.floor(target.maxHP / 4)))
       target.currentHP += recovered
       addEffect(game, 'heal', target.position, 900, { text: '저수 · +' + recovered + ' HP', actor: target.id })

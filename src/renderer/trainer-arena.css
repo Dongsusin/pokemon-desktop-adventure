@@ -85,6 +85,9 @@
 .ring-skill-type { display:flex; align-items:center; justify-content:space-between; gap:3px; padding:1px 5px; background:color-mix(in srgb,var(--move-color) 33%,#2b222f); color:#fffaec; font-size:clamp(8px,.94vw,11px); line-height:1.25; }
 .ring-skill-type kbd { color:#fff19f; font-size:clamp(9px,1.05vw,13px); }
 .ring-skill strong { display:block; align-self:center; padding:2px 5px; font-size:clamp(10px,1.37vw,16px); line-height:1.2; overflow-wrap:anywhere; }
+.ring-matchup { align-self:end; padding:0 5px 2px; font-size:clamp(9px,.98vw,12px); line-height:1.2; color:#eee5d2; }
+.ring-matchup[data-effectiveness="2"],.ring-matchup[data-effectiveness="4"] { color:#c1f199; }
+.ring-matchup[data-effectiveness="0"],.ring-matchup[data-effectiveness="absorb"] { color:#ffb0a5; }
 .ring-skill>small { padding:1px 5px; color:#d8d1dc; border-top:1px solid #63596d; background:#272333; font-size:clamp(8px,.94vw,11px); }
 .ring-skill[aria-disabled=false] { border-color:var(--move-color); }
 .ring-skill[aria-disabled=false]>small { color:#b5e6a7; }

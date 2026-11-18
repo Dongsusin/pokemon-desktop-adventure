@@ -24,6 +24,14 @@ const arrows: Record<string, Position> = {
 const point = (pos: Position): CSSProperties => ({ left: pos.x * 100 + '%', top: pos.y * 100 + '%' })
 const duration = (ms: number) => (Math.ceil(ms / 100) / 10).toFixed(1) + '초'
 
+function effectivenessLabel(value: number | 'absorb' | null) {
+  if (value === null) return ''
+  if (value === 'absorb') return '흡수'
+  if (value === 0) return '무효'
+  if (value === 1) return '보통 ×1'
+  return (value > 1 ? '약점 ×' : '저항 ×') + value
+}
+
 function Health({ id, formId, level, hp, max, rival, remaining }: {
   id: string; formId?: string; level: number; hp: number; max: number; rival?: boolean; remaining: boolean[]
 }) {
@@ -276,16 +284,19 @@ export function TrainerArena({ game }: { game: GameSave }) {
           {letters.map((key, i) => {
             const entry = skills[i]
             const wait = entry ? Math.max(entry.cooldownMs, arena.skillLockMs) : 0
+            const matchup = entry ? effectivenessLabel(entry.effectiveness) : ''
             const fullHP = entry?.move.category === 'healing' && player.currentHP >= maxHP
             const sub = !entry ? '미등록' : !entry.unlocked ? 'Lv.' + entry.move.unlockLevel : wait > 0 ? duration(wait)
               : fullHP ? '체력 가득' : !entry.inRange ? '상대가 사거리 밖' : entry.move.category === 'healing' ? '회복' : '사용 가능'
             return <button key={key} type="button" data-skill-slot={i} className={'ring-skill' + (!entry ? ' empty' : '')}
-              aria-label={key + ' ' + (entry?.move.nameKo ?? '빈 기술 칸')} aria-disabled={!isPlaying || !entry?.unlocked || wait > 0 || fullHP}
+              aria-label={key + ' ' + (entry?.move.nameKo ?? '빈 기술 칸')} aria-description={[matchup, sub].filter(Boolean).join(' · ')} aria-disabled={!isPlaying || !entry?.unlocked || wait > 0 || fullHP}
               disabled={!entry || !isPlaying || !entry.unlocked} style={{ '--move-color': moveColors[entry?.move.type ?? 'normal'] ?? moveColors.normal } as CSSProperties}
               onPointerEnter={() => setRangeSlot(i)} onPointerLeave={() => setRangeSlot(null)}
               onFocus={() => setRangeSlot(i)} onBlur={() => setRangeSlot(null)} onClick={() => skill(i)}>
               <span className="ring-skill-type"><kbd>{key}</kbd>{entry && types[entry.move.type]}</span>
-              <strong>{entry?.move.nameKo ?? '빈 기술 칸'}</strong><small>{sub}</small>
+              <strong>{entry?.move.nameKo ?? '빈 기술 칸'}</strong>
+              {matchup && <span className="ring-matchup" data-effectiveness={entry.effectiveness}>{matchup}</span>}
+              <small>{sub}</small>
             </button>
           })}
         </section>

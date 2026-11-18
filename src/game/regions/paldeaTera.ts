@@ -26,10 +26,19 @@ export function singleTypeEffectiveness(moveType: string, defenderType: string):
   return effectiveness[moveType]?.[defenderType] ?? 1
 }
 
+export function defensiveAbility(moveType: string, ability?: KantoTrainerMember['abilityId']) {
+  if (ability === 'water-absorb' && moveType === 'water') return 'absorb'
+  if (ability === 'levitate' && moveType === 'ground') return 'immune'
+}
+
+export function typeMultiplier(moveType: string, defenderTypes: readonly string[], ability?: KantoTrainerMember['abilityId']): number {
+  if (defensiveAbility(moveType, ability)) return 0
+  return defenderTypes.reduce((factor, type) => factor * singleTypeEffectiveness(moveType, type), 1)
+}
+
 export function teraAttackMultiplier(moveType: string, originalTypes: readonly string[], attackerTera: string, defenderTera: string, defenderAbility?: KantoTrainerMember['abilityId']): number {
-  if ((defenderAbility === 'levitate' && moveType === 'ground') || (defenderAbility === 'water-absorb' && moveType === 'water')) return 0
   const originalStab = originalTypes.includes(moveType)
   const teraStab = moveType === attackerTera
   const stab = originalStab && teraStab ? 2 : originalStab || teraStab ? 1.5 : 1
-  return stab * singleTypeEffectiveness(moveType, defenderTera)
+  return stab * typeMultiplier(moveType, [defenderTera], defenderAbility)
 }

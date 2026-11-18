@@ -52,6 +52,26 @@ describe('real-time trainer arena', () => {
     expect(dispatch(game, { type: 'arena-surrender' })).toBe(false)
   })
 
+  it('previews defensive type, current form and abilities separately from STAB and healing', () => {
+    const game = gym()
+    const foe = game.wild[0]
+    game.player.moveIds = ['waterGun', 'tackle', 'recover', 'mudShot']
+    const values = () => Object.fromEntries(arenaSkills(game).map(skill => [skill.move.id, skill.effectiveness]))
+    expect(values()).toMatchObject({ waterGun: 4, tackle: .5, recover: null })
+    foe.speciesId = 'kingdra'
+    expect(values().waterGun).toBe(.25)
+    foe.speciesId = 'marowak'
+    foe.formId = 'marowak-alola'
+    expect(values()).toMatchObject({ tackle: 0, waterGun: 2 })
+    foe.teraType = 'water'
+    expect(values()).toMatchObject({ tackle: 1, waterGun: .5 })
+    foe.abilityId = 'water-absorb'
+    expect(values().waterGun).toBe('absorb')
+    foe.teraType = 'electric'
+    foe.abilityId = 'levitate'
+    expect(values().mudShot).toBe(0)
+  })
+
   it('commits an out-of-range miss, charges its cooldown and lets the player close for the next hit', () => {
     const game = gym(), a = arena(game)
     const start = { ...a.player }
