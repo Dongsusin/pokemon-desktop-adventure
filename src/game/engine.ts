@@ -1,7 +1,7 @@
 import { species, starterIds, wildIds } from './catalog'
 import { isSpeciesMotionSupported, isMoveMotionSupported } from './motionEligibility'
 import { supportedEncounters, supportedWildForms } from './regions/motionEncounters'
-import { arenaDistance, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
+import { arenaCastTouches, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
 import { arenaBodyPoint } from './arenaMuzzle'
 import { beamClashPower, escapeBeamClash } from './arenaBeams'
 import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, moveArena, restoreArena, stepArena,
@@ -937,10 +937,10 @@ export function arenaSkills(game: GameSave) {
     const range = profile.range
     const preview = createArenaCast(0, 'player', move, arena.player, arena.enemy, refs)
     return {
-      move, range, profile,
+      move, range, profile, preview,
       cooldownMs: Math.max(arena.skillLockMs, casting ? castDuration(casting) - casting.elapsedMs : 0, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
       unlocked: move.unlockLevel <= effectiveLevel(game),
-      inRange: move.category === 'healing' || arenaDistance(preview.origin, preview.profile.kind === 'burst' ? arena.enemy : preview.target) <= range,
+      inRange: arenaCastTouches(preview, 0, castDuration(preview), arena.enemy, arena.enemy),
     }
   })
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { applyOffline, arenaSkills, createGame, dispatch, hydrateSave, playerStats, tick, type GameSave } from '../src/game/engine'
+import { applyOffline, arenaSkills, createGame, dispatch, hydrateSave, moves, playerStats, tick, type GameSave } from '../src/game/engine'
 import { arenaCastFrame } from '../src/game/arenaMoves'
+import { stepArena } from '../src/game/trainerArena'
 import { castSkill, finishChallenge, idleUntilHit } from './trainerArenaDriver'
 
 const bounds = { width: 1280, height: 720 }
@@ -76,6 +77,20 @@ describe('real-time trainer arena', () => {
     expect(arenaSkills(game)[0].cooldownMs).toBeGreaterThan(0)
     expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(false)
     expect(game.wild[0].currentHP).toBe(hp)
+  })
+
+  it.each([[215, true], [236, false]] as const)('previews the same full Tackle footprint as a stationary impact at %i px', (distance, hit) => {
+    const game = gym(), a = arena(game)
+    a.player = { x: .3, y: .5 }
+    a.enemy = { x: a.player.x + distance / 1200, y: .5 }
+    const skill = arenaSkills(game)[0]
+    expect(skill.inRange).toBe(hit)
+    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(true)
+    const cast = a.casts[0]
+    expect(cast.end).toEqual(skill.preview.end)
+    expect(cast.profile.radius).toBe(skill.preview.profile.radius)
+    for (let frame = 0; frame < 120 && !cast.resolved; frame++) stepArena(a, 10, 0, 0, moves.rockThrow)
+    expect(cast.result).toBe(hit ? 'hit' : 'miss')
   })
 
   it('shows an enemy attack before impact and lets the player escape its marked position', () => {

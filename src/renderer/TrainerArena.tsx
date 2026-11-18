@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
-import { arenaSkills, arenaSpriteRefs, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position } from '../game/engine'
+import { arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position } from '../game/engine'
 import { species } from '../game/catalog'
 import { battleForm, formStats } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
@@ -10,7 +10,7 @@ import { ArenaFighter } from './ArenaFighter'
 import { nativeBodyStyle } from './NativeMove'
 import { ArenaTrainers } from './ArenaTrainers'
 import { useMoveSounds } from './useMoveSounds'
-import { createArenaCast, arenaHeightRatio } from '../game/arenaMoves'
+import { arenaHeightRatio } from '../game/arenaMoves'
 import { battleGroundUrl } from './battleGround'
 import './trainer-arena.css'
 
@@ -216,8 +216,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const range = rangeSlot === null ? undefined : skills[rangeSlot]
   const playerType = formStats(player.speciesId, player.formId).types[0]
   const terrain = trainer.type ?? (trainer.role === 'champion' ? 'champion' : 'normal')
-  const selected = range?.unlocked && isPlaying ? range : undefined
-  const preview = selected && createArenaCast(-1, 'player', selected.move, arena.player, arena.enemy, arenaSpriteRefs(game, foe))
+  const preview = range?.unlocked && isPlaying ? range.preview : undefined
   const ground = battleGroundUrl(trainer.locationId, terrain, trainer.role !== 'gym')
   const location = region.locationById[trainer.locationId].name
   const special = foe?.teraType ? types[foe.teraType] + ' 테라스탈'
