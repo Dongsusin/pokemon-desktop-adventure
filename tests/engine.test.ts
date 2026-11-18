@@ -711,6 +711,19 @@ describe('offline progression', () => {
     expect(game.player.exp).toBeGreaterThan(0)
   })
 
+  it('credits only the sleep interval even if the previous save predates suspend', () => {
+    const game = makeRouteGame()
+    const suspendAt = startTime + 1_800_000
+    const resumedAt = suspendAt + 3_600_000
+    const reopened = makeRouteGame()
+    reopened.lastSavedAt = new Date(suspendAt).toISOString()
+    const expected = applyOffline(reopened, resumedAt)
+    expect(expected.minutes).toBe(60)
+    expect(applyOffline(game, resumedAt, suspendAt)).toEqual(expected)
+    expect(applyOffline(game, resumedAt).minutes).toBe(0)
+    expect(game.coins).toBe(expected.coins)
+  })
+
   it('caps eligible time at eight hours and settles once', () => {
     const game = makeRouteGame()
     const later = startTime + 24 * 3600000

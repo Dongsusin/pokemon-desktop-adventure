@@ -424,6 +424,7 @@ function startDesktop(): void {
   app.on('second-instance', windows.showControl)
   app.on('activate', windows.showControl)
 
+  let suspended: { at: number; game: GameSave | null } | null = null
   let lastTick = performance.now()
   let controlInterval = 0
   let step = setTimeout(advanceSimulation, simulationInterval)
@@ -432,7 +433,7 @@ function startDesktop(): void {
     const now = performance.now()
     const elapsed = Math.min(now - lastTick, 500)
     lastTick = now
-    if (!game) return
+    if (!game || suspended) return
     const previousOpponent = game.campaign.battle?.opponentIndex
     const wasChoosingReplacement = game.campaign.battle?.arena.needsSwitch
     tick(game, elapsed, overlayWorkArea())
@@ -452,13 +453,23 @@ function startDesktop(): void {
     controlInterval = (controlInterval + 1) % 3
     publish(previousOpponent !== undefined || controlInterval === 0)
   }
-  const autosave = setInterval(() => saveCurrent(), autosaveInterval)
+  const autosave = setInterval(() => { if (!suspended) saveCurrent() }, autosaveInterval)
 
   windows.control.on('session-end', () => saveCurrent())
   powerMonitor.on('suspend', () => {
+    if (suspended) return
+    suspended = { at: Date.now(), game }
     if (!pauseArena()) saveCurrent()
   })
-  powerMonitor.on('resume', () => { lastTick = performance.now() })
+  powerMonitor.on('resume', () => {
+    lastTick = performance.now()
+    const interval = suspended
+    suspended = null
+    if (!interval || !game || interval.game !== game) return
+    const reward = applyOffline(game, Date.now(), interval.at)
+    if (reward.minutes > 0) saveCurrent()
+    publish(true)
+  })
   app.on('before-quit', () => {
     if (quitting) return
     quitting = true

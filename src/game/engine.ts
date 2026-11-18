@@ -2131,10 +2131,9 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
   }
 }
 
-export function applyOffline(game: GameSave, now = Date.now()): OfflineReward {
+export function applyOffline(game: GameSave, now = Date.now(), since = Date.parse(game.lastSavedAt)): OfflineReward {
   const reward: OfflineReward = { minutes: 0, exp: 0, coins: 0 }
-  const last = Date.parse(game.lastSavedAt)
-  if (!Number.isFinite(last) || !Number.isFinite(now) || now <= last || now > 8640000000000000) return reward
+  if (!Number.isFinite(since) || !Number.isFinite(now) || now <= since || now > 8640000000000000) return reward
   game.lastSavedAt = new Date(now).toISOString()
   // A saved arena resumes on its own clock, including remaining technique cooldowns.
   if (game.campaign.battle) return reward
@@ -2152,7 +2151,7 @@ export function applyOffline(game: GameSave, now = Date.now()): OfflineReward {
   })
   const totalWeight = possible.reduce((total, slot) => total + slot.weight, 0)
   if (totalWeight <= 0) return reward
-  reward.minutes = Math.floor(Math.min(now - last, MAX_OFFLINE_MS) / 60000)
+  reward.minutes = Math.floor(Math.min(now - since, MAX_OFFLINE_MS) / 60000)
   if (reward.minutes === 0) return reward
 
   // Half of one typical encounter per minute, without simulating historical fights or drops.
