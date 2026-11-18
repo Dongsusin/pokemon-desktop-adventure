@@ -89,6 +89,8 @@ export function parseCommand(value: unknown): AdventureCommand | null {
     case 'autoBattle':
     case 'setLaunchAtLogin':
       return typeof value.enabled === 'boolean' ? { type: value.type, enabled: value.enabled } : null
+    case 'takeBoxItem':
+      return memberId(value.instanceId) ? { type: 'takeBoxItem', instanceId: value.instanceId } : null
     case 'equip':
       return value.itemId === null || knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null
     case 'useItem':

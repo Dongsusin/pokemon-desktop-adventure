@@ -344,6 +344,7 @@ export type GameAction =
   | { type: 'update-settings'; settings: Partial<Settings> }
   | { type: 'use-item'; itemId: string }
   | { type: 'equip-item'; itemId: string | null }
+  | { type: 'take-box-item'; instanceId: string }
   | { type: 'set-moves'; moveIds: string[] }
   | { type: 'throw-ball'; itemId: string }
   | { type: 'set-follower-active'; instanceId: string; active: boolean; boxIndex?: number }
@@ -2088,6 +2089,16 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     }
     case 'use-item':
       return !game.campaign.battle && typeof action.itemId === 'string' && hasKey(items, action.itemId) && consume(game, action.itemId)
+    case 'take-box-item': {
+      if (game.campaign.battle || typeof action.instanceId !== 'string') return false
+      const boxed = findBoxSlot(game.boxes, action.instanceId)?.pokemon
+      if (!boxed?.heldItemId) return false
+      // Inventory already counts equipped copies. Releasing ownership makes this copy available.
+      const itemId = boxed.heldItemId
+      boxed.heldItemId = null
+      addLog(game, 'loot', `${species[boxed.speciesId].nameKo}의 ${items[itemId].nameKo} 회수`)
+      return true
+    }
     case 'equip-item':
       if (game.campaign.battle) return false
       if (action.itemId !== null && (typeof action.itemId !== 'string' || !hasKey(items, action.itemId) ||

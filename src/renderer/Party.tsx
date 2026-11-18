@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react'
 import { species } from '../game/catalog'
 import { isSpeciesMotionSupported } from '../game/motionEligibility'
-import { BOX_SIZE, canChangeLead, effectiveLevel, MAX_PARTY_SIZE, type GameSave, type PartyPokemon } from '../game/engine'
+import { BOX_SIZE, canChangeLead, effectiveLevel, items, MAX_PARTY_SIZE, type GameSave, type PartyPokemon } from '../game/engine'
 import type { AdventureCommand } from '../preload/contracts'
-import { Pokemon, pokemonName } from './shared'
+import { ItemSprite, Pokemon, pokemonName } from './shared'
 import './party.css'
 
 type Member = Pick<PartyPokemon, 'instanceId' | 'speciesId' | 'level' | 'formId'>
@@ -103,6 +103,11 @@ export function Party({ game, busy, send }: {
           <div><strong>{nameOf(selected)}</strong><small>Lv. {selected.level} · 박스 {pageIndex + 1}{archived && ' · 전용 모션 미지원 (보관 전용)'}</small></div>
         </div>
         <div className="storage-box-actions">
+          {selected.heldItemId && <button className="small-button box-held-item" disabled={busy}
+            aria-label={items[selected.heldItemId].nameKo + ' 회수'}
+            onClick={() => send({ type: 'takeBoxItem', instanceId: selected.instanceId })}>
+            <ItemSprite id={selected.heldItemId} />{items[selected.heldItemId].nameKo} 회수
+          </button>}
           {!fullParty && <button className="small-button" disabled={busy || archived}
             onClick={() => { send({ type: 'setFollowerActive', instanceId: selected.instanceId, active: true }); boxSelect.current?.focus() }}>파티로 꺼내기</button>}
           <div className="storage-swap">

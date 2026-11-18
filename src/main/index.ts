@@ -328,6 +328,12 @@ function startDesktop(): void {
         saveCurrent()
         break
       }
+      case 'takeBoxItem':
+        if (!dispatch(requireGame(), { type: 'take-box-item', instanceId: command.instanceId })) {
+          throw new Error('지닌 물건이 있는 박스 포켓몬을 선택해 주세요.')
+        }
+        saveCurrent()
+        break
       case 'equip':
         if (!dispatch(requireGame(), { type: 'equip-item', itemId: command.itemId })) {
           throw new Error('이 아이템을 장착할 수 없습니다.')

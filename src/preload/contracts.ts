@@ -34,6 +34,7 @@ export type AdventureCommand =
   | { type: 'settings'; settings: Partial<Settings> }
   | { type: 'autoBattle'; enabled: boolean }
   | { type: 'equip'; itemId: string | null }
+  | { type: 'takeBoxItem'; instanceId: string }
   | { type: 'throwBall'; itemId: CaptureBallId }
   | { type: 'setFollowerActive'; instanceId: string; active: boolean; boxIndex?: number }
   | { type: 'movePartyMember'; instanceId: string; toIndex: number }

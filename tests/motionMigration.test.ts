@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createGame, dispatch, hydrateSave, statsFor, type PartyPokemon } from '../src/game/engine'
+import { availableEquipment, createGame, dispatch, hydrateSave, statsFor, type PartyPokemon } from '../src/game/engine'
 import { worldRegions } from '../src/game/regions/world'
 
 const bounds = { width: 1280, height: 720 }
@@ -32,6 +32,12 @@ describe('v15 motion roster migration', () => {
     expect(game.pokedexCaught).toEqual(expect.arrayContaining(['miraidon', 'beedrill', 'dragonair']))
     expect(dispatch(game, { type: 'set-follower-active', instanceId: 'caught-40', active: true })).toBe(false)
     expect(dispatch(game, { type: 'swap-box-pokemon', boxInstanceId: 'caught-41', partyInstanceId: 'caught-42' })).toBe(false)
+    expect(availableEquipment(game, 'muscleBand')).toBe(0)
+    expect(dispatch(game, { type: 'take-box-item', instanceId: 'caught-40' })).toBe(true)
+    expect(dispatch(game, { type: 'take-box-item', instanceId: 'caught-40' })).toBe(false)
+    expect(game.inventory.muscleBand).toBe(1)
+    expect(dispatch(game, { type: 'equip-item', itemId: 'muscleBand' })).toBe(true)
+    expect(game.boxes[0][0]).toMatchObject({ instanceId: 'caught-40', heldItemId: null, active: false })
     const again = hydrateSave(copy(game), 1)!
     expect(again.history).toEqual(game.history)
     expect(again.boxes).toEqual(game.boxes)
