@@ -1,0 +1,79 @@
+{
+  "tackle": {
+    "release": "tackle"
+  },
+  "flameCharge": {
+    "release": "firepunch-3",
+    "windup": "firepunch-1"
+  },
+  "shadowSneak": {
+    "release": "shadowsneak-2",
+    "windup": "shadowsneak-1"
+  },
+  "scratch": {
+    "release": "scratch"
+  },
+  "vineWhip": {
+    "release": "vinewhip"
+  },
+  "bugBite": {
+    "release": "bugbite"
+  },
+  "lowKick": {
+    "release": "brickbreak-2",
+    "windup": "brickbreak-1"
+  },
+  "bite": {
+    "release": "bite"
+  },
+  "metalClaw": {
+    "release": "metalclaw-2",
+    "windup": "metalclaw-1"
+  },
+  "waterGun": {
+    "release": "watergun"
+  },
+  "thunderShock": {
+    "release": "thundershock"
+  },
+  "dragonBreath": {
+    "release": "dragonbreath"
+  },
+  "ember": {
+    "release": "ember"
+  },
+  "gust": {
+    "release": "gust"
+  },
+  "fairyWind": {
+    "release": "fairywind"
+  },
+  "poisonSting": {
+    "release": "poisonsting"
+  },
+  "mudShot": {
+    "release": "mudshot"
+  },
+  "iceShard": {
+    "release": "icepunch-2",
+    "windup": "icepunch-1"
+  },
+  "waterPulse": {
+    "release": "waterpulse-2",
+    "windup": "waterpulse-1"
+  },
+  "razorLeaf": {
+    "release": "razorleaf-2",
+    "windup": "razorleaf-1"
+  },
+  "rockThrow": {
+    "release": "rockthrow-2",
+    "windup": "rockthrow-1"
+  },
+  "confusion": {
+    "release": "confusion"
+  },
+  "recover": {
+    "release": "recover"
+  }
+}

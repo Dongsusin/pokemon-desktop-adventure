@@ -1,3 +1,4 @@
+import { arenaCastFrame, arenaCastTouches } from '../src/game/arenaMoves'
 import { arenaSkills, dispatch, tick, type GameSave } from '../src/game/engine'
 import { formStats } from '../src/game/forms'
 import { teraAttackMultiplier } from '../src/game/regions/paldeaTera'
@@ -19,16 +20,28 @@ export function playFrame(game: GameSave, moveId?: string): boolean {
     if (next) dispatch(game, { type: 'arena-switch', instanceId: next.instanceId })
   }
 
-  const { player, enemy, telegraph } = arena
+  const { player, enemy } = arena
   let dx = enemy.x - player.x
   let dy = enemy.y - player.y
-  if (telegraph) {
-    const ox = player.x - telegraph.center.x
-    const oy = (player.y - telegraph.center.y) * 9 / 16
-    if (Math.hypot(ox, oy) <= telegraph.radius + 0.02) {
-      // Move into the open half of the field if the marker is centered on us.
-      dx = Math.abs(ox) > 0.04 ? ox : player.x < 0.5 ? 1 : -1
-      dy = Math.abs(oy) > 0.04 ? oy : player.y < 0.5 ? 1 : -1
+  const threat = arena.casts.find(cast => cast.side === 'enemy' && !cast.resolved)
+  if (threat) {
+    const stop = threat.profile.startupMs + threat.profile.activeMs
+    if (arenaCastTouches(threat, threat.elapsedMs, stop, player, player)) {
+      if (threat.profile.kind === 'burst') {
+        dx = player.x - threat.target.x
+        dy = player.y - threat.target.y
+        if (Math.abs(dx) + Math.abs(dy) < 0.04) {
+          dx = player.x < 0.5 ? 1 : -1
+          dy = player.y < 0.5 ? 1 : -1
+        }
+      } else {
+        const { direction } = arenaCastFrame(threat)
+        const perpendicular = { x: -direction.y, y: direction.x }
+        const towardsCenter = perpendicular.x * (0.5 - player.x) + perpendicular.y * (0.5 - player.y)
+        const sign = towardsCenter >= 0 ? 1 : -1
+        dx = perpendicular.x * sign
+        dy = perpendicular.y * sign
+      }
       dispatch(game, { type: 'arena-move', x: Math.sign(dx), y: Math.sign(dy) })
       dispatch(game, { type: 'arena-dodge' })
     } else {
@@ -52,7 +65,16 @@ export function playFrame(game: GameSave, moveId?: string): boolean {
 
 export function castSkill(game: GameSave, moveId?: string) {
   for (let i = 0; i < 250 && game.campaign.battle; i++) {
-    if (playFrame(game, moveId)) return
+    const previousTarget = game.wild[0]?.id
+    if (!playFrame(game, moveId)) continue
+    const committed = game.campaign.battle?.arena.casts.filter(cast => cast.side === 'player').at(-1)
+    if (!committed || game.wild[0]?.id !== previousTarget) return
+    dispatch(game, { type: 'arena-move', x: 0, y: 0 })
+    const duration = committed.profile.startupMs + committed.profile.activeMs + committed.profile.recoveryMs
+    for (let t = 0; t <= duration && !committed.resolved && game.campaign.battle; t += frame) {
+      tick(game, frame, bounds)
+    }
+    if (committed.result === 'hit' || game.wild[0]?.id !== previousTarget) return
   }
   throw Error('Unable to cast ' + (moveId ?? 'a damaging skill') + ' against ' + game.campaign.battle?.trainerId)
 }

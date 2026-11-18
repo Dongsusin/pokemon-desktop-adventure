@@ -1,170 +1,128 @@
-.trainer-arena {
-  --ring-ink: #15372f;
-  --ring-hairline: #d0d9cb;
-  color: var(--ring-ink);
-  max-width: 1160px;
-  margin: 0 auto;
-  padding: clamp(12px, 2.5vh, 24px) 0 16px;
-}
-.shell.arena-shell { width: min(100%, 1200px); padding: 0 clamp(12px, 3vw, 34px); }
-.ring-heading, .ring-health-heading, .ring-hp-row, .ring-announce, .ring-party-heading,
-.ring-command h2, .ring-dodge, .ring-party-member, .ring-pause-button { display: flex; align-items: center; }
-.ring-heading { justify-content: space-between; gap: 12px; margin-bottom: 13px; }
-.ring-heading p { color: #5a7168; font-size: 11px; font-weight: 700; }
-.ring-heading p span { padding: 0 4px; color: #a3ada0; }
-.ring-heading h1 { font-size: clamp(23px, 3.1vw, 37px); line-height: 1.2; letter-spacing: -.055em; }
-.ring-heading h1 small { margin-left: .24em; font-size: .61em; font-weight: 580; letter-spacing: -.045em; }
-.ring-heading h1 .ring-versus { margin: 0 .38em 0 0; color: #668273; font-size: .55em; font-weight: 800; }
-.trainer-arena kbd { font: 700 11px/1 'Consolas', monospace; }
-.ring-pause-button { gap: 10px; background: #f9faf1; border: 1px solid var(--ring-hairline); padding: 7px 9px 7px 13px; border-radius: 7px; font-size: 12px; font-weight: 700; }
-.ring-pause-button kbd, .ring-dodge small { padding: 4px 6px; border: 1px solid currentColor; border-radius: 4px; font-size: 10px; }
-.ring-layout { display: grid; grid-template-columns: minmax(0, 1fr) clamp(173px, 21%, 242px); gap: clamp(9px, 1.6vw, 18px); align-items: stretch; }
-.ring-main, .ring-command, .ring-party { min-width: 0; }
-.ring-main { overflow: hidden; background: #193e37; border: 1px solid #23473b; border-radius: 12px; }
-.ring-scoreboard { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1px; background: #30564b; color: #f9fbed; }
-.ring-health { min-width: 0; padding: clamp(7px, 1.1vw, 13px) clamp(9px, 1.7vw, 19px); background: #18463f; border-top: 3px solid #75ddc1; }
-.ring-health.rival { background: #2c423d; border-color: #efb477; }
-.ring-health-heading { flex-wrap: wrap; gap: 3px 6px; }
-.ring-side { color: #a3dcca; font-size: 10px; font-weight: 700; }
-.rival .ring-side { color: #f1c18c; }
-.ring-health-heading strong { font-size: clamp(12px, 1.55vw, 17px); line-height: 1.1; overflow-wrap: anywhere; }
-.ring-health-heading > small { color: #d1dbcf; font: 600 10px/1.4 'Consolas', monospace; }
-.ring-hp-row { margin-top: 5px; gap: 7px; }
-.ring-hp-track { height: 6px; border-radius: 2px; background: #0b241e; flex: 1; overflow: hidden; }
-.ring-hp-track i { display: block; height: 100%; background: #7ee5ad; transition: width .18s ease-out; }
-.ring-hp-number { color: #eff6e8; font: 600 10px/1 'Consolas', monospace; }
-.ring-health-extra { display: block; color: #ced5c8; font-size: 9px; margin-top: 3px; }
-.ring-floor {
-  --floor-a: #738c7f; --floor-b: #486a64; --edge: #d5e7cc77;
-  position: relative; width: 100%; aspect-ratio: 16/9; overflow: hidden; isolation: isolate;
-  touch-action: none; cursor: crosshair; user-select: none; outline-offset: -3px;
-  background-color: var(--floor-b);
-  background-image: radial-gradient(ellipse at 50% 48%, transparent 28%, #17282e5c 115%),
-    linear-gradient(145deg,var(--floor-a),var(--floor-b));
-}
-.ring-floor[data-terrain=rock], .ring-floor[data-terrain=steel] { --floor-a:#858886; --floor-b:#545f61; --edge:#e7dfca80; }
-.ring-floor[data-terrain=ground], .ring-floor[data-terrain=fighting] { --floor-a:#ae9475; --floor-b:#776657; --edge:#edd4a87d; }
-.ring-floor[data-terrain=water], .ring-floor[data-terrain=ice] { --floor-a:#689b9f; --floor-b:#426d81; --edge:#d3f1e880; }
-.ring-floor[data-terrain=grass], .ring-floor[data-terrain=bug] { --floor-a:#7d9c73; --floor-b:#4d7358; --edge:#e9e9bf80; }
-.ring-floor[data-terrain=fire], .ring-floor[data-terrain=electric] { --floor-a:#aa9270; --floor-b:#786455; --edge:#ffdd9877; }
-.ring-floor[data-terrain=ghost], .ring-floor[data-terrain=poison], .ring-floor[data-terrain=psychic], .ring-floor[data-terrain=fairy] { --floor-a:#99879c; --floor-b:#675972; --edge:#ead5e780; }
-.ring-floor[data-terrain=dragon], .ring-floor[data-terrain=dark], .ring-floor[data-terrain=champion] { --floor-a:#8383a2; --floor-b:#4d526a; --edge:#dcd5ef80; }
-.ring-floor[data-terrain=flying] { --floor-a:#91a5a6; --floor-b:#607a83; --edge:#e3eedd80; }
-.ring-floor::before { content:'';position:absolute;inset:0;pointer-events:none; opacity:.48;
-  background:repeating-linear-gradient(135deg, transparent 0 19px,#dce5d60d 19px 20px); }
-.ring-floor:is([data-terrain=rock],[data-terrain=ground],[data-terrain=steel])::before {
-  opacity:.7;
-  background:linear-gradient(0deg,#1b27291f 1px,transparent 1px) 0 0 / 100% 12.5%,
-    linear-gradient(90deg,#1b272919 1px,transparent 1px) 0 0 / 13% 100%,
-    repeating-linear-gradient(115deg,transparent 0 7px,#e7dfca0c 7px 8px); }
-.ring-floor:is([data-terrain=water],[data-terrain=ice])::before {
-  background:repeating-radial-gradient(ellipse at 3% 125%,transparent 0 27px,#cbeff028 28px 30px,transparent 31px 48px); }
-.ring-floor:is([data-terrain=grass],[data-terrain=bug])::before {
-  background:repeating-linear-gradient(90deg,#eff7bc11 0 12.5%,#1c514a11 12.5% 25%); }
-.ring-court { position:absolute;inset:6% 3.25%;border:2px solid var(--edge);border-radius:clamp(14px,3.2vw,42px);
-  box-shadow:0 0 0 4px #24353c12,inset 0 0 0 4px #e5eee310;pointer-events:none; }
-.ring-court::before,.ring-court::after { content:'';position:absolute;top:45%;height:10%;width:1.7%;
-  border-block:2px solid var(--edge); }
-.ring-court::before { left:0; } .ring-court::after { right:0; }
-.ring-court i,.ring-court b { position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);aspect-ratio:1;border-radius:50%; }
-.ring-court i { width:26%;border:3px solid var(--edge);transform:translate(-50%,-50%) rotate(-14deg);
-  background:linear-gradient(180deg,#edf2e41c 0 45%,var(--edge) 45% 53%,#1e303717 53% 100%); }
-.ring-court b { width:6.8%;border:3px solid var(--edge);background:var(--floor-b);box-shadow:0 0 0 2px #21303464,inset 0 0 0 3px #ebf0da1f; }
-.ring-fighter { position:absolute; width:17.5%; aspect-ratio:1; transform:translate(-50%,-77%); z-index:3; pointer-events:none;
-  transition: left 95ms linear,top 95ms linear; }
-.ring-fighter.dynamax { width:20.5%; }
-.ring-fighter-shadow { position:absolute; left:28%; top:71%; width:44%; height:11%; border-radius:50%; background:#152f2d66; box-shadow:0 1px 1px #132c2533; }
-.ring-fighter.player .ring-fighter-shadow { border-bottom: 2px solid #a9ffdf; }
-.ring-fighter.enemy .ring-fighter-shadow { border-bottom: 2px solid #ffca83; }
-.ring-fighter.invincible .ring-fighter-shadow { background: #9ffff4; box-shadow:0 0 12px #a8ffff; }
-.ring-fighter-motion,.ring-fighter-face { position:absolute; inset:0; }
-.ring-fighter-face.faces-right { transform:scaleX(-1); }
-.ring-fighter .pokemon-sprite { width:100%;height:100%;filter: drop-shadow(0 2px 1px #1e3c3666); }
-.ring-fighter.dynamax .pokemon-sprite { filter:drop-shadow(0 0 5px #ff6793); }
-.ring-fighter .ring-tera { position:absolute; top:24%; right:8%; }
-.ring-tera img { width:clamp(15px,2.3vw,25px);height:auto; }
-.ring-fighter-mark { position:absolute; top:80%; left:50%; transform:translateX(-50%); color:#c1ffeb; font-size:clamp(7px,.9vw,11px); text-shadow:0 1px 2px #0f332b; }
-.enemy .ring-fighter-mark { color:#ffd7a8; }
-.ring-warning,.ring-range,.ring-goal { position:absolute; pointer-events:none; border-radius:50%; transform:translate(-50%,-50%); aspect-ratio:1; }
-.ring-warning { z-index:2; background: repeating-linear-gradient(135deg,#912e382d 0 6px,#f3946e42 6px 8px);
-  outline:2px solid #762124; border:2px dashed #ffd0a7; }
-.ring-warning i { position:absolute; inset:0; background:#fc634e77; border-radius:inherit; transition: transform 90ms linear; }
-.ring-warning span { position:absolute; left:50%;top:0; transform:translate(-50%,-66%); border-radius:4px; padding:2px 6px; background:#722f2c; color:#ffece1; font-size:clamp(9px,1.05vw,12px);font-weight:700;white-space:nowrap; }
-.ring-range { border:1px dashed #d8ecfa9c; background:#b5dbff0e; z-index:1; }
-.ring-range.inside { border-color:#bef1d49c; background:#b0f4ca0b; }
-.ring-goal { z-index:2;width:2.8%;min-width:12px; border:2px solid #e8f4ba; box-shadow:0 0 0 3px #264b3e; }
-.ring-effect { position:absolute;inset:0;z-index:5;pointer-events:none; }
-.ring-shot,.ring-impact,.ring-popup { position:absolute;left:var(--hit-x);top:var(--hit-y); }
-.ring-shot { width:3%;height:2.4%;border-radius:50%;background:#fff;box-shadow:0 0 2px 3px var(--effect-color),0 0 15px 6px var(--effect-color);animation:ring-shot .17s linear both; }
-.ring-impact { width:7%;aspect-ratio:1;border:3px solid var(--effect-color); box-shadow:inset 0 0 0 2px #fff9; border-radius:50%;animation:ring-impact .38s .10s both; }
-.ring-heal .ring-impact { border-color:#b7fb94; }
-.ring-popup { color:#fff; font-weight:850; font-size:clamp(10px,1.3vw,16px); text-shadow:0 1px 2px #132e25,1px 0 #244a3c;
-  animation:ring-popup .9s both;white-space:nowrap; }
-.ring-fighter-motion.striking { animation:ring-strike .22s; } .ring-fighter-motion.stagger { animation:ring-stagger .27s; }
-.ring-fighter-motion.dodging { animation:ring-dodge .3s; }
-@keyframes ring-shot { 0%{left:var(--shot-x);top:var(--shot-y);transform:translate(-50%,-100%)} 85%{opacity:1}100%{opacity:0;transform:translate(-50%,-100%)} }
-@keyframes ring-impact { from{opacity:0;transform:translate(-50%,-75%) scale(.25)} 30%{opacity:1}to{opacity:0;transform:translate(-50%,-75%) scale(1.65)} }
-@keyframes ring-popup { from{opacity:0;transform:translate(-50%,-120%)} 15%,72%{opacity:1} to{opacity:0;transform:translate(-50%,-250%)} }
-@keyframes ring-strike { 40%{transform:translateY(-6%) scale(1.08)} }
-@keyframes ring-stagger { 35%{transform:translateX(-5%);filter:brightness(1.8)} 65%{transform:translateX(4%)} }
-@keyframes ring-dodge { 35%{opacity:.45;filter:drop-shadow(-5px 0 #adffeb)} }
-.ring-scrim { position:absolute;inset:0;z-index:8;display:grid;place-items:center;background:#102c28b8;cursor:default; }
-.ring-pause-panel { background:#163d33; color:#f4fae9; border:1px solid #85a18b; border-radius:10px;padding:clamp(11px,2vw,22px);text-align:center;max-width:94%;box-shadow:0 8px 28px #142c2877; }
+.shell.arena-shell { width:100%; min-height:100dvh; background:#211f25; padding:clamp(4px,.8dvh,8px); display:grid; place-items:center; }
+.trainer-arena { width:min(100%,1200px,calc((100dvh - 185px) * 1200 / 760)); min-width:0; color:#fff8e6; font-family:"Malgun Gothic","Segoe UI",sans-serif; }
+.trainer-arena kbd { font:800 11px/1 Consolas,monospace; }
+.shell.arena-shell + footer { display:none; }
+.ring-floor.stopped * { animation-play-state:paused; }
+.ring-frame { background:#171424; border:3px solid #211f26; outline:1px solid #99968b; box-shadow:0 4px 18px #15162333; overflow:hidden; }
+.ring-scoreboard { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); gap:2px; background:#1a1823; min-height:46px; }
+.ring-health { display:flex; align-items:stretch; min-width:0; background:#322b41; }
+.ring-health.rival { flex-direction:row-reverse; }
+.ring-portrait { flex:none; width:clamp(35px,4.7vw,64px); display:grid; place-items:center; background:linear-gradient(135deg,#ecdb9b,#947857); border:2px solid #756775; overflow:hidden; }
+.ring-portrait .pokemon-sprite { display:block; width:100%; height:100%; max-height:58px; object-fit:contain; }
+.ring-health-body { display:flex; flex-direction:column; justify-content:center; flex:1; min-width:0; padding:4px 6px; border-top:2px solid #897c91; border-bottom:2px solid #100e18; }
+.ring-health-heading,.ring-hp-row,.ring-reserves { display:flex; align-items:center; }
+.ring-health-heading { gap:5px; }
+.ring-health.rival .ring-health-heading,.ring-health.rival .ring-hp-row { flex-direction:row-reverse; }
+.ring-health-heading strong { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.15; font-size:clamp(11px,1.36vw,17px); }
+.ring-health-heading small,.ring-hp-number { white-space:nowrap; font:700 clamp(9px,1.05vw,12px)/1.15 Consolas,monospace; color:#ffe499; }
+.ring-reserves { margin-inline-start:auto; gap:2px; }
+.rival .ring-reserves { margin-inline-start:0; margin-inline-end:auto; }
+.ring-reserves i { display:block; flex:none; width:clamp(6px,.85vw,10px); aspect-ratio:1; border:1px solid #171422; border-radius:50%; background:linear-gradient(#ea6a62 0 40%,#322b41 40% 56%,#f5ead4 56%); }
+.ring-reserves i.down { opacity:.27; filter:grayscale(1); }
+.ring-hp-row { position:relative; gap:4px; margin-top:3px; }
+.ring-hp-number { color:#f7f4ea; font-size:clamp(8px,.95vw,11px); }
+.ring-hp-track { position:relative; flex:1; height:clamp(8px,1.1vw,13px); border:1px solid #08080b; background:#edeae5; overflow:hidden; }
+.ring-hp-track i { display:block; height:100%; background-color:#79d361; background-image:linear-gradient(0deg,#2138223d 0 22%,transparent 22% 75%,#ffffff40 75%); transition:width 140ms linear; }
+.rival .ring-hp-track i { margin-left:auto; }
+.ring-match { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:clamp(58px,8vw,108px); padding:3px 6px; background:#282235; border-block:2px solid #665b6c; }
+.ring-match span { font-size:clamp(8px,.93vw,10px); color:#c7bacc; }
+.ring-match h1 { font-size:clamp(12px,1.3vw,17px); color:#fff4c6; letter-spacing:-.04em; }
+.ring-floor { position:relative; width:100%; aspect-ratio:1200/760; overflow:hidden; isolation:isolate; touch-action:none; cursor:crosshair; user-select:none; outline-offset:-3px;
+  background-color:#b49872; background-size:100% 100%; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; }
+.ring-world { position:absolute; inset:0; isolation:isolate; transform-origin:0 0; transition:transform 80ms linear; background:inherit; }
+.ring-location { position:absolute; z-index:77; top:0; left:50%; transform:translateX(-50%); background:#201c28ec; color:#fbf3d7; font-size:clamp(8px,1.1vw,12px); font-weight:800; padding:1px 10px 3px; border:1px solid #827080; border-top:0; pointer-events:none; }
+.ring-effects { position:absolute; inset:0; width:100%; height:100%; z-index:72; overflow:hidden; pointer-events:none; }
+.ring-footprint,.ring-preview { stroke-width:2; stroke-linejoin:round; }
+.ring-preview { fill:#8cf6e3; fill-opacity:.07; stroke:#edffdf; stroke-opacity:.8; stroke-dasharray:9 7; }
+.ring-footprint.enemy { fill:#ef4137; stroke:#ffb697; stroke-width:3; stroke-dasharray:10 6; filter:drop-shadow(0 1px 1px #78282b); }
+.ring-footprint.ally { fill:var(--element); stroke:var(--element); stroke-dasharray:8 6; }
+.ring-cast-name { fill:#fff7d6; stroke:#352436; stroke-width:5; paint-order:stroke fill; stroke-linejoin:round; text-anchor:middle; font:800 22px "Malgun Gothic",sans-serif; }
+.ring-goal { position:absolute; z-index:2; pointer-events:none; width:2.3%; min-width:10px; aspect-ratio:1; transform:translate(-50%,-50%) rotate(45deg); border:2px solid #fff9ca; box-shadow:0 0 0 1px #48383a; }
+.ring-fighter { position:absolute; width:var(--actor-size); aspect-ratio:1; transform:translate(-50%,-64%); pointer-events:none; transition:left 72ms linear,top 72ms linear; }
+.ring-fighter-shadow { position:absolute; top:67%; left:20%; width:60%; height:19%; border-radius:50%; background:#423a3090; }
+.ring-fighter-motion { position:absolute; inset:0; transform-origin:50% 73%; }
+.ring-actor-image { position:absolute; inset:0; height:100%; width:100%; object-fit:contain; image-rendering:pixelated; }
+.ring-fighter-label { position:absolute; bottom:86%; left:50%; transform:translateX(-50%); display:grid; justify-items:center; gap:1px; white-space:nowrap; }
+.ring-fighter-label b { color:#fff9de; font-size:clamp(8px,1.07vw,13px); font-weight:850; line-height:1.1; paint-order:stroke fill; -webkit-text-stroke:2px #2c2031; text-shadow:0 2px #30242c; }
+.ring-fighter-label>i { display:block; width:clamp(17px,2.8vw,34px); height:clamp(4px,.49vw,6px); background:#24202e; border:1px solid #342a2e; }
+.ring-fighter-label>i span { display:block; height:100%; background:#58cdea; }
+.enemy .ring-fighter-label>i span { background:#f09565; }
+.ring-fighter.dynamax .ring-fighter-motion { filter:drop-shadow(0 0 4px #fb74a3); }
+.ring-fighter .ring-tera { position:absolute; left:70%; top:20%; }
+.ring-tera img { width:clamp(12px,1.95vw,23px); height:auto; }
+.ring-fighter[data-motion=attack] .ring-fighter-motion { transform:rotate(var(--lean)) scale(1.04,.98); }
+.ring-fighter[data-motion=hurt] .ring-fighter-motion { animation:ring-recoil .2s ease-out; }
+.ring-fighter[data-motion=dodge] .ring-fighter-motion { opacity:.76; filter:drop-shadow(-3px 0 #aafae2) drop-shadow(3px 0 #99d8ff); }
+.ring-fighter[data-motion=dodge] .ring-fighter-shadow { background:#c4f8e7a0; }
+.ring-impact { position:absolute; z-index:75; pointer-events:none; }
+.ring-impact b { position:absolute; font:italic 900 clamp(14px,2.9vw,35px)/1 "Malgun Gothic",sans-serif; color:#ffe98d; white-space:nowrap; paint-order:stroke fill; -webkit-text-stroke:3px #392533; animation:ring-popup .56s ease-out both; }
+.ring-impact.heal b { color:#b7ed8b; }
+.ring-impact.hit i { position:absolute; width:clamp(17px,3vw,42px); aspect-ratio:1; background:#fff9ce; clip-path:polygon(50% 0,58% 35%,85% 9%,69% 43%,100% 54%,66% 58%,82% 92%,54% 69%,40% 100%,38% 66%,0 81%,29% 55%,0 39%,35% 39%); animation:ring-flash .19s both; }
+@keyframes ring-popup { from{opacity:1;transform:translate(-30%,-70%) scale(1.22)} 60%{opacity:1} to{opacity:0;transform:translate(-22%,-205%)} }
+@keyframes ring-recoil { 30%{transform:translateX(var(--recoil));filter:brightness(2)} }
+@keyframes ring-flash { from{transform:translate(-50%,-50%) scale(.3)} 48%{opacity:1} to{opacity:0;transform:translate(-50%,-50%) scale(1.4)} }
+.ring-scrim { position:absolute; inset:0; z-index:85; display:grid; place-items:center; background:#201828a6; cursor:default; }
+.ring-pause-panel { background:#2b2539; border:2px solid #b2a0b1; box-shadow:0 0 0 3px #161321,0 5px 12px #100d17a0; padding:clamp(13px,2.3vw,26px); max-width:92%; text-align:center; }
 .ring-pause-panel strong,.ring-pause-panel>small { display:block; }
-.ring-pause-panel strong { font-size:clamp(16px,2.2vw,23px); }
-.ring-pause-panel>small { margin-top:6px;color:#d4e3c9;font-size:11px; }
-.ring-pause-panel>div { display:flex;justify-content:center;gap:7px;margin-top:9px; }
-.ring-pause-panel button { border:1px solid #b9d9a8;border-radius:5px;padding:6px 10px;font-size:12px;font-weight:700;background:#d7ecbf;color:#183c2c; }
-.ring-pause-panel .subtle,.ring-pause-panel .danger { color:#f0d7c9; background:#3f4940;border-color:#798a76; }
-.ring-announce { gap:7px; min-height:33px;padding:6px 11px;color:#deead9;font-size:11px;overflow-wrap:anywhere; }
-.ring-announce i { width:6px;height:6px;flex:none;border-radius:50%; background:#b8d993; }
-.ring-command { padding:clamp(9px,1.5vw,16px); background:#f9faf2; border:1px solid var(--ring-hairline); border-radius:12px; align-self:start; }
-.ring-command h2,.ring-party-heading h2 { font-size:15px; gap:7px; line-height:1.3;letter-spacing:-.04em; }
-.ring-command h2 { justify-content:space-between;margin-bottom:8px; }
-.ring-command h2 small,.ring-party-heading small { font-size:10px;font-weight:500;color:#5f7165; }
-.ring-skills { display:grid;gap:6px; }
-.ring-skill { display:flex;align-items:center;gap:8px;min-height:41px;text-align:left;padding:5px 7px;border:1px solid #bdcabe;border-left:4px solid var(--move-color);border-radius:6px;background:#fdfef6;color:#223e33; }
-.ring-skill:enabled:hover,.ring-dodge:enabled:hover,.ring-party-member:enabled:hover,.ring-pause-button:hover { background:#e8efdf; }
-.ring-skill kbd,.ring-party-member kbd { background:#edf1e7;border:1px solid #c4cec0;color:#4e6658;border-radius:4px; display:grid;place-items:center;min-width:19px;height:21px; }
-.ring-skill>span,.ring-party-member>span { min-width:0; display:grid; gap:2px; }
-.ring-skill strong { font-size:13px;line-height:1.2; }
-.ring-skill small,.ring-party-member small { font-size:10px;color:#5b7064;line-height:1.2; }
-.ring-skill.empty { opacity:.52; border-left-color:#b6bfb1;border-style:dashed; }
-.ring-skill:disabled,.ring-party-member:disabled,.ring-dodge:disabled { cursor:default; }
-.ring-skill:not(.empty)[aria-disabled=true] { background:#ecf0e6; }
-.ring-dodge { justify-content:space-between;width:100%;margin-top:9px;padding:7px 10px;background:#e6eedb;border:1px solid #bccdba;border-radius:6px;font-size:12px;font-weight:750; }
-.ring-input-help,.ring-special { color:#5c7062;font-size:10px;margin-top:9px;line-height:1.45; }
-.ring-input-help span { font-weight:750;white-space:nowrap; }
-.ring-input-help b { margin:0 2px; }
-.ring-special { padding-top:7px;border-top:1px solid var(--ring-hairline); }
-.ring-party { margin-top:12px; padding:11px 12px; border:1px solid var(--ring-hairline);background:#fafbf3;border-radius:10px; }
-.ring-party.replacement { border-color:#be832e; }
-.ring-party-heading { justify-content:space-between; gap:8px; margin-bottom:7px; }
-.ring-team { display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px; }
-.ring-party-member { min-width:0;gap:4px;padding:4px;position:relative;background:#f3f5eb;border:1px solid #d0d8ca;border-radius:6px;text-align:left; }
-.ring-party-member kbd { position:absolute;left:3px;top:3px;min-width:12px;height:12px;font-size:8px;z-index:1; }
-.ring-party-member .pokemon-sprite { width:clamp(29px,3.9vw,46px);aspect-ratio:1; flex:none; }
-.ring-party-member strong { font-size:11px;overflow-wrap:anywhere; }
-.ring-party-member.active:disabled { opacity:1; background:#e1edda;border-color:#8ca587; }
-.ring-result { margin:clamp(22px,7vh,75px) auto;max-width:620px;background:#fafbf1;border:1px solid var(--ring-hairline,#ced8c9);border-radius:12px;overflow:hidden;text-align:center; }
-.ring-result-top { display:grid;justify-items:center;gap:7px;padding:25px 15px 16px;background:#234b40;color:#f3f9e8; }
-.ring-result-top>span { font-size:12px;color:#ccddc2;font-weight:650; }
+.ring-pause-panel strong { font-size:clamp(16px,2vw,24px); }
+.ring-pause-panel>small { color:#e2d8cd; margin-top:7px; font-size:12px; }
+.ring-pause-panel>div { display:flex; gap:9px; justify-content:center; margin-top:11px; }
+.ring-pause-panel button { padding:6px 11px; background:#57445d; color:#fff8e7; border:1px solid #a38fa3; font-size:12px; }
+.ring-pause-panel button:first-child { background:#ead59b; color:#332a36; }
+.ring-deck { display:grid; grid-template-columns:minmax(115px,1.32fr) minmax(0,3.8fr) minmax(65px,.75fr); align-items:stretch; gap:3px; padding:3px; background:#241e2b; border-top:2px solid #4f4551; }
+.ring-party { min-width:0; align-self:stretch; display:flex; flex-direction:column; justify-content:center; padding:2px 3px; background:#393344; border:1px solid #6e6375; }
+.ring-party.replacement { border-color:#ffd966; }
+.ring-party h2 { font-size:clamp(9px,1vw,12px); color:#eedb96; line-height:1.25; }
+.ring-party h2 small { font:600 9px Consolas,monospace; color:#c5b9cf; }
+.ring-team { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); margin-top:3px; }
+.ring-party-member { padding:0; min-width:0; height:clamp(21px,2.85vw,34px); display:grid; place-items:center; position:relative; background:#35434c; border:1px solid #8c8694; color:#f8efce; }
+.ring-party-member .pokemon-sprite { height:100%; width:100%; object-fit:contain; }
+.ring-party-member kbd { position:absolute; z-index:1; bottom:0; left:1px; font-size:8px; color:#fff9c5; text-shadow:1px 1px #000; }
+.ring-party-member.active:disabled { opacity:1; border:2px solid #f8d777; background:#5b5c4a; }
+.ring-party-member.down { filter:grayscale(1); }
+.ring-skills { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; }
+.ring-skill { min-width:0; display:grid; align-content:stretch; grid-template-rows:auto 1fr auto; border:1px solid #a3989e; border-bottom:2px solid #0f0c16; padding:0; background:#322b40; color:#fff; text-align:left; font-weight:650; }
+.ring-skill-type { display:flex; align-items:center; justify-content:space-between; gap:3px; padding:1px 5px; background:color-mix(in srgb,var(--move-color) 33%,#2b222f); color:#fffaec; font-size:clamp(8px,.94vw,11px); line-height:1.25; }
+.ring-skill-type kbd { color:#fff19f; font-size:clamp(9px,1.05vw,13px); }
+.ring-skill strong { display:block; align-self:center; padding:2px 5px; font-size:clamp(10px,1.37vw,16px); line-height:1.2; overflow-wrap:anywhere; }
+.ring-skill>small { padding:1px 5px; color:#d8d1dc; border-top:1px solid #63596d; background:#272333; font-size:clamp(8px,.94vw,11px); }
+.ring-skill[aria-disabled=false] { border-color:var(--move-color); }
+.ring-skill[aria-disabled=false]>small { color:#b5e6a7; }
+.ring-skill:disabled,.ring-dodge:disabled,.ring-party-member:disabled { cursor:default; }
+.ring-skill.empty { opacity:.5; }
+.ring-utilities { display:grid; grid-template-rows:1fr auto; gap:2px; }
+.ring-dodge,.ring-pause-button { display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:3px; min-width:0; line-height:1.05; padding:2px 3px; border:1px solid #8a7e8d; font-size:clamp(8px,.98vw,12px); background:#443a4b; color:#fff7d8; }
+.ring-dodge kbd,.ring-pause-button kbd { font-size:clamp(8px,.97vw,12px); color:#ffdd80; }
+.ring-dodge small { font-size:9px; }
+.ring-pause-button { color:#cdc5d2; font-size:clamp(8px,.9vw,10px); background:#2b2633; }
+.ring-skill:enabled:hover,.ring-dodge:enabled:hover,.ring-party-member:enabled:hover,.ring-pause-button:hover { border-color:#fff6b9; filter:brightness(1.15); }
+.ring-announce,.ring-special { color:#d6ccba; font-size:clamp(10px,1.2vw,13px); margin:8px 2px 0; line-height:1.35; }
+.ring-announce { display:flex; gap:6px; align-items:center; min-height:18px; }
+.ring-announce i { width:5px; height:5px; background:#dbbd72; transform:rotate(45deg); flex:none; }
+.ring-special { margin-top:3px; }
+.ring-result { margin:clamp(22px,7vh,75px) auto;max-width:620px;background:#fafbf1;border:1px solid #ced8c9;border-radius:12px;overflow:hidden;text-align:center; }
+.ring-result-top { display:grid;justify-items:center;gap:7px;padding:25px 15px 16px;background:#30293c;color:#fff9e8; }
+.ring-result-top>span { font-size:12px;color:#d9cbaa;font-weight:650; }
 .ring-result h1 { font-size:32px;line-height:1.05;letter-spacing:-.05em; }
 .ring-result .pokemon-sprite { width:80px;height:72px; }
 .ring-result p { padding:17px 12px 12px;font-size:13px;line-height:1.6; }
 .ring-result>button { margin:0 0 14px; }
-@media(max-width:700px) {
-  .ring-layout { grid-template-columns:minmax(0,1fr) 157px;gap:7px; }
-  .ring-team { grid-template-columns:repeat(3,minmax(0,1fr)); }
-  .ring-input-help { font-size:9px; } .ring-health-heading { gap:3px; }
-}
-@media(max-width:540px) {
-  .ring-layout { grid-template-columns:1fr; }
-  .ring-heading { margin-bottom:8px; } .ring-command { padding:9px; }
-  .ring-skills { grid-template-columns:repeat(2,minmax(0,1fr));gap:4px; } .ring-skill { min-height:35px; }
-  .ring-input-help { margin-top:4px; } .ring-party { margin-top:7px; } .ring-health-extra { margin-top:2px; }
+@media(max-width:610px) {
+  .shell.arena-shell { padding:5px; align-items:start; }
+  .ring-scoreboard { min-height:35px; }
+  .ring-health-body { padding:2px 3px; }
+  .ring-reserves { gap:0; }
+  .ring-deck { grid-template-columns:minmax(0,1fr) 82px; gap:3px; }
+  .ring-skills { grid-column:1 / -1; grid-row:1; }
+  .ring-team { grid-template-columns:repeat(6,minmax(0,30px)); }
+  .ring-party { flex-direction:row; align-items:center; justify-content:flex-start; gap:7px; }
+  .ring-team { display:flex; min-width:0; margin:0; }
+  .ring-party-member { width:clamp(19px,5vw,29px); }
+  .ring-pause-button { padding-block:3px; }
+  .ring-utilities { grid-template-rows:auto auto; }
+  .ring-skill strong { min-height:18px; }
 }
 @media(prefers-reduced-motion:reduce) {
-  .ring-motion,.ring-fighter,.ring-hp-track i,.ring-warning i { transition:none; }
-  .ring-effect,.ring-fighter-motion { animation:none !important; } .ring-effect i,.ring-popup { display:none; }
+  .ring-fighter,.ring-hp-track i { transition:none; }
+  .ring-fighter-motion,.ring-impact i { animation:none!important; }
 }

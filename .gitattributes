@@ -1,0 +1,4 @@
+# Preserve upstream attribution tables, including empty TSV fields and original line endings.
+assets/battle/SPRITE-ARTISTS.txt -text -whitespace
+assets/battle/audio/REUSE.txt -text -whitespace
+assets/battle/trainers/SOURCE-CREDITS.txt -text -whitespace

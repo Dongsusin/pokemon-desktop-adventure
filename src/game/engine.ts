@@ -1,5 +1,6 @@
 import { species, starterIds, wildIds } from './catalog'
-import { arenaDistance, createArena, dodgeArena, moveArena, moveRange, restoreArena, stepArena,
+import { arenaDistance, arenaMoveProfile, castDuration, type ArenaCast } from './arenaMoves'
+import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, moveArena, restoreArena, stepArena,
   type ArenaFeedback, type TrainerArena } from './trainerArena'
 import { battleForm, formStats, hasWildMidnightForm, locationForm, validForm, wildEncounterForm } from './forms'
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
@@ -920,9 +921,10 @@ export function arenaSkills(game: GameSave) {
   return game.player.moveIds.map(id => {
     const base = moves[id]
     const move = target.maxActionsLeft ? stadiumMove(base) : base
-    const range = moveRange(move)
+    const profile = arenaMoveProfile(move)
+    const range = profile.range
     return {
-      move, range,
+      move, range, profile,
       cooldownMs: Math.max(arena.skillLockMs, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
       unlocked: base.unlockLevel <= effectiveLevel(game),
       inRange: move.category === 'healing' || arenaDistance(arena.player, arena.enemy) <= range,
@@ -942,6 +944,8 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   game.runtime.targetId = target.id
   game.runtime.pausedState = 'BATTLE'
   transition(game, 'BATTLE')
+  arena.casts = arena.casts.filter(cast => cast.side === 'enemy')
+  arena.dodgeMs = arena.invulnerableMs = 0
   addUnique(arena.participants, id)
   arena.direction = { x: 0, y: 0 }
   arena.switchCooldownMs = 1450
@@ -998,12 +1002,13 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
       arenaNotice(game, arena, { actor: 'player', kind: 'dodge', text: '회피' })
       return true
     case 'arena-skill': {
-      if (arena.paused || arena.needsSwitch || !Number.isInteger(action.slot)) return false
+      if (arena.paused || arena.needsSwitch || arena.dodgeMs > 0 || !Number.isInteger(action.slot)) return false
       const skill = arenaSkills(game)[action.slot]
-      if (!skill?.unlocked || skill.cooldownMs > 0 || !skill.inRange) return false
+      if (!skill?.unlocked || skill.cooldownMs > 0) return false
       if (skill.move.category === 'healing' && game.player.currentHP >= playerStats(game).hp) return false
-      arena.skillLockMs = 380
-      attack(game, target, { playerTurn: true, move: moves[game.player.moveIds[action.slot]] })
+      const cast = beginArenaCast(arena, 'player', skill.move)
+      arena.skillLockMs = castDuration(cast)
+      game.runtime.cooldowns[skill.move.id] = game.runtime.clock + Math.max(620, skill.move.cooldownMs)
       return true
     }
   }
@@ -1019,11 +1024,20 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
   const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
   const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
-  const strike = stepArena(arena, elapsed, playerSpeed, enemySpeed, selected)
-  if (strike === 'hit') attack(game, opponent, { playerTurn: false, move: technique })
-  if (strike === 'miss') {
-    spendMaxAction(game, opponent)
-    arenaNotice(game, arena, { actor: 'enemy', kind: 'miss', text: selected.nameKo + ' · 빗나감', moveType: selected.type })
+  for (const { cast, hit, position } of stepArena(arena, elapsed, playerSpeed, enemySpeed, selected)) {
+    if (game.campaign.battle?.arena !== arena || arena.needsSwitch || findTarget(game) !== opponent) break
+    // If another impact ended Dynamax in this same slice, its pending Max
+    // technique was cancelled. Never replace it with a new base-form hit.
+    if (cast.moveName.startsWith('다이') || cast.moveName.startsWith('거다이')) {
+      if (!opponent.maxActionsLeft) continue
+    }
+    const playerTurn = cast.side === 'player'
+    if (hit) attack(game, opponent, { playerTurn, move: playerTurn ? moves[cast.moveId] : technique, cast, position })
+    else {
+      spendMaxAction(game, opponent)
+      arenaNotice(game, arena, { actor: cast.side, kind: 'miss', text: cast.moveName + ' · 빗나감',
+        moveType: cast.moveType, castId: cast.id, moveId: cast.moveId, position })
+    }
   }
 }
 
@@ -1364,9 +1378,9 @@ function endDynamax(game: GameSave, target: Wild) {
   target.maxHP = baseHP
   game.player.currentHP = resizeHP(game.player.currentHP, playerMax, playerStats(game).hp)
   const arena = game.campaign.battle?.arena
-  if (arena?.telegraph) {
-    // A charged Max Move cannot connect after the stadium transformation ends.
-    arena.telegraph = null
+  if (arena) {
+    // Both sides return to their standard moves at the transformation boundary.
+    clearArenaCasts(arena)
     arena.enemyInMs = 650
   }
 }
@@ -1396,7 +1410,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
   if (battle.opponentIndex + 1 < trainer.team.length) {
     if (opponent.maxActionsLeft) endDynamax(game, opponent)
     battle.opponentIndex++
-    battle.arena.telegraph = null
+    clearArenaCasts(battle.arena)
     battle.arena.enemyInMs = 950
     battle.arena.enemy = { x: battle.arena.player.x > 0.55 ? 0.26 : 0.74, y: 0.50 }
     sendTrainerOpponent(game, trainer, opponent.position, 900)
@@ -1499,7 +1513,7 @@ function victory(game: GameSave, wild: Wild): void {
   }
 }
 
-function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean }): void {
+function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean; cast: ArenaCast; position: Position }): void {
   const player = game.player
   const playerTurn = manual?.playerTurn ?? (game.runtime.turn === 'player')
   const baseMove = manual?.move ?? (playerTurn ? chooseMove(game, target) : wildMove(target))
@@ -1512,14 +1526,15 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
   const actor = playerTurn ? 'partner' : target.id
   const targetActor = playerTurn ? target.id : 'partner'
   faceTarget(game, target)
-  if (playerTurn && (manual || selected.cooldownMs)) {
-    game.runtime.cooldowns[selected.id] = game.runtime.clock + (manual ? Math.max(620, selected.cooldownMs) : selected.cooldownMs)
+  const feedback = manual ? { castId: manual.cast.id, moveId: selected.id, position: manual.position } : {}
+  if (playerTurn && !manual && selected.cooldownMs) {
+    game.runtime.cooldowns[selected.id] = game.runtime.clock + selected.cooldownMs
   }
 
   if (selected.category === 'healing') {
     const amount = heal(game, Math.ceil(stats.hp * selected.power / 100))
     addEffect(game, 'heal', player.position, 900, { text: '+' + amount + ' HP' })
-    if (arena) arenaNotice(game, arena, { actor: 'player', kind: 'heal', text: selected.nameKo + ' · +' + amount + ' HP', moveType: selected.type })
+    if (arena) arenaNotice(game, arena, { actor: 'player', kind: 'heal', ...feedback, amount, text: selected.nameKo + ' · +' + amount + ' HP', moveType: selected.type })
   } else {
     const damage = damageWithMultiplier(
       selected,
@@ -1536,10 +1551,10 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
       const recovered = Math.min(target.maxHP - target.currentHP, Math.max(1, Math.floor(target.maxHP / 4)))
       target.currentHP += recovered
       addEffect(game, 'heal', target.position, 900, { text: '저수 · +' + recovered + ' HP', actor: target.id })
-      if (arena) arenaNotice(game, arena, { actor: 'enemy', kind: 'heal', text: '저수 · +' + recovered + ' HP', moveType: selected.type })
+      if (arena) arenaNotice(game, arena, { actor: 'enemy', kind: 'heal', ...feedback, amount: recovered, text: '저수 · +' + recovered + ' HP', moveType: selected.type })
     } else {
       addEffect(game, 'damage', recipient.position, 820, { text: damage ? '−' + damage : '효과 없음', actor: targetActor, moveType: selected.type })
-      if (arena) arenaNotice(game, arena, { actor: playerTurn ? 'player' : 'enemy', kind: 'hit',
+      if (arena) arenaNotice(game, arena, { actor: playerTurn ? 'player' : 'enemy', kind: 'hit', ...feedback, amount: damage,
         text: selected.nameKo + (damage ? ' · −' + damage + ' HP' : ' · 효과 없음'), moveType: selected.type })
     }
   }
@@ -1552,7 +1567,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     if (trainer && arena && game.followers.some(member => member.currentHP > 0)) {
       spendMaxAction(game, target)
       arena.needsSwitch = true
-      arena.telegraph = null
+      clearArenaCasts(arena)
       arena.direction = { x: 0, y: 0 }
       arena.switchCooldownMs = 0
       arenaNotice(game, arena, { actor: 'system', kind: 'switch', text: species[player.speciesId].nameKo + ' 기절 · 다음 포켓몬을 선택하세요.' })
@@ -1856,8 +1871,11 @@ export function tick(game: GameSave, elapsedMs: number, bounds: Bounds): void {
   // Limit catch-up after a suspended process and keep the AI step bounded.
   let remaining = Math.min(1000, elapsedMs)
   while (remaining > 0) {
-    const step = Math.min(200, remaining)
+    const arena = game.campaign.battle?.arena
+    const step = arena && !arena.paused && !arena.needsSwitch ? arenaStepMs(arena, remaining) : Math.min(200, remaining)
     update(game, step, bounds)
+    // Present the trainer result before starting the next overworld update.
+    if (arena && !game.campaign.battle) break
     remaining -= step
   }
 }
@@ -2374,7 +2392,11 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
       wild.length = 0
       resetLeagueRun(campaign)
     } else {
-      campaign.battle.arena = restoreArena(rawArena, [leaderId, ...followers.map(member => member.instanceId)], currentHP === 0)
+      const foe = trainerEnemy
+      const foeBase = wildMove(foe)
+      const foeMove = foe.maxActionsLeft ? stadiumMove(foeBase, foe.dynamax === 'gigantamax' ? foe.speciesId : undefined) : foeBase
+      campaign.battle.arena = restoreArena(rawArena, [leaderId, ...followers.map(member => member.instanceId)], currentHP === 0, foeMove, id =>
+        moveIds.includes(id) ? (foe.maxActionsLeft ? stadiumMove(moves[id]) : moves[id]) : undefined)
     }
   }
   const autoBattle = value.autoBattle !== false
