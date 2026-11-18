@@ -324,6 +324,10 @@ progress::-webkit-progress-value { background: #71a66e; border-radius: 7px; }
 .dashboard-heading { display: flex; align-items: end; justify-content: space-between; gap: 12px; }
 .observe-button { display: flex; align-items: center; justify-content: space-between; gap: 12px; white-space: nowrap; }
 .observe-button > span { color: #e1b872; font-size: 15px; }
+.dex-grid .dex-tile { cursor: pointer; border: 1px solid transparent; }
+.dex-grid .dex-tile[aria-expanded="true"] { border-color: #477353; }
+.dex-guide { margin-bottom: 12px; padding: 10px; background: #e9efe4; border-radius: 7px; }
+.dex-guide ul { margin: 4px 0 0; padding-left: 18px; }
 .dex-toolbar, .dex-search, .dex-pages {
   display: flex;
   align-items: center;

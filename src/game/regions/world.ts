@@ -1,3 +1,4 @@
+import { postgameRare, postgameVisitors } from './collectionEncounters'
 import { supportedEncounters } from './motionEncounters'
 import { kantoLocations, kantoLocationById, kantoRegion, type KantoLocation } from './kanto'
 import {
@@ -188,7 +189,8 @@ export const worldRegions = Object.fromEntries<WorldRegion>(regionOrder.map(id =
   const locations = region.locations.map(location => ({
     ...location,
     encounters: supportedEncounters(id, location.id, location.encounters),
-    legends: location.legends && supportedEncounters(id, location.id, location.legends),
+    visitors: postgameVisitors[location.id] && supportedEncounters(id, location.id, postgameVisitors[location.id]),
+    legends: supportedEncounters(id, location.id, [...(location.legends ?? []), ...(postgameRare[location.id] ?? [])]),
   }))
   return [id, { ...region, locations, locationById: Object.fromEntries(locations.map(location => [location.id, location])) }]
 })) as Readonly<Record<RegionId, WorldRegion>>

@@ -1,4 +1,6 @@
 import { species, starterIds, wildIds } from './catalog'
+import { collectionItems, fieldItems, itemEvolution } from './collectionItems'
+import { RESEARCH_VISIT_CHANCE } from './regions/collectionEncounters'
 import { isSpeciesMotionSupported, isMoveMotionSupported } from './motionEligibility'
 import { supportedEncounters, supportedWildForms } from './regions/motionEncounters'
 import { arenaCastTouches, arenaMoveProfile, beamRounds, castDuration, createArenaCast, fullBeamMultiplier, type ArenaCast, type ArenaSpriteRefs } from './arenaMoves'
@@ -129,7 +131,7 @@ export interface Item {
   id: string
   nameKo: string
   description: string
-  kind: 'recovery' | 'capture' | 'equipment' | 'boost' | 'material'
+  kind: 'recovery' | 'capture' | 'equipment' | 'boost' | 'material' | 'evolution' | 'fossil'
   rarity: 'common' | 'uncommon' | 'rare' | 'epic'
   symbol: string
   heal?: number
@@ -165,6 +167,12 @@ const dropPools: Record<Item['rarity'], Item[]> = {
   uncommon: Object.values(items).filter((entry) => entry.rarity === 'uncommon'),
   rare: Object.values(items).filter((entry) => entry.rarity === 'rare'),
   epic: Object.values(items).filter((entry) => entry.rarity === 'epic'),
+}
+
+// Field supplies have named excavation sites and stay outside the ordinary drop pools.
+for (const [id, data] of Object.entries(collectionItems)) {
+  items[id] = item(id, data.name, data.fossil ? '지정 연구소에서 포켓몬으로 복원해요.' : '조건에 맞는 선두 포켓몬을 진화시켜요.',
+    data.fossil ? 'fossil' : 'evolution', 'rare', '◇')
 }
 
 export interface Player {
@@ -602,12 +610,33 @@ function heal(game: GameSave, amount: number): number {
   return game.player.currentHP - before
 }
 
+export function canUseCollectionItem(game: GameSave, itemId: string) {
+  if (game.campaign.battle || game.player.currentHP <= 0 || !game.inventory[itemId] ||
+      !Object.hasOwn(collectionItems, itemId)) return false
+  if (!['IDLE', 'WANDER', 'RECOVER'].includes(activeState(game))) return false
+  const fossil = collectionItems[itemId].fossil
+  return fossil ? game.locationId === fossil.lab && isSpeciesMotionSupported(fossil.speciesId)
+    : Boolean(itemEvolution(itemId, game.player.speciesId, game.player.formId))
+}
+
 function consume(game: GameSave, itemId: string): boolean {
   const count = game.inventory[itemId] ?? 0
   const entry = items[itemId]
   if (count <= 0 || !entry || game.player.currentHP <= 0) return false
 
-  if (entry.heal) {
+  if (entry.kind === 'evolution' || entry.kind === 'fossil') {
+    if (!canUseCollectionItem(game, itemId)) return false
+    const fossil = collectionItems[itemId].fossil
+    if (fossil) {
+      const result = receivePokemon(game, fossil.speciesId, undefined, 20, game.player.position, game.player.direction)
+      const message = entry.nameKo + ' 복원 · ' + species[fossil.speciesId].nameKo + ' Lv.20 · ' + result.destination
+      addLog(game, 'capture', message)
+      addEffect(game, 'reward', game.player.position, 1800, { text: message, actor: 'partner' })
+    } else {
+      performEvolution(game, itemEvolution(itemId, game.player.speciesId, game.player.formId)!)
+      game.runtime.pausedState = 'IDLE'
+    }
+  } else if (entry.heal) {
     const amount = heal(game, Math.ceil(playerStats(game).hp * entry.heal))
     if (amount <= 0) return false
     addEffect(game, 'heal', game.player.position, 900, { text: '+' + amount + ' HP' })
@@ -691,10 +720,13 @@ export function canEvolve(game: GameSave): boolean {
 
 function evolve(game: GameSave): boolean {
   if (!canEvolve(game)) return false
+  return performEvolution(game, evolutionFor(game.player.speciesId, game.player.formId)!)
+}
+
+function performEvolution(game: GameSave, next: { speciesId: string; formId?: string }): boolean {
   const player = game.player
   const previous = species[player.speciesId]
   const previousHP = playerStats(game).hp
-  const next = evolutionFor(previous.id, player.formId)!
   game.runtime.evolutionFromForm = player.formId
   player.speciesId = next.speciesId
   player.formId = next.formId
@@ -1085,6 +1117,23 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   }
 }
 
+function receivePokemon(game: GameSave, speciesId: string, formId: string | undefined, level: number, position: Position, direction: Direction) {
+  const sequence = game.runtime.nextId++
+  const active = game.followers.length < MAX_PARTY_SIZE - 1
+  const pokemon: PartyPokemon = {
+    instanceId: 'caught-' + sequence, speciesId, ...(formId && { formId }), level,
+    currentHP: scaleStats(formStats(speciesId, formId).baseStats, level).hp,
+    position: { ...position }, direction, state: 'IDLE', active, destination: null, restMs: CAPTURE_MS,
+    roamSeed: (game.runtime.encounterSeed ^ Math.imul(sequence, 0x9e3779b9)) >>> 0,
+  }
+  let destination = '파티 합류'
+  if (active) game.followers.push(pokemon)
+  else destination = '박스 ' + (storeInBox(game.boxes, pokemon)! + 1) + '에 보관'
+  addUnique(game.pokedexSeen, speciesId)
+  addUnique(game.pokedexCaught, speciesId)
+  return { instanceId: pokemon.instanceId, destination }
+}
+
 function throwBall(game: GameSave, itemId: CaptureBallId): boolean {
   const wild = captureTarget(game)
   if (!wild || (game.inventory[itemId] ?? 0) <= 0) return false
@@ -1099,32 +1148,9 @@ function throwBall(game: GameSave, itemId: CaptureBallId): boolean {
   let text = speciesName + ' 포획 실패'
   if (captured) {
     const formId = wild.formId === 'wishiwashi-school' ? undefined : wild.formId
-    const entryNumber = game.runtime.nextId++
-    caughtInstanceId = 'caught-' + entryNumber
-    const active = game.followers.length < MAX_PARTY_SIZE - 1
-    const pokemon: PartyPokemon = {
-      instanceId: caughtInstanceId,
-      ...(formId && { formId }),
-      speciesId: wild.speciesId,
-      level: wild.level,
-      currentHP: scaleStats(formStats(wild.speciesId, formId).baseStats, wild.level).hp,
-      position: { ...wild.position },
-      direction: wild.direction,
-      state: 'IDLE',
-      active,
-      destination: null,
-      restMs: CAPTURE_MS,
-      roamSeed: (game.runtime.encounterSeed ^ Math.imul(entryNumber, 0x9e3779b9)) >>> 0,
-    }
-    if (active) {
-      game.followers.push(pokemon)
-      text = speciesName + ' 포획 성공 · 파티 합류'
-    } else {
-      const box = storeInBox(game.boxes, pokemon)!
-      text = speciesName + ' 포획 성공 · 박스 ' + (box + 1) + '에 보관'
-    }
-    addUnique(game.pokedexSeen, wild.speciesId)
-    addUnique(game.pokedexCaught, wild.speciesId)
+    const received = receivePokemon(game, wild.speciesId, formId, wild.level, wild.position, wild.direction)
+    caughtInstanceId = received.instanceId
+    text = speciesName + ' 포획 성공 · ' + received.destination
     game.wild = game.wild.filter((entry) => entry.id !== wild.id)
     game.runtime.targetId = null
     game.runtime.destination = null
@@ -1184,6 +1210,9 @@ function nextEncounter(game: GameSave, location: KantoLocation): KantoEncounter 
   if (legends.length && random(game) < KANTO_LEGENDARY_ENCOUNTER_CHANCE) {
     const rare = weightedEncounter(game, legends)
     if (rare && !game.wild.some((entry) => entry.speciesId === rare.speciesId)) return rare
+  }
+  if (game.campaign.champion && location.visitors?.length && random(game) < RESEARCH_VISIT_CHANCE) {
+    return weightedEncounter(game, location.visitors)
   }
   return weightedEncounter(game, regionalWeather(game, location.id)?.encounters ?? location.encounters)
 }
@@ -1570,7 +1599,12 @@ function rollDrop(game: GameSave): string | undefined {
   const roll = random(game)
   const rarity = roll < 0.7 ? 'common' : roll < 0.93 ? 'uncommon' : roll < 0.99 ? 'rare' : 'epic'
   const pool = dropPools[rarity]
-  return pool[Math.floor(random(game) * pool.length)].id
+  const result = pool[Math.floor(random(game) * pool.length)].id
+  const supplies = fieldItems[game.locationId]
+  if (result === 'trailStone' && supplies?.length && random(game) < 0.5) {
+    return supplies[Math.floor(random(game) * supplies.length)]
+  }
+  return result
 }
 
 function defeat(game: GameSave, wild: Wild): void {
@@ -1863,7 +1897,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
     if (wild.id !== runtime.targetId && wild.expiresAt !== undefined && wild.expiresAt <= runtime.clock) game.wild.splice(index, 1)
   }
   const location = worldRegions[game.regionId].locationById[game.locationId]
-  if (game.autoBattle && (location.encounters.length || location.legends?.length) &&
+  if (game.autoBattle && (location.encounters.length || location.legends?.length || (game.campaign.champion && location.visitors?.length)) &&
       player.state !== 'FAINT' && player.state !== 'EVOLUTION' && game.wild.length < MAX_WILD) {
     runtime.spawnIn -= elapsed
     if (runtime.spawnIn <= 0) {
@@ -2216,7 +2250,7 @@ function readWild(value: unknown, clock: number, regionId: RegionId, location: K
     const ordinary = regionId === 'galar'
       ? isGalarWildEncounter(location.id, entry.speciesId, level, campaign.champion, campaign.badges.length)
       : location.encounters.some(matches)
-    if (!ordinary && !legends.some(matches)) continue
+    if (!ordinary && !legends.some(matches) && !(campaign.champion && location.visitors?.some(matches))) continue
     const savedForm = validForm(entry.speciesId, entry.formId)
     if (savedForm && !isSpeciesMotionSupported(entry.speciesId, savedForm)) continue
     const forms = regionId === 'paldea' ? paldeaWildForms(location.id, entry.speciesId, level) : undefined
@@ -2603,7 +2637,10 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   if (!['SEARCH', 'CHASE', 'BATTLE'].includes(state)) runtime.targetId = null
   if (state === 'LOOT' && !runtime.drop) state = 'RECOVER'
   if (state !== 'LOOT') runtime.drop = null
-  if (state !== 'EVOLUTION' || !runtime.evolutionFrom || evolutionFor(runtime.evolutionFrom, runtime.evolutionFromForm)?.speciesId !== speciesId) {
+  const from = runtime.evolutionFrom
+  const matchesEvolution = (rule: { speciesId: string; formId?: string } | undefined) => rule?.speciesId === speciesId && rule.formId === formId
+  if (state !== 'EVOLUTION' || !from || !(matchesEvolution(evolutionFor(from, runtime.evolutionFromForm)) ||
+      Object.keys(collectionItems).some(id => matchesEvolution(itemEvolution(id, from, runtime.evolutionFromForm))))) {
     runtime.evolutionFrom = null
     delete runtime.evolutionFromForm
   }

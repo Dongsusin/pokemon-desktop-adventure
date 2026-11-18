@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { collectionGuide, collectionItemHint } from '../game/collectionGuide'
+import { canUseCollectionItem } from '../game/engine'
 import type { ReactNode } from 'react'
 import { species, starterIds, wildIds } from '../game/catalog'
 import { isSpeciesMotionSupported } from '../game/motionEligibility'
@@ -286,6 +288,8 @@ function Partner({ game, send }: { game: GameSave; send: Command }) {
 }
 
 function Pokedex({ game }: { game: GameSave }) {
+  const [selected, setSelected] = useState('')
+  const hints = useMemo(() => selected ? collectionGuide(selected, game.starterSpeciesId) : [], [selected, game.starterSpeciesId])
   const [all, setAll] = useState(false)
   const [query, setQuery] = useState('')
   const [generation, setGeneration] = useState(0)
@@ -317,14 +321,19 @@ function Pokedex({ game }: { game: GameSave }) {
         </select>
       </div>
     </div>
+    {selected && entries.some(mon => mon.id === selected) && <section className="dex-guide" aria-label="획득 방법">
+      <strong>{species[selected].nameKo} 획득 방법</strong>
+      <ul>{hints.map(hint => <li key={hint}>{hint}</li>)}</ul>
+    </section>}
     {entries.length ? <div className="dex-grid">
-      {entries.slice(pageStart, pageStart + dexPageSize).map(mon => <div key={mon.id}
+      {entries.slice(pageStart, pageStart + dexPageSize).map(mon => <button type="button" key={mon.id} aria-label={mon.nameKo + ' 획득 방법'}
+        aria-expanded={selected === mon.id} onClick={() => setSelected(selected === mon.id ? '' : mon.id)}
         className={'dex-tile' + (seen.has(mon.id) ? '' : ' undiscovered')}>
         <span>#{String(mon.pokedexNumber).padStart(4, '0')}</span>
         <Pokemon id={mon.id} />
         <strong>{mon.nameKo}</strong>
         <small>{caught.has(mon.id) ? '보유 기록' : seen.has(mon.id) ? '발견' : '미발견'}</small>
-      </div>)}
+      </button>)}
     </div> : <p className="empty">조건에 맞는 포켓몬이 없습니다.</p>}
     {pageCount > 1 && <nav className="dex-pages" aria-label="도감 페이지">
       <button className="small-button" disabled={activePage === 0} onClick={() => setPage(activePage - 1)}>이전</button>
@@ -340,12 +349,15 @@ function Bag({ game, send }: { game: GameSave; send: Command }) {
     {inventory.length ? <ul className="detail-list bag-list">{inventory.map(([id, count]) => {
       const item = items[id]
       const ball = captureBallIds.find(ballId => ballId === id)
+      const collection = item.kind === 'fossil' || item.kind === 'evolution'
       const equipped = game.player.heldItemId === id
       const inUse = item.kind === 'equipment' && availableEquipment(game, id) <= 0
       return <li key={id}>
         <span className={'item-icon ' + item.rarity}><ItemSprite id={id} /></span>
-        <div><strong>{item.nameKo} <span>×{count}</span></strong><small>{item.description}</small></div>
+        <div><strong>{item.nameKo} <span>×{count}</span></strong><small>{collection ? collectionItemHint(id) : item.description}</small></div>
         <span className={'rarity ' + item.rarity}>{rarityLabels[item.rarity]}</span>
+        {collection && <button className="small-button" disabled={!canUseCollectionItem(game, id)}
+          onClick={() => send({ type: 'useItem', itemId: id })}>{item.kind === 'fossil' ? '복원' : '진화'}</button>}
         {ball && <button className="small-button" disabled={!canThrowBall(game, ball)}
           aria-label={item.nameKo + ' 던지기'} onClick={() => send({ type: 'throwBall', itemId: ball })}>던지기</button>}
         {(item.kind === 'recovery' || item.kind === 'boost' || item.kind === 'equipment') &&

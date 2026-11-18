@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
 import { worldRegions, type RegionId } from '../game/regions/world'
+import { fieldItems, collectionItems } from '../game/collectionItems'
+import { RESEARCH_VISIT_CHANCE } from '../game/regions/collectionEncounters'
 import { supportedWildForms } from '../game/regions/motionEncounters'
 import { PALDEA_MAP_WIDTH, PALDEA_MAP_HEIGHT, paldeaAreaByLocationId } from '../game/regions/paldea'
 import { GALAR_MAP_WIDTH, GALAR_MAP_HEIGHT, galarAreaByLocationId } from '../game/regions/galar'
@@ -166,6 +168,14 @@ function RangeList({ location, game }: { location: KantoLocation; game: GameSave
         <span>{entry.percent === 0 ? '0.1% 미만' : entry.percent.toLocaleString('ko-KR') + '%'}</span>
       </li>)}
     </ul> : <p className="empty">이 장소에서는 일반 야생 포켓몬이 출현하지 않습니다.</p>}
+    {fieldItems[location.id] && <p className="subtext">이곳의 전리품 · {fieldItems[location.id].map(id => collectionItems[id].name).join(' · ')}</p>}
+    {Boolean(location.visitors?.length) && <div className="kanto-legendary">
+      <h3>리그 우승 후 조사 출현</h3>
+      <p className="subtext">{game.campaign.champion ? '조사 가능' : '이 지방 우승 후 해금'} · 희귀 조우 판정 후 {RESEARCH_VISIT_CHANCE * 100}%</p>
+      <ul className="kanto-encounter-list">{location.visitors!.map(mon => <li key={mon.speciesId}>
+        <Pokemon id={mon.speciesId}/><div><strong>{species[mon.speciesId].nameKo}</strong><small>Lv. {mon.level}</small></div>
+      </li>)}</ul>
+    </div>}
     {rareEntries.length > 0 && <div className="kanto-legendary">
       <h3>희귀 포켓몬</h3>
       {available.length > 0 && <p className="subtext">출현 판정당 총 {rarePercent.toLocaleString('ko-KR')}%</p>}
