@@ -1,3 +1,4 @@
+import { championsTechniques } from './championsMoves'
 import type { Move, Position } from './engine'
 import { arenaBodyPoint, arenaMuzzlePoint, type ArenaSpriteRef } from './arenaMuzzle'
 
@@ -72,6 +73,26 @@ const techniques: Record<string, ArenaMoveProfile> = {
   recover: profile('self', 0, 85, 800, ticks(2), ticks(12)),
 }
 
+// Reuse the native geometry for the authored Resonance move kind and priority.
+for (const [id, move] of Object.entries(championsTechniques)) {
+  if (!move || techniques[id]) continue
+  const heavy = move.power >= 85, quick = move.priority > 0
+  switch (move.shape) {
+    case 'dash': case 'strike': techniques[id] = melee(move.shape === 'dash' ? 'dash' : 'cone', heavy, quick); break
+    case 'beam': techniques[id] = beam(move.power, heavy); break
+    case 'projectile': case 'volley': {
+      const shot = projectile(quick ? 770 : heavy ? 473 : 528, heavy ? 19 : 16, quick ? 4 : heavy ? 16 : 10)
+      techniques[id] = move.shape === 'volley' ? { ...shot, spreadDeg:[-12,0,12] } : shot
+      break
+    }
+    case 'lob': techniques[id] = techniques.rockThrow; break
+    case 'area': techniques[id] = { ...techniques.confusion, radius:(heavy ? 120 : 90)/field }; break
+    case 'pulse': techniques[id] = profile('burst', (heavy ? 260 : 210), heavy ? 260 : 210, ticks(16), ticks(6), ticks(16)); break
+    case 'cone': techniques[id] = profile('cone', 300, 0, ticks(14), ticks(8), ticks(14), 48); break
+    case 'self': techniques[id] = move.guard ? profile('self',0,85,ticks(2),ticks(3),ticks(11)) : techniques.recover; break
+  }
+}
+
 export function arenaMoveProfile(move: Pick<Move, 'id' | 'gimmick'>): ArenaMoveProfile {
   const base = techniques[move.id] ?? techniques.tackle
   if (!move.gimmick || base.kind === 'self') return base
@@ -135,7 +156,7 @@ export function createArenaCast(id: number, side: ArenaSide, move: Move, origin:
   const distance = arenaDistance(origin, target)
   // The player may cast with the opponent beyond reach. A ground mark then
   // lands at maximum range along the aimed direction.
-  const mark = base.kind === 'burst' && distance > base.range ? lerpPoint(origin, target, base.range / distance) : target
+  const mark = championsTechniques[move.id]?.shape === 'pulse' ? origin : base.kind === 'burst' && distance > base.range ? lerpPoint(origin, target, base.range / distance) : target
   const profile = base.lobSpeed ? { ...base, startupMs: base.startupMs + arenaDistance(origin, mark) / base.lobSpeed * 1000 } : base
   const direction = arenaAim(origin, target, side)
   // Rushes stop just in front of the locked target. A moving target can escape;

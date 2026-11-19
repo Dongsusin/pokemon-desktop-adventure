@@ -1,3 +1,4 @@
+import type { TrainerSet } from '../championsMoves'
 import { species } from '../catalog'
 import { kantoLocationById, kantoRegion } from './kanto'
 
@@ -9,6 +10,7 @@ export interface KantoTrainerMember {
   readonly speciesId: string
   readonly formId?: string
   readonly teraType?: string
+  readonly plan?: TrainerSet
   readonly abilityId?: 'levitate' | 'water-absorb'
   readonly dynamax?: 'dynamax' | 'gigantamax'
   readonly level: number

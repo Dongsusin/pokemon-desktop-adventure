@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react'
+import trainerClipsJson from './champions-move-clips.json?raw'
 import clipsJson from './move-clips.json?raw'
 import { arenaCastFrame, arenaMoveProfile, castDuration, type ArenaCast } from '../game/arenaMoves'
 import type { Position } from '../game/engine'
@@ -16,7 +17,7 @@ interface Clip {
   fx?: number[][]
 }
 
-const clips: Record<string, Clip> = JSON.parse(clipsJson)
+const clips: Record<string, Clip> = { ...JSON.parse(clipsJson), ...JSON.parse(trainerClipsJson) }
 const cell = 192
 const cellScale = .75
 const fps = 20

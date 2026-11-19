@@ -460,10 +460,11 @@ function startDesktop(): void {
     lastTick = now
     if (!game || suspended) return
     const previousOpponent = game.campaign.battle?.opponentIndex
+    const hadEnemyPower = Boolean(game.runtime.gimmick?.enemy)
     const wasChoosingReplacement = game.campaign.battle?.arena.needsSwitch
     tick(game, elapsed, overlayWorkArea())
     if (previousOpponent !== undefined && (previousOpponent !== game.campaign.battle?.opponentIndex ||
-        wasChoosingReplacement !== game.campaign.battle?.arena.needsSwitch)) {
+        wasChoosingReplacement !== game.campaign.battle?.arena.needsSwitch || (!hadEnemyPower && game.runtime.gimmick?.enemy))) {
       saveCurrent()
       if (!game.campaign.battle) updatePresentation()
     }

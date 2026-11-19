@@ -14,12 +14,31 @@ const { trainers } = JSON.parse(await readFile(resolve(source, 'src/data/generat
 const { BOSS_CHALLENGES } = await loadSource('bossChallenge.js')
 const { createFactoryRun, selectFactoryRentals, FACTORY_TRAINER } = await loadSource('battleFactory.js')
 const { getSpeciesProfile } = await loadSource('trainingData.js')
-const { actors } = JSON.parse(await readFile(new URL('../src/game/resonance-motions.json', import.meta.url), 'utf8'))
+const { actors, moves:nativeMoves } = JSON.parse(await readFile(new URL('../src/game/resonance-motions.json', import.meta.url), 'utf8'))
 const target = new URL('../src/game/regions/champions-arena-roster.json', import.meta.url)
 const poseBySlug = new Map(Object.keys(actors).map(actor => [actor.split('/').at(-1), actor]))
 const types = Object.fromEntries(Object.entries({normal:'노말', fire:'불꽃', water:'물', electric:'전기', grass:'풀',
   ice:'얼음', fighting:'격투', poison:'독', ground:'땅', flying:'비행', psychic:'에스퍼', bug:'벌레', rock:'바위',
   ghost:'고스트', dragon:'드래곤', dark:'악', steel:'강철', fairy:'페어리', stellar:'스텔라'}).map(([id, ko]) => [ko, id]))
+const { moves: originalMoves } = JSON.parse(await readFile(resolve(source, 'src/data/generatedBattleMoves.json'), 'utf8'))
+const moveIds = new Map(originalMoves.flatMap(move => [[move.name, move.id], [move.id, move.id]]))
+const nativeIds = new Map(Object.keys(nativeMoves)
+  .map(id => [id.toLowerCase(), id]))
+const nativeId = id => nativeIds.get(id) ?? id
+const megaForms = JSON.parse(await readFile(new URL('../src/game/mega-forms.json', import.meta.url), 'utf8'))
+const roles = { '대면 조작·교대':'pivot', '물리 스위퍼':'physical', '특수 스위퍼':'special', '물리 어태커':'physical',
+  '특수 어태커':'special', '선봉·필드 전개':'lead', '서포터':'support', '내구·지원':'support', '밸런스':'balanced' }
+function powerPlan(power, slug) {
+  if (power.type === 'mega-evolution') {
+    const formId = power.targetFormSlug ?? (power.targetFormId && getSpeciesProfile(power.targetFormId).slug)
+    if (megaForms[formId]?.from === slug) return { kind:'mega', formId }
+  }
+  if (power.type === 'z-move' && types[power.moveType]) {
+    return { kind:'z', type:types[power.moveType], ...(power.baseMoveId && { moveId:nativeId(power.baseMoveId) }) }
+  }
+  if (power.type === 'terastallization' && types[power.teraType]) return { kind:'tera', type:types[power.teraType] }
+  if (power.type === 'dynamax' || power.type === 'gigantamax') return { kind:'dynamax', ...(power.type === 'gigantamax' && { giant:true }) }
+}
 const skipped = new Map()
 function projectTeam(team) {
   const members = []
@@ -31,13 +50,24 @@ function projectTeam(team) {
       continue
     }
     const powers = team.battleGimmicks.filter(power => power.pokemonSlug === slug ||
-      power.pokemonName === (pokemon.name ?? getSpeciesProfile(pokemon.speciesId).name))
-    const tera = powers.find(power => power.type === 'terastallization')
-    const max = powers.find(power => power.type === 'gigantamax' || power.type === 'dynamax')
+      power.pokemonName === (pokemon.name ?? getSpeciesProfile(pokemon.speciesId).name) || power.pokemonSpeciesId === pokemon.speciesId)
     const ability = {levitate:'levitate', waterabsorb:'water-absorb'}[pokemon.abilityId]
     const [speciesId, formId] = actor.split('/')
-    members.push({speciesId, ...(formId && {formId}), ...(tera && types[tera.teraType] && {teraType:types[tera.teraType]}),
-      ...(max && {dynamax:max.type}), ...(ability && {abilityId:ability})})
+    const attacks = (pokemon.moveIds ?? pokemon.moves).map(move => {
+      assert(moveIds.has(move), 'Unknown original move: ' + move)
+      return nativeId(moveIds.get(move))
+    })
+    const options = powers.map(power => powerPlan(power, slug)).filter(Boolean)
+    // Boss rounds declare a Pokémon's permissions on the member, even if the round has no designated ace.
+    if (pokemon.trainer) {
+      for (const mechanic of pokemon.battleMechanics ?? []) {
+        const zCrystalTypes = { 'buginium-z--held':'벌레', 'flyinium-z--held':'비행' }
+        const option = powerPlan({type:mechanic, teraType:pokemon.teraType, moveType:zCrystalTypes[pokemon.heldItemId]}, slug)
+        if (option && !options.some(existing => existing.kind === option.kind)) options.push(option)
+      }
+    }
+    const plan = { moves:attacks, role:roles[pokemon.role] ?? 'balanced', ...(options.length && { powers:options }) }
+    members.push({speciesId, plan, ...(formId && {formId}), ...(ability && {abilityId:ability})})
   }
   assert(members.length, 'A source team has no supported members.')
   return members

@@ -25,7 +25,7 @@ export function playFrame(game: GameSave, moveId?: string): boolean {
   const { player, enemy } = arena
   let dx = enemy.x - player.x
   let dy = enemy.y - player.y
-  const threat = arena.casts.find(cast => cast.side === 'enemy' && !cast.resolved)
+  const threat = arena.casts.find(cast => cast.side === 'enemy' && cast.profile.kind !== 'self' && !cast.resolved)
   if (threat) {
     const stop = threat.profile.startupMs + threat.profile.activeMs
     if (arenaCastTouches(threat, threat.elapsedMs, stop, player, player)) {
@@ -87,7 +87,8 @@ function useRegionalPower(game: GameSave) {
     const party = game.player
     const form = megaFormFor(party.speciesId, party.formId)
     const attacks = party.moveIds.filter(id => moves[id].category !== 'healing' && isMoveMotionSupported(party.speciesId, form, id))
-    const remaining = currentTrainer(game)!.team.slice(game.campaign.battle!.opponentIndex)
+    const battle = game.campaign.battle!
+    const remaining = currentTrainer(game)!.team.filter((_,i) => battle.fieldAI ? battle.fieldAI.benchHP[i] !== 0 : i >= battle.opponentIndex)
     // A native Mega can lose its shooting animation; a lone fighter needs coverage for the whole team.
     if (remaining.some(foe => attacks.every(id => !typeMultiplier(moves[id].type, formStats(foe.speciesId, foe.formId).types)))) return
   }

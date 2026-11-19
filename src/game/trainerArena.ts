@@ -19,7 +19,7 @@ export interface ArenaFeedback {
   id: number
   text: string
   actor: 'player' | 'enemy' | 'system'
-  kind: 'hit' | 'miss' | 'switch' | 'heal' | 'dodge' | 'clash-win' | 'clash-draw' | 'clash-break'
+  kind: 'hit' | 'miss' | 'switch' | 'status' | 'heal' | 'dodge' | 'clash-win' | 'clash-draw' | 'clash-break'
   moveType?: string
   moveId?: string
   castId?: number
@@ -343,10 +343,12 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
   const invulnerable = arena.invulnerableMs > .00001 && (!rolling || rollMs - arena.dodgeMs >= dodgeIFrameStart - .00001)
   if (rolling) translate(arena.player, arena.dodgeDirection, .125 * elapsed / rollMs)
   else moveFighter(arena, 'player', elapsed, arena.direction, playerSpeed * seconds)
-  const range = arenaMoveProfile(selected).range
+  const profile = arenaMoveProfile(selected)
+  const self = profile.kind === 'self'
+  const range = profile.range
   const distance = arenaDistance(arena.enemy, arena.player)
   const direction = { x: arena.player.x - arena.enemy.x, y: (arena.player.y - arena.enemy.y) * heightRatio }
-  moveFighter(arena, 'enemy', elapsed, direction, Math.min(Math.max(0, distance - range * .80), enemySpeed * seconds))
+  moveFighter(arena, 'enemy', elapsed, direction, self ? 0 : Math.min(Math.max(0, distance - range * .80), enemySpeed * seconds))
 
   const impacts: ArenaImpact[] = []
   const held = arena.beamClash
@@ -395,7 +397,7 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
       continue
     }
     const touches = arenaCastTouches(cast, start, cast.elapsedMs, from[victim], arena[victim])
-    const hit = touches && (cast.side === 'player' || !invulnerable)
+    const hit = touches && (p.kind === 'self' || cast.side === 'player' || !invulnerable)
     // A dodged shot passes through; the Pokémon may still walk into a held
     // beam or a persistent area after invulnerability expires.
     if (!hit && cast.elapsedMs < p.startupMs + p.activeMs) continue
@@ -419,7 +421,7 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
     }
   }
   arena.enemyInMs = Math.max(0, arena.enemyInMs - elapsed)
-  if (!arena.casts.some(cast => cast.side === 'enemy') && arena.enemyInMs <= .00001 && arenaDistance(arena.enemy, arena.player) <= range) {
+  if (!arena.casts.some(cast => cast.side === 'enemy') && arena.enemyInMs <= .00001 && (self || arenaDistance(arena.enemy, arena.player) <= range)) {
     const cast = beginArenaCast(arena, 'enemy', selected, sprites)
     arena.enemyInMs = castDuration(cast) + 850
   }

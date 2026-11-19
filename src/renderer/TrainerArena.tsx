@@ -57,7 +57,7 @@ function Health({ id, formId, level, hp, max, rival, remaining }: {
 function Impact({ feedback, pos }: { feedback: Feedback; pos: Position }) {
   const [at] = useState(() => ({ ...(feedback.position ?? pos) }))
   const message = feedback.kind === 'hit' ? feedback.amount ?? '명중' : feedback.kind === 'heal' ? '+' + (feedback.amount ?? '회복') :
-    feedback.kind === 'dodge' ? '회피' : feedback.kind === 'miss' ? '빗나감' : '출전'
+    feedback.kind === 'dodge' ? '회피' : feedback.kind === 'miss' ? '빗나감' : feedback.kind === 'status' ? feedback.text : '출전'
   if (feedback.kind.startsWith('clash-')) return null
   return <div className={'ring-impact ' + feedback.kind} data-impact-id={feedback.id} style={point(at)} aria-hidden="true">
     {feedback.kind === 'hit' && <i/>}<b>{message}</b>
@@ -276,7 +276,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
           remaining={roster.map(mon=>mon.currentHP>0)}/>
         <div className="ring-match"><span>{battle.practice ? '연습 재대결' : label}</span><h1>VS {trainer.name}</h1></div>
         <Health rival id={opponentId} formId={opponentForm} hp={foe?.currentHP ?? 0} max={foe?.maxHP ?? 1} level={foeMember.level}
-          remaining={trainer.team.map((_,i)=>i>=battle.opponentIndex)}/>
+          remaining={trainer.team.map((_,i)=>battle.fieldAI ? battle.fieldAI.benchHP[i] !== 0 : i>=battle.opponentIndex)}/>
       </header>
       <div className={'ring-floor' + (isPlaying ? '' : ' stopped')} data-terrain={terrain} data-venue={region.id + '/' + trainer.id} style={{backgroundImage: 'url("' + venue.image + '")'}}
         ref={surface} tabIndex={0} role="group" aria-label="배틀 경기장 · 방향키 또는 Alt와 바닥 클릭으로 이동" onPointerDown={pointAndWalk} onContextMenu={event => event.preventDefault()}>

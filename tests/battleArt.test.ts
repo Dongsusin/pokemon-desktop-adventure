@@ -124,6 +124,14 @@ describe('offline Resonance artwork', () => {
       }
       for (const image of clip.img ?? []) files.add(image)
     }
+    const trainerClips: Record<string, Clip> = JSON.parse(readFileSync('src/renderer/champions-move-clips.json','utf8'))
+    for (const [id,clip] of Object.entries(trainerClips)) {
+      expect(isMoveMotionAvailable(id),id).toBe(true)
+      expect(clip.src).toBe('Move:' + id.toUpperCase())
+      expect(clip.f).toHaveLength(clip.n)
+      expect(clip.n).toBeGreaterThan(1)
+      for (const name of [clip.sheet,...(clip.img ?? [])]) if (name) files.add(name)
+    }
     expect(readdirSync('assets/battle/moves').sort()).toEqual([...files].sort())
   })
 })

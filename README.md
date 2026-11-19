@@ -4,7 +4,7 @@ Windows 바탕화면에서 포켓몬과 함께하는 자동 육성 게임입니�
 
 ## 실행
 
-Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.28.0/Pokemon-Desktop-Adventure-0.28.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
+Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.29.0/Pokemon-Desktop-Adventure-0.29.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
 
 소스 코드로 실행하려면 Windows 10 또는 11의 PowerShell에서 프로젝트 폴더를 엽니다. Node.js 22.12 이상과 npm이 필요합니다.
 
@@ -34,7 +34,7 @@ npm run dev
 
 [Pokémon Champions Arena](https://pokemon-champions-area-web.co.kr/)의 정규 AI 트레이너 238명, 로켓단 2인조 두 팀과 팩토리 삐에로가 9개 지방에서 등장합니다. **지도 → 지역 트레이너**에서 이름이나 장소를 검색해 상대를 찾으세요. 다른 지방의 검색 결과에는 그 상대가 있는 지방과 장소가 표시됩니다.
 
-상대 위치에 도착하면 **상대 파티**에서 편성을 고르고 도전할 수 있습니다. 원작 팀의 순서와 지원하는 폼을 따르며, 레벨은 각 지방의 진행 단계에 맞춥니다. 승리하면 경험치와 코인을 한 번 받고, 이후 다른 파티로도 연습 재대결할 수 있습니다. 기존 저장은 이미 열어 둔 길을 이어서 이용할 수 있습니다. [전체 241개 대결 배치표](docs/field-trainers.md) · [지우의 원작 파티 선택 화면](docs/screenshots/champions-arena-map.png) · [황토마을 로켓단 2인조전](docs/screenshots/champions-arena-rocket.png)
+상대 위치에 도착하면 **상대 파티**에서 편성을 고르고 도전할 수 있습니다. 원작 팀의 순서와 지원하는 폼을 따르며, 레벨은 각 지방의 진행 단계에 맞춥니다. **상대 기술과 기믹**을 펼치면 포켓몬마다 실제로 쓸 수 있는 기술과 원작 기믹이 표시됩니다. 상대는 약점을 노리고, 불리하면 체력을 보존해 교체하며, 같은 트레이너의 다른 파티도 각자의 편성으로 싸웁니다. 승리하면 경험치와 코인을 한 번 받고, 이후 다른 파티로도 연습 재대결할 수 있습니다. 기존 저장은 이미 열어 둔 길을 이어서 이용할 수 있습니다. [전체 241개 대결 배치표](docs/field-trainers.md) · [지우의 원작 파티 선택 화면](docs/screenshots/champions-arena-map.png) · [황토마을 로켓단 2인조전](docs/screenshots/champions-arena-rocket.png)
 
 ## 체육관·리그 실시간 배틀
 

@@ -48,9 +48,7 @@ describe('Champions Arena AI opponents', () => {
           expect(team.length).toBeLessThanOrEqual(6)
           expect(team.map(({speciesId, formId}) => [speciesId, formId]))
             .toEqual(original.teams[index].map(member => [member.speciesId, 'formId' in member ? member.formId : undefined]))
-          expect(team.filter(m => m.dynamax || m.teraType).length).toBeLessThanOrEqual(1)
-          if (id !== 'galar') expect(team.some(m => m.dynamax)).toBe(false)
-          if (id !== 'paldea') expect(team.some(m => m.teraType)).toBe(false)
+          expect(team.map(m => m.plan)).toEqual(original.teams[index].map(m => m.plan))
           for (const member of team) {
             expect(species[member.speciesId], trainer.name).toBeDefined()
             expect(isSpeciesMotionSupported(member.speciesId, member.formId), trainer.name).toBe(true)

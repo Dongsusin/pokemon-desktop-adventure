@@ -1,6 +1,5 @@
 import type { KantoTrainer, KantoTrainerMember } from './kantoCampaign'
 import type { RegionId } from './world'
-import { isSpeciesMotionSupported } from '../motionEligibility'
 import source from './champions-arena-roster.json'
 import { arenaPlacements } from './championsArenaPlacements'
 
@@ -30,28 +29,17 @@ interface ArenaOpponent {
 
 const opponents = new Map((source.trainers as readonly ArenaOpponent[]).map(trainer => [trainer.id, trainer]))
 
-function regionalTeam(region: RegionId, sourceTeam: ArenaOpponent['teams'][number], highestLevel: number): KantoTrainerMember[] {
-  let powerAssigned = false
-  return sourceTeam.map(({ dynamax, teraType, ...member }, index) => {
-    const slot: KantoTrainerMember = { ...member, level: Math.max(1, highestLevel - Math.min(3, sourceTeam.length - 1 - index)) }
-    if (!powerAssigned && region === 'paldea' && teraType) {
-      powerAssigned = true
-      return { ...slot, teraType }
-    }
-    if (!powerAssigned && region === 'galar' && dynamax && !['zacian', 'zamazenta', 'eternatus'].includes(member.speciesId)) {
-      powerAssigned = true
-      const canGigantamax = dynamax === 'gigantamax' && !member.formId && isSpeciesMotionSupported(member.speciesId, member.speciesId + '-gmax')
-      return { ...slot, dynamax: canGigantamax ? 'gigantamax' : 'dynamax' }
-    }
-    return slot
-  })
+function regionalTeam(sourceTeam: ArenaOpponent['teams'][number], highestLevel: number): KantoTrainerMember[] {
+  return sourceTeam.map((member,index) => ({
+    ...member, level: Math.max(1, highestLevel - Math.min(3, sourceTeam.length - 1 - index)),
+  }))
 }
 
 function placeTrainer(region: RegionId, placement: (typeof arenaPlacements)[RegionId][number]): FieldTrainer {
   const [sourceId, locationId, requiredBadges, highestLevel, venue, kind, series, existingKey] = placement
   const opponent = opponents.get(sourceId)
   if (!opponent) throw new Error('Unknown Champions Arena opponent: ' + sourceId)
-  const teams = opponent.teams.map(team => regionalTeam(region, team, highestLevel))
+  const teams = opponent.teams.map(team => regionalTeam(team, highestLevel))
   return {
     id: 'field-' + region + '-' + (existingKey ?? sourceId), sourceId, role: 'field', kind, series,
     sprite: sourceId, venue, locationId, requiredBadges, name: opponent.name,

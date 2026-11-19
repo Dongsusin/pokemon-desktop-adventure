@@ -129,12 +129,13 @@ describe('regional field trainer battles', () => {
     game.locationId = opponent.locationId
     expect(dispatch(game, challenge(opponent.id))).toBe(true)
     for (let frame = 0; frame < 2000 && game.campaign.battle?.opponentIndex === 0; frame++) playFrame(game)
-    expect(game.campaign.battle?.opponentIndex).toBe(1)
+    const incoming = game.campaign.battle!.opponentIndex
+    expect(incoming).toBeGreaterThan(0)
     expect(game.campaign.fieldWins).toBeUndefined()
     expect(game.wins).toBe(0)
     const resumed = hydrateSave(game, 1)!
-    expect(resumed.campaign.battle).toMatchObject({ opponentIndex: 1, trainerId: opponent.id })
-    expect(resumed.wild[0].speciesId).toBe(currentTrainer(game)!.team[1].speciesId)
+    expect(resumed.campaign.battle).toMatchObject({ opponentIndex: incoming, trainerId: opponent.id })
+    expect(resumed.wild[0].speciesId).toBe(currentTrainer(game)!.team[incoming].speciesId)
     expect(resumed.player.exp).toBe(0)
     const startingCoins = resumed.coins
     const reward = fieldTrainerRewards(currentTrainer(resumed)!)

@@ -25,14 +25,14 @@ export function challengeName(trainer: KantoTrainer) {
   return trainer.trialKind === 'totem' ? '시련' : trainer.trialKind === 'kahuna' ? '큰 시련' : '체육관'
 }
 
-export function TrainerTeam({ trainer, regionId, active, activeForm }: {
-  trainer: KantoTrainer; regionId: RegionId; active?: number; activeForm?: string
+export function TrainerTeam({ trainer, regionId, active, activeForm, benchHP }: {
+  trainer: KantoTrainer; regionId: RegionId; active?: number; activeForm?: string; benchHP?: readonly (number | null)[]
 }) {
   return <ul className="trainer-team" aria-label={trainer.name + '의 포켓몬'}>
     {trainer.team.map((member, index) => {
       const name = species[member.speciesId].nameKo
       const form = member.formId ?? (trainer.role === 'field' ? undefined : locationForm(regionId, trainer.locationId, member.speciesId))
-      const state = active === undefined ? '' : index < active ? ' is-defeated' : index === active ? ' is-battling' : ''
+      const state = active === undefined ? '' : (benchHP ? benchHP[index] === 0 : index < active) ? ' is-defeated' : index === active ? ' is-battling' : ''
       return <li key={index} className={state} aria-current={index === active ? 'step' : undefined}>
         <Pokemon id={member.speciesId} formId={index === active ? activeForm : form} />
         <strong>{name}</strong>
@@ -107,12 +107,12 @@ export function TrainerBattleCard({ game }: { game: GameSave }) {
   const label = trainer.cupRound ?? (trainer.trialKind ? challengeName(trainer) : { gym: '체육관전', elite: '사천왕전', champion: leagueFinal, field: '지역 트레이너전' }[trainer.role])
   return <section className="card campaign-battle" aria-label="진행 중인 트레이너 배틀">
     <div className="campaign-heading"><h2>{label} · {trainer.name}</h2>
-      <span>{battle.opponentIndex + 1}/{trainer.team.length}마리째</span></div>
+      <span>{battle.fieldAI ? '남은 포켓몬 ' + battle.fieldAI.benchHP.filter(hp=>hp!==0).length + '/' + trainer.team.length : (battle.opponentIndex + 1) + '/' + trainer.team.length + '마리째'}</span></div>
     {([{ side: '선두', power: myPower }, { side: '상대', power: theirPower }]).map(({ side, power }) =>
       power?.phase === 'active' && <p key={side} className="campaign-subtitle">{side} · {power.label}
         {power.teraType ? ' · ' + types[power.teraType] : ''} · {power.detail}</p>)}
     {trainer.totemAura && <p className="campaign-subtitle">주인 오라 · {trainer.totemAura.stat === 'all' ? '모든 능력' : statNames[trainer.totemAura.stat]} {trainer.totemAura.stages}랭크 상승</p>}
-    <TrainerTeam trainer={trainer} regionId={game.regionId} active={battle.opponentIndex} activeForm={opponent && battleForm(opponent)} />
+    <TrainerTeam trainer={trainer} regionId={game.regionId} active={battle.opponentIndex} benchHP={battle.fieldAI?.benchHP} activeForm={opponent && battleForm(opponent)} />
     {opponent && <div className="campaign-hp">
       <span>상대 HP <strong>{opponent.currentHP}/{opponent.maxHP}</strong></span>
       <progress aria-label="상대 HP" value={opponent.currentHP} max={opponent.maxHP} />

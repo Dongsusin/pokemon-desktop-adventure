@@ -163,3 +163,10 @@
 .field-trainer-card.ally { background: #eff4ec; border-color: #c9d7c6; }
 .field-trainer-requirement, .field-trainer-prize, .field-trainer-cleared { font-size: 11px; margin: 6px 0 0; color: var(--muted); }
 .field-trainer-cleared { font-weight: 700; color: #2b654a; }
+
+.field-trainer-tactics summary { cursor: pointer; font-weight: 650; }
+.field-trainer-tactics dl { margin: .5rem 0; }
+.field-trainer-tactics dl > div { display: grid; grid-template-columns: minmax(6rem, 25%) 1fr; gap: .5rem; padding: .25rem 0; }
+.field-trainer-tactics dt { font-weight: 650; }
+.field-trainer-tactics dd { margin: 0; }
+.field-trainer-tactics small { display: block; color: #405677; }

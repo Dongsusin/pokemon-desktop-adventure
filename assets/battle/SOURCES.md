@@ -12,6 +12,8 @@
 
 **기술별 이펙트**. 원본의 `dist/data/anims/moves`에서 기존 기술 23개의 이름과 일치하는 타임라인을 확인했습니다. 20fps의 셀 순서, 위치, 각도, 배율, 배경 및 포켓몬 색상 효과와 사용한 PNG를 묶었습니다. 염동력은 원본에서도 포켓몬·배경 효과로 표현됩니다. 이미지는 Pokémon Reborn Team의 PRAS 시트를 포함하며 원본 배포본의 크레딧을 함께 제공합니다. [기술별 타임라인](../../src/renderer/move-clips.json) · [원작자·그림 출처](moves/CREDITS.txt)
 
+지역 트레이너의 원작 파티에 등장하는 기술은 같은 v3.0.0 배포본에서 동명의 전용 타임라인과 동작 분류를 대조했습니다. 기존 자료와 겹치는 기술 15종을 포함해 352종을 확인했습니다. 추가 337개 클립의 프레임, 색상 변경, 배경과 참조 PNG를 보존했습니다. [추가 기술 타임라인](../../src/renderer/champions-move-clips.json) · [원작자·그림 출처](moves/CREDITS.txt)
+
 **경기장**. 9개 지방의 체육관·시련 75곳과 리그·최종전 48개 대결은 각각 별도의 배틀맵을 사용합니다. 레조넌스 배포본의 전장 시점과 두 포켓몬이 교전하는 공간을 참고해 각 장소의 건물, 재질과 빛을 새로 구성했습니다. 새 그림은 ImageGen으로 제작했습니다. 기존 공용 전장 타일과 원작자 표기는 보관해 두었습니다. [전장별 원화와 배치](../../tools/data/venue-plates) · [레조넌스 원본 전장 크레딧](GROUND-CREDITS.txt)
 
 **재생성**. Python과 Pillow를 설치한 뒤 `python tools/build-battle-venues.py`를 실행하면 게임에 포함된 원화 시트로 123개 전장과 한글 이름표를 다시 만듭니다. 포켓몬 애니메이션 시트는 `python tools/build-battle-art.py <app.asar>`로 원본 배포본에서 생성합니다. 플레이어는 이 게임을 위해 제작한 원화에서 선택 초상화와 배틀 자세를 뽑습니다. `python tools/build-player-art.py`로 재생성할 수 있습니다. [트레이너 원화와 공식 디자인 참고 자료](../../tools/data/player-trainers.md)

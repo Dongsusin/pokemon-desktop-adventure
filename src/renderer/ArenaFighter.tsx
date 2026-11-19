@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
+import { championsTechniques } from '../game/championsMoves'
 import type { ArenaCast } from '../game/arenaMoves'
 import { arenaCastFrame, arenaHeightRatio, arenaMoveProfile } from '../game/arenaMoves'
 import { species } from '../game/catalog'
@@ -36,7 +37,7 @@ export function ArenaFighter({ side, id, formId, pos, direction, casting, bodySt
     return () => { window.clearTimeout(timeout); setHurt(false) }
   }, [feedback?.id, side])
   const heldBeam = casting?.profile.kind === 'beam' && (frame?.phase === 'active' || !!casting.beamStop)
-  const ranged = casting && !['dash','cone'].includes(casting.profile.kind)
+  const ranged = casting && (championsTechniques[casting.moveId]?.pose === 'shoot' || !['dash','cone'].includes(casting.profile.kind))
   const lobStart = casting?.profile.lobSpeed ? arenaMoveProfile({ id: casting.moveId }).startupMs : undefined
   const inFlight = casting && lobStart !== undefined && frame?.phase === 'windup' && casting.elapsedMs >= lobStart
   const spriteFrame = inFlight ? { phase: 'active' as const, progress: (casting.elapsedMs - lobStart) / Math.max(1, casting.profile.startupMs - lobStart) } : frame

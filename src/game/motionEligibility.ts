@@ -1,5 +1,7 @@
 import catalog from './resonance-motions.json'
 
+import { championsTechniques } from './championsMoves'
+
 const actors: Readonly<Record<string, string>> = catalog.actors
 const moves: Readonly<Record<string, string>> = catalog.moves
 
@@ -15,10 +17,10 @@ export function isSpeciesMotionSupported(speciesId: string, formId?: string): bo
 }
 
 export function isMoveMotionAvailable(moveId: string): boolean {
-  return Object.hasOwn(moves, moveId)
+  return Object.hasOwn(moves, moveId) || Object.hasOwn(championsTechniques, moveId)
 }
 
 export function isMoveMotionSupported(speciesId: string, formId: string | undefined, moveId: string): boolean {
   const pose = actorPose(speciesId, formId)
-  return !!pose && isMoveMotionAvailable(moveId) && (moves[moveId] === 'attack' || pose === 'attack+shoot')
+  return !!pose && isMoveMotionAvailable(moveId) && ((moves[moveId] ?? championsTechniques[moveId]?.pose) === 'attack' || pose === 'attack+shoot')
 }
