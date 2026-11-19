@@ -1,4 +1,5 @@
 import { species } from './catalog'
+import { megaForms } from './battleGimmicks'
 import type { Stats, Wild } from './engine'
 
 interface Form {
@@ -115,10 +116,15 @@ export function battleForm(mon: Pick<Wild, 'speciesId' | 'formId' | 'currentHP' 
 }
 
 export function formStats(speciesId: string, formId?: string) {
+  if (formId && Object.hasOwn(megaForms, formId) && megaForms[formId].base === speciesId) return megaForms[formId]
   return formId ? pokemonForms[formId] ?? species[speciesId] : species[speciesId]
 }
 
 export function formLabel(formId: string | undefined) {
+  if (formId && Object.hasOwn(megaForms, formId)) {
+    const variant = /-mega-([xyz])$/.exec(formId)
+    return variant ? '메가진화 ' + variant[1].toUpperCase() : '메가진화'
+  }
   if (formId?.endsWith('-galar')) return '가라르의 모습'
   if (formId?.endsWith('-gmax')) return '거다이맥스'
   if (formId === 'alcremie-ruby-cream') return '루비크림'

@@ -6,6 +6,10 @@
 
 **플레이 가능 모션**. v3.0.0의 `sprites8/sets`에서 해당 종 및 폼에 직접 지정된 Walk와 Attack을 확인합니다. 두 시트 모두 8방향의 모든 프레임에 그림이 있고 시간에 따라 픽셀이 실제로 바뀌어야 합니다. 빔·투사체·범위·회복 기술은 원본이 지정한 별도 발사 자세에도 같은 기준을 적용합니다. 이 조건을 만족하는 903개 세트가 발사 기술을 사용할 수 있습니다. 나머지 102개 세트에는 종별로 배울 수 있는 근접 기술만 허용합니다. [생성 및 판정 코드](../../tools/battle_motions.py)
 
+**전투 기믹**. 메가진화는 레조넌스 v3.0.0의 `dist/data/species.json`에 지정된 원래 모습·변신 후 타입·종족값을 사용합니다. 원본 배우의 전용 Walk·Attack 도트가 있고 플레이 가능한 81개 원래 모습에서 변신할 수 있는 87개 메가폼을 수록했습니다. 그중 31폼은 별도의 발사 자세도 갖추고 있습니다. 선택지가 여러 개인 포켓몬은 배포본 순서에 따라 X/Y 또는 기본 메가/Z를 구분합니다. PMDCollab 그림과 Boying의 전용 그림은 각 원출처의 제작자 표기를 유지합니다. [메가폼별 도트 크레딧](gimmicks/SPRITE-CREDITS.txt)
+
+메가진화(`Common:MegaEvolution2`, 20프레임)와 Z기술(`Common:ZPower`, 34프레임)의 발동 연출은 원본의 효과 셀을 시전자 중심, 초당 20프레임으로 합성했습니다. 활성화 이펙트에는 주변 포켓몬이 쓰는 전신 섬광을 포함하지 않습니다. Z기술과 다이맥스 기술의 타입별 명칭은 [PokéAPI 한글 기술명 데이터](https://github.com/PokeAPI/pokeapi/blob/e4f981e5cb03c1fe33d436b1ee8e1197fbb0af84/data/v2/csv/move_names.csv)를 따릅니다. [원작 이펙트 크레딧](gimmicks/MOVE-CREDITS.txt) · [레조넌스 제작자의 v3.0.0 배포·패치 기록](https://reso.jhcloud.kr/api/site)
+
 **기술별 이펙트**. 원본의 `dist/data/anims/moves`에서 기존 기술 23개의 이름과 일치하는 타임라인을 확인했습니다. 20fps의 셀 순서, 위치, 각도, 배율, 배경 및 포켓몬 색상 효과와 사용한 PNG를 묶었습니다. 염동력은 원본에서도 포켓몬·배경 효과로 표현됩니다. 이미지는 Pokémon Reborn Team의 PRAS 시트를 포함하며 원본 배포본의 크레딧을 함께 제공합니다. [기술별 타임라인](../../src/renderer/move-clips.json) · [원작자·그림 출처](moves/CREDITS.txt)
 
 **경기장**. Another Red의 Pokémon Essentials 커뮤니티 타일로 Boying이 구성한 전장 이미지에서 실제 플레이 구역을 잘라 사용합니다. 관동·성도·신오의 체육관 전용 배경 24개, 리그와 공용 지형 10개가 포함되어 있습니다. 회색체육관에는 같은 타일 팩의 Object rock과 Object boulder를 실제 배틀 영상에 맞춰 배치했습니다. 다른 지방의 체육관과 시련은 관장의 타입에 맞는 전장을 선택합니다. [전장 제작·원출처 크레딧](GROUND-CREDITS.txt)

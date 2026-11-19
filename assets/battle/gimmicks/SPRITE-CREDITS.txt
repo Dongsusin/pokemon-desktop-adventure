@@ -1,0 +1,540 @@
+venusaur-mega (venusaurmega / custom/venusaurmega)
+메가이상해꽃 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0003-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/3.glb
+편집 원본 output/mega-venusaur-pmd-20261108/venusaur-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+charizard-mega-x (charizardmegax / 0006/0001)
+2021-11-04 23:42:49.305726	KEVIN0ITACHI	CUR	PMDCollab_1	Walk,Attack,Shoot,SpAttack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,Cringe
+2026-03-22 18:33:18.762140	<@!350050109741858829>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop,Cringe
+2026-03-29 23:00:48.129950	<@!479925530129596426>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop,Cringe
+
+charizard-mega-y (charizardmegay / custom/charizardmegay)
+메가리자몽 Y 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0006-2
+참고 모델 https://sketchfab.com/3d-models/charizard-mega-y-678cfe2604be4bf39718a7173557be3e (Juliocesar6328, CC BY 4.0)
+편집 원본 output/mega-sprites-approved/charizard-mega-y/pmd-xy/charizardmegay-pmd-xy.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+blastoise-mega (blastoisemega / custom/blastoisemega)
+메가거북왕 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0009-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/y/9.glb
+편집 원본 output/mega-blastoise-pmd-20261108/blastoise-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+pidgeot-mega (pidgeotmega / custom/pidgeotmega)
+메가피죤투 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0018-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/18.glb
+편집 원본 output/mega-pidgeot-pmd-20261108/pidgeot-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+alakazam-mega (alakazammega / 0065/0001)
+2024-12-21 22:41:02.694768	<@!653416391201783856>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop
+2024-12-27 20:16:05.477251	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Attack,Charge,Shoot,SpAttack,Swing,Double,Rotate,Hop
+
+slowbro-mega (slowbromega / 0080/0002)
+2025-11-15 20:48:40.856505	<@!229131140903075840>	CUR	CC_BY-NC_4	Idle,Walk,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop,Special1
+2025-11-16 00:18:30.298051	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop,Special1
+
+gengar-mega (gengarmega / 0094/0001)
+2024-09-30 22:42:15.037570	<@!653416391201783856>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Charge,Twirl,Swing,Double,Rotate
+2024-10-22 02:17:17.065530	<@!237286997645983744>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Charge,Swing,Double,Rotate
+2024-12-21 22:32:40.814474	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Lick,Twirl,Swing,Double,Rotate,Hop
+
+kangaskhan-mega (kangaskhanmega / 0115/0001)
+2024-05-11 15:25:35.069290	<@!157796074457661440>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop
+
+pinsir-mega (pinsirmega / custom/pinsirmega)
+메가쁘사이저 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0127-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/127.glb
+편집 원본 output/mega-pinsir-pmd-20261108/pinsir-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+gyarados-mega (gyaradosmega / custom/gyaradosmega)
+메가갸라도스 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0130-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/130.glb
+편집 원본 output/mega-sprites-approved/gyarados-mega/gyaradosmega-pmd-xy.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+aerodactyl-mega (aerodactylmega / 0142/0001)
+2024-11-15 18:56:52.716945	<@!330751862590406656>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Swing,Double,Rotate,Hop,Hover
+
+mewtwo-mega-x (mewtwomegax / custom/mewtwomegax)
+메가뮤츠 X 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0150-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/x/150.glb
+편집 원본 output/mega-mewtwo-x-pmd-20261107/mewtwomegax-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+mewtwo-mega-y (mewtwomegay / 0150/0002)
+2021-01-26 00:31:23.245153	<@!702275233125630042>	CUR	PMDCollab_1	Attack,Charge,Double,Hop,Hurt,Idle,Pose,Rotate,Shoot,Sleep,Swing,Walk
+2021-10-11 02:41:52.936504	<@!702275233125630042>	CUR	PMDCollab_1	Attack,Charge,Double,Hop,Idle,Pose,Rotate,Shoot,Walk
+
+ampharos-mega (ampharosmega / custom/ampharosmega)
+메가전룡 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0181-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/181.glb
+편집 원본 output/mega-ampharos-pmd-20261108/ampharos-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+steelix-mega (steelixmega / 0208/0001)
+2024-06-21 18:28:05.222321	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Appeal,Dance,Emit,Swing,Double,Rotate,Hop
+
+scizor-mega (scizormega / custom/scizormega)
+메가핫삼 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0212-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/212.glb
+편집 원본 output/mega-scizor-pmd-20261108/scizor-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+heracross-mega (heracrossmega / custom/heracrossmega)
+메가헤라크로스 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0214-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/214.glb
+편집 원본 output/mega-heracross-pmd-20261108/heracross-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+houndoom-mega (houndoommega / 0229/0001)
+2021-11-03 10:57:45.255498	<@!276369635304275968>	CUR	PMDCollab_1	Walk,Attack,Strike,Shoot,Dance,Shake,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,Injured,Special0,Fainted
+
+tyranitar-mega (tyranitarmega / 0248/0001)
+2025-11-09 04:13:31.835683	<@!702275233125630042>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+
+blaziken-mega (blazikenmega / custom/blazikenmega)
+메가번치코 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0257-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/257.glb
+편집 원본 output/mega-blaziken-pmd-20261108/blazikenmega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+swampert-mega (swampertmega / custom/swampertmega)
+메가대짱이 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0260-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/260.glb
+편집 원본 output/mega-swampert-pmd-20261108/swampertmega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+gardevoir-mega (gardevoirmega / 0282/0001)
+2022-08-08 13:03:15.832469	<@!544245909639397378>	CUR	PMDCollab_1	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Appeal,SpAttack,Swing,Double,Rotate,Hop
+
+sableye-mega (sableyemega / 0302/0001)
+2024-02-25 22:19:30.353099	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop,Cringe
+
+mawile-mega (mawilemega / 0303/0001)
+2025-05-13 05:18:40.673894	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Bite,Twirl,Swing,Double,Rotate,Hop,EventSleep,Wake,Eat,Tumble,Pose,Pull,Pain,Float,DeepBreath,Nod,Sit,LookUp,Sink,Trip,Laying,LeapForth,Head,Cringe,LostBalance,TumbleBack,HitGround,Faint
+
+aggron-mega (aggronmega / custom/aggronmega)
+메가보스로라 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0306-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/306.glb
+편집 원본 output/mega-aggron-pmd-20261108/aggronmega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+medicham-mega (medichammega / 0308/0001)
+2025-08-24 03:06:06.558431	<@!702275233125630042>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Punch,SpAttack,Swing,Double,Rotate,Hop
+
+manectric-mega (manectricmega / 0310/0001)
+2024-07-27 05:10:06.697140	<@!276369635304275968>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Shock,Swing,Double,Rotate,Hop,QuickStrike,Cringe
+
+sharpedo-mega (sharpedomega / 0319/0001)
+2026-05-27 04:06:48.143184	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Attack,Double,Rotate
+
+camerupt-mega (cameruptmega / 0323/0001)
+2023-11-06 03:29:34.095387	<@!330751862590406656>	CUR	PMDCollab_2	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Swing,Double,Rotate,Hop
+2023-11-08 21:27:42.819953	<@!330751862590406656>	CUR	PMDCollab_2	Idle,Walk,Attack,Shoot,Hop
+
+altaria-mega (altariamega / 0334/0001)
+2025-10-05 01:36:50.721905	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Swing,Double,Rotate,Hop,Hover
+
+banette-mega (banettemega / 0354/0001)
+2022-10-21 23:43:32.715751	<@!544245909639397378>	CUR	PMDCollab_1	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,Swing,Double,Rotate,Hop
+
+absol-mega (absolmega / 0359/0001)
+2021-11-28 16:00:27.251906	<@!237286997645983744>	CUR	PMDCollab_1	Walk,Attack,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate
+
+glalie-mega (glaliemega / 0362/0001)
+2024-12-21 21:50:25.709445	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Bite,Twirl,Swing,Double,Rotate,Hop
+
+salamence-mega (salamencemega / custom/salamencemega)
+메가보만다 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0373-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/373.glb
+편집 원본 output/mega-salamence-pmd-20261108/salamencemega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+metagross-mega (metagrossmega / custom/metagrossmega)
+메가메타그로스 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0376-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/376.glb
+편집 원본 output/mega-metagross-pmd-20261108/metagrossmega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+latias-mega (latiasmega / 0380/0001)
+2025-07-06 16:11:50.850656	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Rumble,SpAttack,RearUp,Swing,Double,Rotate,Hop,Cringe
+2025-07-13 18:49:14.260548	<@!356635814668664832>	CUR	CC_BY-NC_4	Hurt,Charge,Shoot,RearUp,Swing,Double,Hop
+
+latios-mega (latiosmega / 0381/0001)
+2025-07-06 15:58:29.601778	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Rumble,SpAttack,RearUp,Swing,Double,Rotate,Hop,Cringe
+
+rayquaza-mega (rayquazamega / 0384/0001)
+2022-12-07 22:03:09.429206	<@!276369635304275968>	CUR	PMDCollab_1	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop
+2022-12-09 04:20:38.462915	<@!276369635304275968>	CUR	PMDCollab_1	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop
+
+lopunny-mega (lopunnymega / 0428/0001)
+2021-07-01 02:05:51.826544	<@!702275233125630042>	CUR	PMDCollab_1	Walk,Attack,QuickStrike,Shoot,Appeal,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate,Fainted,StandingUp,Pose,Jump,Special1
+
+garchomp-mega (garchompmega / custom/garchompmega)
+메가한카리아스 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0445-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/445.glb
+편집 원본 output/mega-garchomp-pmd-20261108/garchomp-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+lucario-mega (lucariomega / 0448/0001)
+2024-12-04 02:53:03.211208	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Strike,SpAttack,RearUp,Swing,Double,Rotate,Hop,QuickStrike
+2024-12-22 17:19:58.807592	<@!544245909639397378>	CUR	CC_BY-NC_4	Attack
+2025-03-30 19:04:45.150996	<@!544245909639397378>	CUR	CC_BY-NC_4	Strike
+
+abomasnow-mega (abomasnowmega / custom/abomasnowmega)
+메가눈설왕 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0460-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/460.glb
+편집 원본 output/mega-abomasnow-pmd-20261108/abomasnow-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+gallade-mega (gallademega / 0475/0001)
+2021-07-06 16:15:07.678946	<@!702275233125630042>	CUR	PMDCollab_1	Walk,Attack,Strike,Shoot,RearUp,Sleep,Hurt,Idle,Swing,Double,Hop,Charge,Rotate
+
+audino-mega (audinomega / custom/audinomega)
+메가다부니 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0531-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/531.glb
+편집 원본 output/mega-audino-pmd-20261108/audino-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+diancie-mega (dianciemega / 0719/0001)
+2024-07-02 14:56:18.178010	<@!544245909639397378>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+
+skarmory-mega (skarmorymega / 0227/0001)
+2026-04-08 05:16:00.317858	<@!225949425292410880>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+2026-06-05 19:55:19.402648	<@!225949425292410880>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Swing,Double,Rotate,Hop
+
+darkrai-mega (darkraimega / 0491/0002)
+2026-08-02 13:15:02.975208	<@!225949425292410880>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop
+2026-08-04 06:45:47.399854	<@!225949425292410880>	CUR	CC_BY-NC_4	Shoot
+2026-08-04 06:45:55.719069	<@!225949425292410880>	CUR	CC_BY-NC_4	Shoot
+
+excadrill-mega (excadrillmega / 0530/0001)
+2026-05-13 16:43:16.384094	<@!608107243329814529>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+2026-05-13 18:31:14.149517	<@!229131140903075840>	CUR	CC_BY-NC_4	Idle,Walk,Attack,Shoot,Strike,Twirl,Swing,Rotate,Hop
+2026-05-13 18:31:20.108489	<@!272761782269902848>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+2026-05-14 00:06:16.198759	<@!229131140903075840>	CUR	CC_BY-NC_4	Rotate
+
+scrafty-mega (scraftymega / 0560/0001)
+2026-05-27 00:02:54.433804	<@!608107243329814529>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Attack,Swing,Double,Rotate
+2026-05-27 01:11:24.015813	<@!229131140903075840>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Attack,Swing,Double,Rotate
+2026-05-27 01:27:59.967964	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Attack,Swing,Double,Rotate
+
+eelektross-mega (eelektrossmega / 0604/0001)
+2026-07-28 00:37:20.033998	<@!276369635304275968>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,RearUp,Swing,Double,Rotate,Hop
+
+dragalge-mega (dragalgemega / 0691/0001)
+2026-05-13 16:51:58.913450	<@!608107243329814529>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+2026-05-13 18:31:26.329756	<@!229131140903075840>	CUR	CC_BY-NC_4	Idle,Walk,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+2026-05-13 18:31:32.747247	<@!272761782269902848>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,Twirl,Swing,Double,Rotate,Hop
+2026-05-14 00:06:50.809826	<@!229131140903075840>	CUR	CC_BY-NC_4	Swing
+2026-05-27 20:53:06.407746	<@!272761782269902848>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Swing,Double,Rotate,Hop
+
+drampa-mega (drampamega / 0780/0001)
+2026-06-19 06:05:54.395903	<@!608107243329814529>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,RearUp,Swing,Double,Rotate,Hop
+2026-06-19 06:39:28.314399	<@!229131140903075840>	CUR	CC_BY-NC_4	Attack,Hop,Idle,RearUp,Rotate,Shoot,Swing,Walk,Strike
+2026-06-19 07:12:33.049117	<@!272761782269902848>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,RearUp,Swing,Double,Rotate,Hop
+2026-08-01 17:09:55.983049	<@!272761782269902848>	CUR	CC_BY-NC_4	Attack,Shoot,Hop
+
+zeraora-mega (zeraoramega / 0807/0001)
+2026-06-19 06:28:37.717317	<@!608107243329814529>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Strike,SpAttack,RearUp,Swing,Double,Rotate,Hop,QuickStrike,Cringe
+2026-06-19 07:12:26.215046	<@!272761782269902848>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Strike,SpAttack,RearUp,Swing,Double,Rotate,Hop,QuickStrike,Cringe
+2026-07-10 18:34:39.523323	<@!272761782269902848>	CUR	CC_BY-NC_4	Walk,Attack,RearUp,Hop,QuickStrike
+
+tatsugiri-mega (tatsugiricurlymega / 0978/0003)
+2026-08-01 04:25:06.409339	<@!356635814668664832>	CUR	CC_BY-NC_4	Idle,Walk,Sleep,Hurt,Attack,Charge,Shoot,Strike,SpAttack,RearUp,Swing,Double,Rotate,Hop
+2026-08-07 18:06:02.775716	<@!356635814668664832>	CUR	CC_BY-NC_4	Hurt,Charge,Shoot,RearUp,Double,Hop
+
+garchomp-mega-z (garchompmegaz / custom/garchompmegaz)
+메가한카리아스 Z 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0445-2
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/za/445.glb
+편집 원본 output/mega-garchomp-z-pmd-20261108/garchompz-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+lucario-mega-z (lucariomegaz / custom/lucariomegaz)
+메가루카리오 Z 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0448-2
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/za/448.glb
+편집 원본 output/mega-lucario-z-pmd-20261108/lucarioz-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+absol-mega-z (absolmegaz / custom/absolmegaz)
+메가앱솔 Z 8방향 전투 스프라이트
+제작 Boying · 공식 원화를 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다. 방향 시안 일부는 이미지 생성 도구로 만든 그림을 참고했고, 도트는 따로 그렸습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0359-2
+크기 비교 PMD Sprite Collab 앱솔 https://github.com/PMDCollab/SpriteCollab/blob/master/sprite/0359/credits.txt
+편집 원본 output/mega-absol-z-pmd-20261108/v2/absolmegaz-pmd-v2.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+chesnaught-mega (chesnaughtmega / custom/chesnaughtmega)
+메가브리가론 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0652-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/652.glb
+편집 원본 output/mega-chesnaught-pmd-20261108/chesnaught-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+delphox-mega (delphoxmega / custom/delphoxmega)
+메가마폭시 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0655-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/655.glb
+편집 원본 output/mega-delphox-pmd-20261108/delphox-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+greninja-mega (greninjamega / custom/greninjamega)
+메가개굴닌자 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0658-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/658.glb
+편집 원본 output/mega-greninja-pmd-20261108/greninja-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+malamar-mega (malamarmega / custom/malamarmega)
+메가칼라마네로 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0687-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/za/687.glb
+편집 원본 output/mega-malamar-pmd-20261108/malamar-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+froslass-mega (froslassmega / custom/froslassmega)
+메가눈여아 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0478-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572500/
+편집 원본 output/mega-froslass-pmd-20261108/froslass-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+heatran-mega (heatranmega / custom/heatranmega)
+메가히드런 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0485-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572578/
+편집 원본 output/mega-heatran-pmd-20261108/heatran-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+emboar-mega (emboarmega / custom/emboarmega)
+메가염무왕 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0500-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/573558/
+편집 원본 output/mega-emboar-pmd-20261108/emboar-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+scolipede-mega (scolipedemega / custom/scolipedemega)
+메가펜드라 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0545-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572614/
+편집 원본 output/mega-scolipede-pmd-20261108/scolipede-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+chandelure-mega (chandeluremega / custom/chandeluremega)
+메가샹델라 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0609-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572666/
+편집 원본 output/mega-chandelure-pmd-20261108/chandelure-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+golurk-mega (golurkmega / custom/golurkmega)
+메가골루그 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0623-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572667/
+편집 원본 output/mega-golurk-pmd-20261108/golurk-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+meowstic-mega (meowsticmmega / custom/meowsticmmega)
+메가냐오닉스 수컷 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0678-2
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572672/
+편집 원본 output/mega-meowstic-pmd-20261108/meowstic-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+barbaracle-mega (barbaraclemega / custom/barbaraclemega)
+메가거북손데스 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0689-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/571380/
+편집 원본 output/mega-barbaracle-pmd-20261108/barbaracle-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+crabominable-mega (crabominablemega / custom/crabominablemega)
+메가모단단게 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0740-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572675/
+편집 원본 output/mega-crabominable-pmd-20261108/crabominable-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+golisopod-mega (golisopodmega / custom/golisopodmega)
+메가갑주무사 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0768-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/569879/
+편집 원본 output/mega-golisopod-pmd-20261108/golisopod-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+magearna-mega (magearnamega / custom/magearnamega)
+메가마기아나 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0801-2
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572680/
+편집 원본 output/mega-magearna-pmd-20261108/magearna-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+scovillain-mega (scovillainmega / custom/scovillainmega)
+메가스코빌런 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0952-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572679/
+편집 원본 output/mega-scovillain-pmd-20261108/scovillain-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+glimmora-mega (glimmoramega / custom/glimmoramega)
+메가킬라플로르 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0970-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/570666/
+편집 원본 output/mega-glimmora-pmd-20261108/glimmora-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+baxcalibur-mega (baxcaliburmega / custom/baxcaliburmega)
+메가드닐레이브 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0998-1
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/570209/
+편집 원본 output/mega-baxcalibur-pmd-20261108/baxcalibur-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+tatsugiri-droopy-mega (tatsugiridroopymega / custom/tatsugiridroopymega)
+메가싸리용 늘어진 모습 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0978-4
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572682/
+편집 원본 output/mega-tatsugiri-droopy-pmd-20261108/tatsugiridroopy-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+tatsugiri-stretchy-mega (tatsugiristretchymega / custom/tatsugiristretchymega)
+메가싸리용 뻗은 모습 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0978-5
+참고 모델 https://models.spriters-resource.com/nintendo_switch/pokemonlegendsza/asset/572682/
+편집 원본 output/mega-tatsugiri-stretchy-pmd-20261108/tatsugiristretchy-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+raichu-mega-x (raichumegax / custom/raichumegax)
+메가라이츄 X 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0026-2
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/x/26.glb
+편집 원본 output/mega-sprites-approved/raichu-mega-x/raichumegax-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+raichu-mega-y (raichumegay / custom/raichumegay)
+메가라이츄 Y 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0026-3
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/y/26.glb
+편집 원본 output/mega-sprites-approved/raichu-mega-y/raichumegay-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+clefable-mega (clefablemega / custom/clefablemega)
+메가픽시 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0036-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/36.glb
+편집 원본 output/mega-clefable-pmd-20261107/clefablemega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+victreebel-mega (victreebelmega / custom/victreebelmega)
+메가우츠보트 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0071-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/71.glb
+편집 원본 output/mega-victreebel-pmd-20261107/victreebelmega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+starmie-mega (starmiemega / custom/starmiemega)
+메가아쿠스타 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0121-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/121.glb
+편집 원본 output/mega-starmie-pmd-20261107/starmiemega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+dragonite-mega (dragonitemega / custom/dragonitemega)
+메가망나뇽 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0149-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/149.glb
+편집 원본 output/mega-dragonite-pmd-20261107/dragonitemega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+meganium-mega (meganiummega / custom/meganiummega)
+메가메가니움 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0154-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/154.glb
+편집 원본 output/mega-meganium-pmd-20261107/meganiummega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+feraligatr-mega (feraligatrmega / custom/feraligatrmega)
+메가장크로다일 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0160-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/160.glb
+편집 원본 output/mega-feraligatr-pmd-20261108/feraligatrmega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.
+
+staraptor-mega (staraptormega / custom/staraptormega)
+메가찌르호크 8방향 전투 스프라이트
+제작 Boying · 공식 원화와 모델을 바탕으로 방향·동작 시안을 만들고 Aseprite로 정리했습니다.
+공식 도감 https://zukan.pokemon.co.jp/detail/0398-1
+참고 모델 https://github.com/Pokemon-3D-api/assets/blob/main/models/opt/mega/398.glb
+편집 원본 output/mega-staraptor-pmd-20261108/staraptormega-pmd.aseprite
+대기 4 · 이동 4 · 공격 6 · 피격 2 프레임, 8방향. Pokémon / Nintendo / Game Freak / Creatures.

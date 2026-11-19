@@ -107,7 +107,9 @@ def atlas(entry):
         if indexed.convert('RGBA').tobytes() == image.tobytes():
             image = indexed
     image.save(out / 'sprites' / (key + '.png'))
-    credit = read('assets/Battle/movement/' + sprite['dir'] + '/credits.txt').decode('utf-8-sig').strip()
+    folder = 'assets/Battle/movement/' + sprite['dir']
+    credit_file = next(f for f in index_at(folder)['files'] if f.lower() == 'credits.txt')
+    credit = read(folder + '/' + credit_file).decode('utf-8-sig').strip()
     return key, records, f"{key} ({sprite['key']} / {sprite['dir']})\n{credit}"
 
 def battle_floor(key, ground):
@@ -158,7 +160,9 @@ def main():
     (out/'SPRITE-CREDITS.txt').write_text('\n\n'.join(credits[key] for key in manifest)+'\n',encoding='utf-8')
     for source, dest in [('assets/Battle/movement/LICENSE.md','SPRITE-LICENSE.md'),('assets/Battle/movement/credit_names.txt','SPRITE-ARTISTS.txt'),('assets/Arenas/CREDITS.txt','GROUND-CREDITS.txt')]:
         (out/dest).write_bytes(read(source))
-    print(f"{len(manifest)} atlases generated", flush=True)
+    print(f"{len(manifest)} collectible atlases generated", flush=True)
+    from battle_gimmick_art import build_gimmick_art
+    build_gimmick_art(root, out, read, picture, atlas, named, metrics)
 
 if __name__ == '__main__':
     main()

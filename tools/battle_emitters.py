@@ -56,7 +56,7 @@ def at_fraction(bounds, fx, fy):
     return [round(x1+(x2-1-x1)*fx,1), round(y1+(y2-1-y1)*fy,1)]
 
 
-def build_emitters(root, out, manifest, chosen, source_metrics):
+def emitter_data(out, manifest, chosen, source_metrics):
     data = {}
     for key, atlas in manifest.items():
         idle = atlas['idle']
@@ -81,6 +81,11 @@ def build_emitters(root, out, manifest, chosen, source_metrics):
                     bounds = silhouette(image,strip,row,hold)
                     mouth.extend(at_fraction(bounds,.5+(reach-.5)*heading_x,height))
         data[key] = {'unit':size,'bodyY':body_y,'frame':hold,'mouth':mouth}
+    return data
+
+
+def build_emitters(root, out, manifest, chosen, source_metrics):
+    data = emitter_data(out, manifest, chosen, source_metrics)
     # One species per line keeps atlas data changes inspectable.
     entries = [json.dumps(k)+':'+json.dumps(v,separators=(',',':')) for k,v in data.items()]
     (root/'src/game/arena-emitters.json').write_text('{\n'+',\n'.join(entries)+'\n}\n', encoding='utf-8')

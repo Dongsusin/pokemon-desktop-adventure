@@ -3,7 +3,9 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { species } from '../src/game/catalog'
 import { moves } from '../src/game/engine'
-import { pokemonForms } from '../src/game/forms'
+import { pokemonForms, formStats, validForm } from '../src/game/forms'
+import { gimmickMoveName, megaFormFor, megaFormsFor, megaForms, regionGimmick } from '../src/game/battleGimmicks'
+import { firingPose } from '../src/game/arenaMuzzle'
 import { isMoveMotionAvailable, isMoveMotionSupported, isSpeciesMotionSupported } from '../src/game/motionEligibility'
 
 type Strip = [number, number, number, number, number, number, number[], number?, number?]
@@ -16,13 +18,47 @@ describe('offline Resonance artwork', () => {
     const bases = Object.values(species).filter(mon => isSpeciesMotionSupported(mon.id))
     const forms = Object.entries(pokemonForms).filter(([id, form]) => isSpeciesMotionSupported(form.base, id))
     expect([bases.length, forms.length]).toEqual([961, 44])
-    const keys = [...bases.map(mon => String(mon.pokedexNumber)), ...forms.map(([key]) => key)].sort()
+    const keys = [...bases.map(mon => String(mon.pokedexNumber)), ...forms.map(([key]) => key), ...Object.keys(megaForms)].sort()
     expect(Object.keys(metadata).sort()).toEqual(keys)
     expect(readdirSync(spriteDir).sort()).toEqual(keys.map(key => key + '.png').sort())
     for (const atlas of Object.values(metadata)) {
       for (const strip of [atlas.walk, atlas.attack]) {
         if (strip[5] !== 8 || strip[6].length < 2) throw Error('Missing directional motion')
       }
+    }
+  })
+
+  it('matches battle-only transformations to a native actor, source stats, muzzle and portrait', () => {
+    expect(Object.keys(megaForms)).toHaveLength(87)
+    expect(new Set(Object.values(megaForms).map(form => form.from)).size).toBe(81)
+    for (const [id, form] of Object.entries(megaForms)) {
+      expect(megaFormsFor(form.base, form.from === form.base ? undefined : form.from)).toContain(id)
+      expect(isSpeciesMotionSupported(form.base, id)).toBe(true)
+      expect(validForm(form.base, id)).toBeUndefined()
+      expect(firingPose({ dex: species[form.base].pokedexNumber, formId: id })?.mouth).toHaveLength(16)
+      const portrait = readFileSync(join('assets/battle/gimmicks/portraits', id + '.png'))
+      expect(portrait.readUInt32BE(16)).toBeGreaterThan(0)
+      expect(Object.values(form.baseStats).every(n => Number.isInteger(n) && n > 0)).toBe(true)
+    }
+    expect(megaFormsFor('charizard')).toEqual(['charizard-mega-x', 'charizard-mega-y'])
+    expect(megaFormsFor('lucario')).toEqual(['lucario-mega', 'lucario-mega-z'])
+    expect(megaFormFor('charizard')).toBe('charizard-mega-x')
+    expect(formStats('charizard', megaFormFor('charizard'))).toMatchObject({ types: ['fire', 'dragon'], baseStats: { attack: 130 } })
+    expect(megaFormFor('raichu', 'raichu-alola')).toBeUndefined()
+    expect(megaFormFor('squirtle', 'charizard')).toBeUndefined()
+    expect(isMoveMotionSupported('blastoise', 'blastoise-mega', 'waterGun')).toBe(false)
+    expect(isMoveMotionSupported('charizard', 'charizard-mega-x', 'ember')).toBe(true)
+  })
+
+  it('packages animated activation art and maps original Korean powered move names', () => {
+    expect(['kanto', 'kalos', 'alola', 'galar', 'paldea'].map(regionGimmick)).toEqual([undefined, 'mega', 'z', 'dynamax', 'tera'])
+    expect(gimmickMoveName('z', 'water')).toBe('슈퍼아쿠아토네이도')
+    expect(gimmickMoveName('dynamax', 'fire')).toBe('다이번')
+    for (const id of ['mega', 'z']) {
+      const webp = readFileSync(join('assets/battle/gimmicks', id + '.webp'))
+      expect(webp.toString('ascii', 0, 4)).toBe('RIFF')
+      expect(webp.indexOf('ANIM')).toBeGreaterThan(0)
+      expect(webp.indexOf('ANMF')).toBeGreaterThan(0)
     }
   })
 
