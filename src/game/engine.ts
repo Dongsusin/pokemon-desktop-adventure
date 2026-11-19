@@ -1051,9 +1051,6 @@ function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleG
   const actor = ally ? game.player : foe
   const owner = ally ? game.player.instanceId : String(foe.id)
   const common = { kind, owner, active: true }
-  const native = ally
-    ? game.player.moveIds.map(id => moves[id]).filter(move => move && move.unlockLevel <= effectiveLevel(game))
-    : trainerTechniques(foe)
   switch (kind) {
     case 'mega': {
       const options = availableMegaForms(game, foe, side)
@@ -1070,7 +1067,11 @@ function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleG
     case 'tera':
       return { ...common, teraType: (!ally && foe.teraType) || formStats(actor.speciesId, actor.formId).types[0] }
     case 'z': {
-      const attacks = native.filter(m => m.category !== 'healing' && isMoveMotionSupported(actor.speciesId, actor.formId, m.id))
+      const native = ally
+        ? game.player.moveIds.map(id => moves[id]).filter(move => move && move.unlockLevel <= effectiveLevel(game))
+        : trainerTechniques(foe)
+      const attacks = native.filter(move => move.category !== 'healing' && isMoveMotionSupported(actor.speciesId, actor.formId, move.id) &&
+        (foe.trainerId || matchup(game, foe, move, ally) > 0))
       const nativeTypes = formStats(actor.speciesId, actor.formId).types
       const matching = nativeTypes.find(type => attacks.some(m => m.type === type)) ?? attacks[0]?.type
       return matching ? { ...common, teraType: matching } : undefined

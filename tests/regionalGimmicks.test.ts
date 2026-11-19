@@ -65,6 +65,23 @@ describe('regional battle gimmicks', () => {
     expect(g.player.formId).toBeUndefined()
   })
 
+  it('automatically attunes Z to a usable attack against an immune wild target', () => {
+    const g = regional('alola', 'pikachu')
+    g.player.moveIds = ['tackle', 'thunderShock']
+    const foe = { id: 250, speciesId: 'sandshrew', level: 25, currentHP: 500, maxHP: 500,
+      position: { ...g.player.position }, direction: 1 as const }
+    g.wild = [foe]
+    g.runtime.targetId = foe.id
+    g.runtime.turn = 'player'
+    g.runtime.stateIn = 0
+    g.player.state = 'BATTLE'
+    tick(g, 100, bounds)
+    expect(battleGimmickStatus(g)).toMatchObject({ kind: 'z', teraType: 'normal', phase: 'active' })
+    frames(g, 11)
+    expect(foe.currentHP).toBeLessThan(500)
+    expect(battleGimmickStatus(g)?.phase).toBe('spent')
+  })
+
   it('keeps a ranged attack in a wild fight if transforming would leave only immune attacks', () => {
     const g = regional('kalos', 'swampert')
     const foe = { id: 250, speciesId: 'gengar', level: 25, currentHP: 500, maxHP: 500,
