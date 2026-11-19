@@ -1,0 +1,15 @@
+{
+  "kalos-viola": {"name": "이슬 맺힌 거미줄", "ground": "grove", "layout": "cavern", "motifs": ["web", "flower"], "colors": ["#658568", "#d4ecd4"], "badge": 0},
+  "kalos-grant": {"name": "클라이밍 암벽", "ground": "mountain", "layout": "terrace", "motifs": ["climbing-wall", "waterfall"], "colors": ["#966d59", "#abd3dd"], "badge": 1},
+  "kalos-korrina": {"name": "롤러스케이트 링크", "ground": "indoor", "layout": "ring", "motifs": ["banner", "spotlight"], "colors": ["#6d8d94", "#ef9c82"], "badge": 2},
+  "kalos-ramos": {"name": "거목의 덩굴 발판", "ground": "grove", "layout": "terrace", "motifs": ["tree", "greenhouse"], "colors": ["#6d9060", "#d4bd81"], "badge": 3},
+  "kalos-clemont": {"name": "프리즘타워 퀴즈 층", "ground": "lab", "layout": "works", "motifs": ["stadium-screen", "turbine"], "colors": ["#657dad", "#ffe682"], "badge": 4},
+  "kalos-valerie": {"name": "인형의 집", "ground": "indoor", "layout": "hall", "motifs": ["shelf", "flower", "lantern"], "colors": ["#a47095", "#f4ceb1"], "badge": 5},
+  "kalos-olympia": {"name": "별자리 천구", "ground": "league", "layout": "island", "motifs": ["stars", "telescope"], "colors": ["#5c5b92", "#c8b3dd"], "badge": 6},
+  "kalos-wulfric": {"name": "회전 빙벽", "ground": "icecave", "layout": "court", "motifs": ["ice", "crystal"], "colors": ["#6d9caf", "#d5cef0"], "badge": 7},
+  "kalos-malva": {"name": "화염의 방", "ground": "gym-cinnabar", "layout": "temple", "motifs": ["volcano", "columns"], "colors": ["#995441", "#f5b56a"]},
+  "kalos-siebold": {"name": "수문의 방", "ground": "sea", "layout": "hall", "motifs": ["waterfall", "columns"], "colors": ["#528592", "#c5e5dc"]},
+  "kalos-drasna": {"name": "쌍룡의 방", "ground": "cave", "layout": "temple", "motifs": ["dragon", "banner"], "colors": ["#6c5b7e", "#c2a07e"]},
+  "kalos-wikstrom": {"name": "강철의 방", "ground": "gym-canalave", "layout": "hall", "motifs": ["castle", "columns"], "colors": ["#737e8d", "#c9ba8a"]},
+  "kalos-diantha": {"name": "빛의 대성당", "ground": "league", "layout": "temple", "motifs": ["columns", "flower", "crown"], "colors": ["#a89a91", "#f7eac8"]}
+}

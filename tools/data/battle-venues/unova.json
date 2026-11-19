@@ -1,0 +1,15 @@
+{
+  "unova-cheren": {"name": "트레이너스쿨 운동장", "ground": "grove", "layout": "court", "motifs": ["stadium-screen", "banner"], "colors": ["#5c8c76", "#efd799"], "badge": 0},
+  "unova-roxie": {"name": "지하 라이브 클럽", "ground": "indoor", "layout": "hall", "motifs": ["stage-speaker", "drum", "spotlight"], "colors": ["#654163", "#93d9a3"], "badge": 1},
+  "unova-burgh": {"name": "고치 실크 화랑", "ground": "grove", "layout": "garden", "motifs": ["web", "honeycomb", "flower"], "colors": ["#ba895a", "#f2dea0"], "badge": 2},
+  "unova-elesa": {"name": "네온 패션 런웨이", "ground": "lab", "layout": "runway", "motifs": ["spotlight", "stadium-screen"], "colors": ["#703f89", "#f9df73"], "badge": 3},
+  "unova-clay": {"name": "지하 광산 승강장", "ground": "cave", "layout": "works", "motifs": ["mine-cart", "conveyor"], "colors": ["#a87842", "#f2ba67"], "badge": 4},
+  "unova-skyla": {"name": "바람 터널 격납고", "ground": "indoor", "layout": "runway", "motifs": ["turbine", "wind-sock"], "colors": ["#5d8c9d", "#edac72"], "badge": 5},
+  "unova-drayden": {"name": "쌍룡 조각상", "ground": "mountain", "layout": "temple", "motifs": ["dragon", "columns"], "colors": ["#59687c", "#bc9ec9"], "badge": 6},
+  "unova-marlon": {"name": "수련잎 부두", "ground": "sea", "layout": "dock", "motifs": ["pool", "sail", "flower"], "colors": ["#428b88", "#a8d497"], "badge": 7},
+  "unova-shauntal": {"name": "나선 서고", "ground": "indoor", "layout": "hall", "motifs": ["bookcase", "lantern"], "colors": ["#524565", "#ae92bf"]},
+  "unova-grimsley": {"name": "밤의 대연회장", "ground": "league", "layout": "terrace", "motifs": ["castle", "banner"], "colors": ["#664454", "#daaf82"]},
+  "unova-caitlin": {"name": "꿈결의 침전", "ground": "league", "layout": "island", "motifs": ["stars", "lantern"], "colors": ["#8a7094", "#edd5a2"]},
+  "unova-marshal": {"name": "철망 격투 링", "ground": "gym-veilstone", "layout": "ring", "motifs": ["ring-ropes", "spotlight"], "colors": ["#a46c45", "#e9b66b"]},
+  "unova-iris": {"name": "별하늘의 용좌", "ground": "league", "layout": "summit", "motifs": ["stars", "dragon", "crown"], "colors": ["#574f89", "#e7c779"]}
+}

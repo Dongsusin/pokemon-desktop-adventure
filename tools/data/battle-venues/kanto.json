@@ -1,0 +1,15 @@
+{
+  "brock": {"name":"바위 표본 채석장","ground":"gym-pewter","layout":"cavern","motifs":["boulder","fossil"],"colors":["#ba986c","#675445"],"badge":0},
+  "misty": {"name":"블루시티 수영 레인","ground":"gym-cerulean","layout":"dock","motifs":["buoy","pool"],"colors":["#66c9e9","#246499"],"badge":1},
+  "lt-surge": {"name":"갈색항 전력 차단실","ground":"gym-vermilion","layout":"works","motifs":["trash-can","lightning-coil","steel-beam"],"colors":["#f1c34d","#58656d"],"badge":2},
+  "erika": {"name":"무지개 온실","ground":"gym-celadon","layout":"garden","motifs":["greenhouse","flower","tree"],"colors":["#a9ce72","#80684b"],"badge":3},
+  "koga": {"name":"연분홍 닌자 도장","ground":"gym-fuchsia","layout":"temple","motifs":["glass","dojo","lantern"],"colors":["#b693ca","#584962"],"badge":4},
+  "sabrina": {"name":"노랑시티 워프 회랑","ground":"gym-saffron","layout":"court","motifs":["warp-pad","pillar"],"colors":["#db87d3","#4c5689"],"badge":5},
+  "blaine": {"name":"홍련섬 퀴즈 연구실","ground":"gym-cinnabar","layout":"hall","motifs":["furnace","book"],"colors":["#ee8850","#78594b"],"badge":6},
+  "giovanni": {"name":"상록시티 회전 타일실","ground":"gym-viridian","layout":"works","motifs":["conveyor","boulder"],"colors":["#c89c63","#6a705f"],"badge":7},
+  "lorelei": {"name":"칸나의 유빙 호수","ground":"icecave","layout":"island","motifs":["ice-crystal","pool"],"colors":["#92cde5","#506f9c"]},
+  "bruno": {"name":"시바의 바위 수련장","ground":"mountain","layout":"ring","motifs":["boulder","dojo"],"colors":["#c79c70","#855343"]},
+  "agatha": {"name":"국화의 영혼 정원","ground":"gym-ecruteak","layout":"garden","motifs":["lantern","tree","pillar"],"colors":["#b798cf","#524c6f"]},
+  "lance": {"name":"목호의 용기둥 회랑","ground":"league","layout":"hall","motifs":["pillar","pool"],"colors":["#9ab9b1","#83566a"]},
+  "blue": {"name":"석영고원 챔피언홀","ground":"league","layout":"court","motifs":["banner","star"],"colors":["#e7c971","#536ca4"]}
+}

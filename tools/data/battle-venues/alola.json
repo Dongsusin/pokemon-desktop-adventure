@@ -1,0 +1,18 @@
+{
+  "alola-gumshoos": {"name": "우거진 동굴의 바위굴", "ground": "cave", "layout": "cavern", "motifs": ["tree", "crystal"], "colors": ["#697d55", "#d8bd79"], "badge": 0},
+  "alola-hala": {"name": "릴리마을 의식 마루", "ground": "indoor", "layout": "ring", "motifs": ["ring-ropes", "lantern"], "colors": ["#aa8155", "#e9c686"], "badge": 1},
+  "alola-wishiwashi": {"name": "잔잔한물가언덕 수면", "ground": "sea", "layout": "island", "motifs": ["waterfall", "pool"], "colors": ["#427e91", "#c0dba5"], "badge": 2},
+  "alola-salazzle": {"name": "벨라화산 분화구", "ground": "gym-cinnabar", "layout": "cavern", "motifs": ["volcano", "drum"], "colors": ["#8b574a", "#ef9a59"], "badge": 3},
+  "alola-lurantis": {"name": "셰이드정글 꽃밭", "ground": "grove", "layout": "garden", "motifs": ["flower", "mushroom", "tree"], "colors": ["#6d9257", "#e7a7a7"], "badge": 4},
+  "alola-olivia": {"name": "생명의 유적 제단", "ground": "mountain", "layout": "temple", "motifs": ["columns", "crystal"], "colors": ["#947b74", "#edbd9b"], "badge": 5},
+  "alola-vikavolt": {"name": "호쿠라니천문대 관측실", "ground": "lab", "layout": "works", "motifs": ["telescope", "stadium-screen"], "colors": ["#546a88", "#d8ca71"], "badge": 6},
+  "alola-mimikyu": {"name": "슈퍼·메가싸네 철거지", "ground": "indoor", "layout": "hall", "motifs": ["shelf", "lantern"], "colors": ["#5b536c", "#b2a37b"], "badge": 7},
+  "alola-nanu": {"name": "말리에시티 야간 선착장", "ground": "sea", "layout": "dock", "motifs": ["sail", "lantern"], "colors": ["#4d6878", "#b99877"], "badge": 8},
+  "alola-hapu": {"name": "포니대협곡 돌문", "ground": "desert", "layout": "terrace", "motifs": ["climbing-wall", "columns"], "colors": ["#af855a", "#e9cd91"], "badge": 9},
+  "alola-kommo-o": {"name": "포니대협곡 시련의 굴", "ground": "cave", "layout": "cavern", "motifs": ["dragon", "crystal"], "colors": ["#7d725f", "#dfc56c"], "badge": 10},
+  "alola-hala-elite": {"name": "라나키라마운틴 격투실", "ground": "league", "layout": "ring", "motifs": ["ring-ropes", "crystal"], "colors": ["#946447", "#e6af6f"]},
+  "alola-olivia-elite": {"name": "라나키라마운틴 암석실", "ground": "league", "layout": "terrace", "motifs": ["crystal", "columns"], "colors": ["#907565", "#d5b8a1"]},
+  "alola-acerola": {"name": "라나키라마운틴 영혼의 방", "ground": "league", "layout": "hall", "motifs": ["lantern", "crystal"], "colors": ["#625478", "#c6a5cd"]},
+  "alola-kahili": {"name": "라나키라마운틴 바람의 방", "ground": "league", "layout": "island", "motifs": ["wind-sock", "crystal"], "colors": ["#678c9d", "#c4deda"]},
+  "alola-kukui": {"name": "라나키라 정상의 챔피언석", "ground": "icecave", "layout": "summit", "motifs": ["crown", "ice", "crystal"], "colors": ["#6c829d", "#e7d894"]}
+}

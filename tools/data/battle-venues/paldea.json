@@ -1,0 +1,16 @@
+{
+  "paldea-katy": {"name": "세르클마을 올리브 과수원", "ground": "grove", "layout": "garden", "motifs": ["tree", "oven"], "colors": ["#849557", "#e6c594"], "badge": 0},
+  "paldea-brassius": {"name": "보울마을 풍차 조각광장", "ground": "grove", "layout": "terrace", "motifs": ["windmill", "flower"], "colors": ["#77946b", "#d9b381"], "badge": 1},
+  "paldea-iono": {"name": "누룩스시티 해상 방송 무대", "ground": "sea", "layout": "ring", "motifs": ["stadium-screen", "spotlight"], "colors": ["#7075a0", "#f0ce74"], "badge": 2},
+  "paldea-kofu": {"name": "카라프시티 폭포 광장", "ground": "gym-cerulean", "layout": "terrace", "motifs": ["waterfall", "pool"], "colors": ["#498f9e", "#e6cd94"], "badge": 3},
+  "paldea-larry": {"name": "참푸르마을 보물식당", "ground": "indoor", "layout": "hall", "motifs": ["sushi", "lantern"], "colors": ["#9c8064", "#e3c18d"], "badge": 4},
+  "paldea-ryme": {"name": "프리지마을 설야 라이브 무대", "ground": "icecave", "layout": "runway", "motifs": ["stage-speaker", "drum", "spotlight"], "colors": ["#6b648e", "#cf9fc6"], "badge": 5},
+  "paldea-tulip": {"name": "베이크마을 모자이크 무대", "ground": "indoor", "layout": "terrace", "motifs": ["flower", "columns"], "colors": ["#a581a1", "#b9d1e4"], "badge": 6},
+  "paldea-grusha": {"name": "나페산 눈밭 코트", "ground": "icecave", "layout": "summit", "motifs": ["snow-flags", "wind-sock"], "colors": ["#819ca6", "#d3e8ee"], "badge": 7},
+  "paldea-rika": {"name": "사천왕 시험장 · 칠리", "ground": "lab", "layout": "hall", "motifs": ["stadium-screen", "crystal"], "colors": ["#7c806e", "#c5b28b"]},
+  "paldea-poppy": {"name": "사천왕 시험장 · 뽀삐", "ground": "lab", "layout": "hall", "motifs": ["stadium-screen", "columns"], "colors": ["#7a8e9b", "#adc7d1"]},
+  "paldea-larry-elite": {"name": "사천왕 시험장 · 청목", "ground": "lab", "layout": "hall", "motifs": ["stadium-screen", "wind-sock"], "colors": ["#7e969e", "#c5dcdd"]},
+  "paldea-hassel": {"name": "사천왕 시험장 · 팔자크", "ground": "lab", "layout": "hall", "motifs": ["stadium-screen", "dragon"], "colors": ["#797e9d", "#d5af92"]},
+  "paldea-geeta": {"name": "포켓몬리그 옥상 코트", "ground": "league", "layout": "summit", "motifs": ["crystal", "crown"], "colors": ["#5d778e", "#ead692"]},
+  "paldea-nemona": {"name": "테이블시티 중앙광장", "ground": "indoor", "layout": "court", "motifs": ["columns", "banner", "flower"], "colors": ["#b68d6c", "#e7c779"]}
+}

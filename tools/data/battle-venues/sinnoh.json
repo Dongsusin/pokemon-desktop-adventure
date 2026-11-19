@@ -1,0 +1,15 @@
+{
+  "sinnoh-roark": {"name":"무쇠시티 탄광 선로","ground":"gym-oreburgh","layout":"cavern","motifs":["mine-cart","fossil","steel-beam"],"colors":["#be9e74","#636269"],"badge":0},
+  "sinnoh-gardenia": {"name":"영원시티 꽃시계 정원","ground":"gym-eterna","layout":"garden","motifs":["clock","flower","tree"],"colors":["#b9cf70","#618b61"],"badge":1},
+  "sinnoh-fantina": {"name":"연고시티 유령 극장","ground":"gym-hearthome","layout":"runway","motifs":["lantern","banner","star"],"colors":["#bf90c9","#635384"],"badge":2},
+  "sinnoh-maylene": {"name":"장막시티 격투 링","ground":"gym-veilstone","layout":"ring","motifs":["punching-bag","dojo","banner"],"colors":["#d69883","#717e97"],"badge":3},
+  "sinnoh-wake": {"name":"들판시티 수문 경기장","ground":"gym-pastoria","layout":"dock","motifs":["pool","gear","bridge"],"colors":["#8acbd2","#4d778a"],"badge":4},
+  "sinnoh-byron": {"name":"운하시티 승강 작업장","ground":"gym-canalave","layout":"works","motifs":["steel-beam","conveyor","mine-cart"],"colors":["#b4c2bd","#857866"],"badge":5},
+  "sinnoh-candice": {"name":"선단시티 눈덩이 빙판","ground":"gym-snowpoint","layout":"terrace","motifs":["snowball","ice-crystal"],"colors":["#d1e5ed","#778eb3"],"badge":6},
+  "sinnoh-volkner": {"name":"물가시티 톱니 발전실","ground":"gym-sunyshore","layout":"works","motifs":["gear","lightning-coil","steel-beam"],"colors":["#efd769","#58828d"],"badge":7},
+  "sinnoh-aaron": {"name":"충호의 숲속 대련장","ground":"grove","layout":"garden","motifs":["tree","flower","boulder"],"colors":["#aabd68","#697f53"]},
+  "sinnoh-bertha": {"name":"들국화의 모래 단층","ground":"desert","layout":"cavern","motifs":["boulder","fossil","pillar"],"colors":["#d8ba84","#94775e"]},
+  "sinnoh-flint": {"name":"대엽의 화염 코트","ground":"gym-cinnabar","layout":"court","motifs":["furnace","lava","banner"],"colors":["#e69565","#905d55"]},
+  "sinnoh-lucian": {"name":"오엽의 서고","ground":"gym-hearthome","layout":"hall","motifs":["book","lantern"],"colors":["#ac99bf","#685679"]},
+  "sinnoh-cynthia": {"name":"난천의 유적 전당","ground":"league","layout":"temple","motifs":["pillar","book","star"],"colors":["#e0c48c","#666d83"]}
+}

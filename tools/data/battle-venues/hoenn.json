@@ -1,0 +1,15 @@
+{
+  "hoenn-roxanne": {"name":"금탄시티 화석 전시실","ground":"gym-pewter","layout":"hall","motifs":["fossil","book","pillar"],"colors":["#dbc39b","#90735c"],"badge":0},
+  "hoenn-brawly": {"name":"무로섬 파도 도장","ground":"indoor","layout":"dock","motifs":["dojo","wave","buoy"],"colors":["#7bb9c9","#ac835c"],"badge":1},
+  "hoenn-wattson": {"name":"보라시티 전류 관문","ground":"lab","layout":"works","motifs":["lightning-coil","gear"],"colors":["#e3c861","#5d7276"],"badge":2},
+  "hoenn-flannery": {"name":"용암마을 온천 분기공","ground":"gym-cinnabar","layout":"cavern","motifs":["pool","lava","boulder"],"colors":["#e1a16c","#9c6565"],"badge":3},
+  "hoenn-norman": {"name":"등화시티 수련 회랑","ground":"indoor","layout":"hall","motifs":["dojo","banner","pillar"],"colors":["#bd9977","#6d7565"],"badge":4},
+  "hoenn-winona": {"name":"검방울시티 나무 위 회전문","ground":"grove","layout":"terrace","motifs":["tree","windmill","bridge"],"colors":["#a9ce8b","#739c9f"],"badge":5},
+  "hoenn-tate-liza": {"name":"이끼시티 해와 달의 천문대","ground":"gym-saffron","layout":"temple","motifs":["star","warp-pad","gear"],"colors":["#b1a3e0","#5a7297"],"badge":6},
+  "hoenn-juan": {"name":"루네시티 얼음 호수","ground":"icecave","layout":"island","motifs":["ice-crystal","waterfall"],"colors":["#89d3dc","#4e869a"],"badge":7},
+  "hoenn-sidney": {"name":"혁진의 암영 무대","ground":"cave","layout":"ring","motifs":["boulder","banner"],"colors":["#b796b3","#4f5169"]},
+  "hoenn-phoebe": {"name":"회연의 등불 제단","ground":"gym-fuchsia","layout":"temple","motifs":["lantern","flower"],"colors":["#bb9dc6","#68658b"]},
+  "hoenn-glacia": {"name":"미혜의 서리 열주","ground":"icecave","layout":"hall","motifs":["ice-crystal","pillar"],"colors":["#c4dedf","#6987ad"]},
+  "hoenn-drake": {"name":"권수의 범선 갑판","ground":"sea","layout":"dock","motifs":["banner","wave","steel-beam"],"colors":["#b8886c","#617b88"]},
+  "hoenn-wallace": {"name":"윤진의 폭포 무대","ground":"gym-cerulean","layout":"runway","motifs":["waterfall","star","flower"],"colors":["#85d6db","#566b9b"]}
+}

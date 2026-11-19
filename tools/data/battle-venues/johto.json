@@ -1,0 +1,15 @@
+{
+  "johto-falkner": {"name":"도라지시티 고가 보도","ground":"gym-violet","layout":"terrace","motifs":["bridge","windmill"],"colors":["#afcbd5","#637a91"],"badge":0},
+  "johto-bugsy": {"name":"고동마을 나무숲","ground":"gym-azalea","layout":"garden","motifs":["web","tree","bridge"],"colors":["#a7be64","#795c3f"],"badge":1},
+  "johto-whitney": {"name":"금빛시티 꽃길 코트","ground":"gym-goldenrod","layout":"court","motifs":["flower","banner"],"colors":["#edb1ba","#91688e"],"badge":2},
+  "johto-morty": {"name":"인주시티 등불 길","ground":"gym-ecruteak","layout":"temple","motifs":["lantern","bridge","bell"],"colors":["#a488bc","#554d73"],"badge":3},
+  "johto-chuck": {"name":"진청시티 폭포 도장","ground":"gym-cianwood","layout":"ring","motifs":["waterfall","dojo","boulder"],"colors":["#9cc9d1","#976f4c"],"badge":4},
+  "johto-jasmine": {"name":"담청항 철골 선착장","ground":"gym-olivine","layout":"dock","motifs":["steel-beam","lantern"],"colors":["#c6cbd0","#687e88"],"badge":5},
+  "johto-pryce": {"name":"황토마을 빙판 미로","ground":"gym-mahogany","layout":"island","motifs":["ice-crystal","boulder"],"colors":["#b8e6e4","#5992ae"],"badge":6},
+  "johto-clair": {"name":"검은먹시티 용암 다리","ground":"gym-blackthorn","layout":"cavern","motifs":["lava","bridge","boulder"],"colors":["#dc865c","#5c4c65"],"badge":7},
+  "johto-will": {"name":"일목의 가면 무대","ground":"gym-saffron","layout":"runway","motifs":["star","banner","warp-pad"],"colors":["#cba0d4","#715683"]},
+  "johto-koga": {"name":"독수의 은신 수련장","ground":"sinnoh-marsh","layout":"garden","motifs":["dojo","tree"],"colors":["#a8b978","#5e617c"]},
+  "johto-bruno": {"name":"시바의 용암 단련장","ground":"gym-blackthorn","layout":"ring","motifs":["lava","dojo"],"colors":["#e59255","#72554a"]},
+  "johto-karen": {"name":"카렌의 밤빛 회랑","ground":"gym-hearthome","layout":"hall","motifs":["lantern","star"],"colors":["#a097cb","#484e67"]},
+  "johto-lance": {"name":"석영고원 용의 전당","ground":"league","layout":"temple","motifs":["banner","pillar","furnace"],"colors":["#cf9475","#774a58"]}
+}

@@ -1,0 +1,17 @@
+{
+  "galar-milo": {"name": "터프스타디움 목초 필드", "ground": "grove", "layout": "court", "motifs": ["stadium-screen", "tree", "banner"], "colors": ["#6b944f", "#d4e591"], "badge": 0},
+  "galar-nessa": {"name": "바우스타디움 수로 필드", "ground": "gym-cerulean", "layout": "court", "motifs": ["stadium-screen", "pool", "waterfall"], "colors": ["#548caa", "#a8e0dd"], "badge": 1},
+  "galar-kabu": {"name": "엔진스타디움 용광로 필드", "ground": "gym-cinnabar", "layout": "works", "motifs": ["stadium-screen", "volcano", "turbine"], "colors": ["#a45f44", "#f5bb6d"], "badge": 2},
+  "galar-bea": {"name": "래터럴스타디움 격투 매트", "ground": "gym-veilstone", "layout": "ring", "motifs": ["stadium-screen", "ring-ropes"], "colors": ["#9b7659", "#e8b392"], "badge": 3},
+  "galar-opal": {"name": "아라베스크스타디움 극장", "ground": "indoor", "layout": "hall", "motifs": ["mushroom", "spotlight", "banner"], "colors": ["#967399", "#e9babc"], "badge": 4},
+  "galar-gordie": {"name": "키르쿠스스타디움 암반 필드", "ground": "mountain", "layout": "terrace", "motifs": ["stadium-screen", "climbing-wall"], "colors": ["#968169", "#e5cd8a"], "badge": 5},
+  "galar-piers": {"name": "스파이크마을 뒷골목 무대", "ground": "indoor", "layout": "runway", "motifs": ["stage-speaker", "drum"], "colors": ["#545461", "#dd87b0"], "badge": 6},
+  "galar-raihan": {"name": "너클스타디움 성벽 필드", "ground": "gym-blackthorn", "layout": "court", "motifs": ["stadium-screen", "castle", "dragon"], "colors": ["#637b8e", "#deaa68"], "badge": 7},
+  "galar-marnie": {"name": "슛스타디움 세미파이널 개막전", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "banner"], "colors": ["#66495f", "#cb8099"]},
+  "galar-hop": {"name": "슛스타디움 세미파이널 결승", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "spotlight"], "colors": ["#567f88", "#dcba68"]},
+  "galar-bede": {"name": "슛스타디움 비트의 도전", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "crystal"], "colors": ["#977694", "#d8beee"]},
+  "galar-nessa-cup": {"name": "슛스타디움 파이널 첫 경기", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "sail"], "colors": ["#4d87a1", "#baded9"]},
+  "galar-bea-cup": {"name": "슛스타디움 파이널 준결승", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "ring-ropes"], "colors": ["#a07757", "#e8be89"]},
+  "galar-raihan-cup": {"name": "슛스타디움 파이널 결승", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "dragon"], "colors": ["#557888", "#efa563"]},
+  "galar-leon": {"name": "슛스타디움 챔피언매치", "ground": "league", "layout": "court", "motifs": ["stadium-screen", "crown", "spotlight"], "colors": ["#675389", "#f5cf71"]}
+}
