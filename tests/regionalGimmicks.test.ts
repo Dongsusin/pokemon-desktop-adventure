@@ -4,7 +4,7 @@ import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/wo
 import { megaFormFor } from '../src/game/battleGimmicks'
 import { MAX_GIMMICK_ACTIONS, boostedMove } from '../src/game/gimmickCombat'
 import { beginArenaCast, createArena, restoreArena, stepArena } from '../src/game/trainerArena'
-import { castSkill } from './trainerArenaDriver'
+import { castSkill, resumeWithLastOpponent } from './trainerArenaDriver'
 
 const bounds = { width: 1200, height: 760 }
 const time = Date.UTC(2026, 9, 1)
@@ -97,19 +97,16 @@ describe('regional battle gimmicks', () => {
   })
 
   it('lets the opposing Alola kahuna charge and commit a Z Move with his ace independently', () => {
-    const g = regional('alola')
+    let g = regional('alola','eevee')
     const gyms = worldRegions.alola.gymTrainers
     const index = gyms.findIndex(trainer => trainer.id === 'alola-hala')
     g.campaign.badges = gyms.slice(0, index).map(trainer => trainer.id)
     g.locationId = gyms[index].locationId
     expect(dispatch(g, { type: 'challenge-gym' })).toBe(true)
-    for (let i = 0; i < gyms[index].team.length - 1; i++) {
-      expect(battleGimmickStatus(g, 'enemy')?.phase).toBe('ready')
-      g.wild[0].currentHP = 1
-      castSkill(g)
-    }
+    expect(battleGimmickStatus(g, 'enemy')).toBeNull()
+    g = resumeWithLastOpponent(g)
     expect(g.wild[0].speciesId).toBe('crabrawler')
-    expect(battleGimmickStatus(g, 'enemy')).toMatchObject({ kind: 'z', phase: 'active', teraType: 'fighting' })
+    expect(battleGimmickStatus(g, 'enemy')).toMatchObject({ kind: 'z', phase: 'ready', teraType: 'fighting' })
     const arena = g.campaign.battle!.arena
     arena.player = { x: .40, y: .5 }
     arena.enemy = { x: .48, y: .5 }

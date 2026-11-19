@@ -288,7 +288,7 @@ describe('Kanto travel and encounters', () => {
     }
     const loaded = hydrateSave(old, 1)!
     expect(loaded).toMatchObject({
-      schemaVersion: 21, locationId: 'route-1', coins: 72,
+      schemaVersion: 22, locationId: 'route-1', coins: 72,
       inventory: { potion: 7, pokeball: 2, greatBall: 1 },
       player: { instanceId: game.player.instanceId, level: 12 },
     })
@@ -438,7 +438,7 @@ describe('autonomous simulation', () => {
 describe('combat, inventory, and save recovery', () => {
   it('migrates existing saves to topmost once while retaining progression and later opt-out', () => {
     const game = makeGame('bulbasaur')
-    expect(game).toMatchObject({ schemaVersion: 21, settings: { alwaysOnTop: true } })
+    expect(game).toMatchObject({ schemaVersion: 22, settings: { alwaysOnTop: true } })
     const legacy = {
       ...game, schemaVersion: 1, settings: { ...game.settings, alwaysOnTop: false },
       player: { ...game.player, level: 10, exp: 22 },
@@ -446,7 +446,7 @@ describe('combat, inventory, and save recovery', () => {
     }
     const migrated = hydrateSave(legacy, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 21, locationId: 'route-1',
+      schemaVersion: 22, locationId: 'route-1',
       settings: { alwaysOnTop: true }, coins: 45, inventory: { potion: 7, pokeball: 8 },
       player: { instanceId: game.player.instanceId, speciesId: 'bulbasaur', level: 10, exp: 22 },
     })
@@ -697,7 +697,7 @@ describe('capture and party', () => {
     }
     const migrated = hydrateSave(oldSave, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 21, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
+      schemaVersion: 22, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
       followers: [], player: { instanceId: game.player.instanceId },
     })
     delete migrated.inventory.pokeball
@@ -1141,7 +1141,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     const { campaign: _campaign, ...old } = structuredClone(game)
     const restored = hydrateSave({ ...old, schemaVersion: 4 }, 1)!
     expect(restored).toMatchObject({
-      schemaVersion: 21, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
+      schemaVersion: 22, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
       campaign: { badges: [], champion: false, leagueIndex: null, battle: null }
     })
     const stale = hydrateSave({

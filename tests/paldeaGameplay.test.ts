@@ -1,8 +1,8 @@
-import { castSkill, idleUntilHit } from './trainerArenaDriver'
+import { castSkill, idleUntilHit, resumeWithLastOpponent } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
 import {
   canChallengeFinale, createGame, currentTrainer, dispatch, effectiveLevel, hydrateSave, levelCap,
-  playerStats, tick, type GameSave,
+  movesFor, playerStats, tick, type GameSave,
 } from '../src/game/engine'
 import { teraAttackMultiplier } from '../src/game/regions/paldeaTera'
 import { worldRegions, regionOrder } from '../src/game/regions/world'
@@ -46,8 +46,27 @@ function defeatOpponent(game: GameSave) {
 
 function faceAce(game: GameSave) {
   const trainer = currentTrainer(game)!
-  for (let i = 1; i < trainer.team.length; i++) defeatOpponent(game)
+  for (let i = 0; i < 30 && game.campaign.battle?.opponentIndex !== trainer.team.length - 1; i++) defeatOpponent(game)
   expect(game.campaign.battle?.opponentIndex).toBe(trainer.team.length - 1)
+  return game.wild[0]
+}
+
+function finishTeam(game: GameSave) {
+  for (let i = 0; i < 30 && game.campaign.battle; i++) defeatOpponent(game)
+  expect(game.campaign.battle).toBeNull()
+}
+
+function activateTeraAce(game: GameSave, moves?: string[]) {
+  game.player.level = 35
+  game.player.moveIds = moves ?? movesFor(game.player.speciesId, 35).map(move => move.id)
+  game.player.currentHP = playerStats(game).hp
+  Object.assign(game, resumeWithLastOpponent(game))
+  const arena = game.campaign.battle!.arena
+  arena.player = { x: .30, y: .50 }
+  arena.enemy = { x: .40, y: .50 }
+  arena.enemyInMs = 0
+  expect(game.wild[0].teraType).toBeUndefined()
+  for (let i = 0; i < 100 && !game.wild[0]?.teraType; i++) tick(game, 50, bounds)
   return game.wild[0]
 }
 
@@ -74,8 +93,8 @@ describe('Paldea campaign and Terastallization', () => {
     travel(game, league)
     game.campaign.leagueIndex = 4
     expect(dispatch(game, { type: 'challenge-league', trainerId: 'paldea-geeta' })).toBe(true)
-    expect(faceAce(game)).toMatchObject({ speciesId: 'glimmora', level: 62, teraType: 'rock' })
-    defeatOpponent(game)
+    expect(faceAce(game)).toMatchObject({ speciesId: 'glimmora', level: 62 })
+    finishTeam(game)
     expect(game.campaign.champion).toBe(true)
     expect(game.campaign.finaleWon).toBeUndefined()
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
@@ -86,13 +105,13 @@ describe('Paldea campaign and Terastallization', () => {
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(true)
     expect(currentTrainer(game)?.id).toBe('paldea-nemona')
     expect(game.campaign.leagueIndex).toBeNull()
-    expect(faceAce(game)).toMatchObject({ speciesId: 'meowscarada', level: 66, teraType: 'grass' })
+    expect(faceAce(game)).toMatchObject({ speciesId: 'meowscarada', level: 66 })
     game.wild[0].currentHP -= 1
     const before = structuredClone(game.wild)
     game = reload(game)
     expect(game.wild).toEqual(before)
     expect(currentTrainer(game)?.team.at(-1)?.speciesId).toBe('meowscarada')
-    defeatOpponent(game)
+    finishTeam(game)
     expect(game.campaign).toMatchObject({ champion: true, finaleWon: true, leagueIndex: null, battle: null })
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(false)
     expect(dispatch(game, { type: 'travel', locationId: 'area-zero' })).toBe(false)
@@ -161,9 +180,9 @@ describe('Paldea campaign and Terastallization', () => {
     expect(teraAttackMultiplier('fire', ['water'], 'fire', 'grass')).toBe(3)
     expect(teraAttackMultiplier('ground', ['water'], 'water', 'electric')).toBe(2)
 
-    const game = arriveFromGalar()
+    const game = arriveFromGalar('squirtle')
     startGym(game, 2)
-    const ace = faceAce(game)
+    const ace = activateTeraAce(game)
     expect(ace).toMatchObject({ speciesId: 'mismagius', teraType: 'electric', abilityId: 'levitate' })
     const tampered = structuredClone(game)
     tampered.wild[0].teraType = 'ice'
@@ -178,7 +197,7 @@ describe('Paldea campaign and Terastallization', () => {
     game.campaign.badges = [...badges]
     travel(game, league)
     expect(dispatch(game, { type: 'challenge-league', trainerId: 'paldea-rika' })).toBe(true)
-    const ace = faceAce(game)
+    const ace = activateTeraAce(game)
     expect(ace).toMatchObject({ speciesId: 'clodsire', teraType: 'ground', abilityId: 'water-absorb' })
 
     game.player.moveIds = ['waterGun', 'tackle']
@@ -195,9 +214,9 @@ describe('Paldea campaign and Terastallization', () => {
   })
 
   it('deals zero damage when a real Tackle hits Ryme’s Ghost Tera ace', () => {
-    const game = arriveFromGalar()
+    const game = arriveFromGalar('squirtle')
     startGym(game, 5)
-    const ace = faceAce(game)
+    const ace = activateTeraAce(game, ['tackle'])
     expect(ace).toMatchObject({ speciesId: 'toxtricity', formId: 'toxtricity-low-key', teraType: 'ghost' })
     const hp = ace.currentHP
     game.player.moveIds = ['tackle']

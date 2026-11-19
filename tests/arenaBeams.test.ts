@@ -95,7 +95,7 @@ describe('sustained beams and clash resolution', () => {
     expect(pressure('electric','ground') / pressure('water','electric')).toBeCloseTo(.5)
   })
 
-  it.each([['pikachu', 'thunderShock', .5], ['squirtle','waterGun', .61]] as const)(
+  it.each([['pikachu', 'thunderShock', .5], ['barboach','waterGun', .61]] as const)(
     'lets %s meet Misty’s Staryu through the normal controls at its true muzzle height',
     (partner, move, y) => {
       const bounds = { width: 1000, height: 700 }

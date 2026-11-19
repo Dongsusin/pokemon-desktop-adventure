@@ -5,7 +5,7 @@ import type { Move, Stats } from './engine'
 import { teraStabBonus, typeMultiplier } from './regions/paldeaTera'
 import type { KantoTrainerMember } from './regions/kantoCampaign'
 
-export interface FieldBattleAI {
+export interface TrainerBattleAI {
   // The active Pokémon's live HP is on the opponent. Null is an untouched reserve.
   benchHP: (number | null)[]
   switchReadyAt: number

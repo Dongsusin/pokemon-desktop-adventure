@@ -154,7 +154,7 @@ describe('Friendly Shop battle items', () => {
     function win(buff: boolean) {
       const g = structuredClone(template)
       if (buff) expect(dispatch(g, supply(g, byEffect('experience')))).toBe(true)
-      if (manual) g.campaign.battle!.opponentIndex = worldRegions.kanto.gymTrainers[0].team.length - 1
+      if (manual) g.campaign.battle!.fieldAI!.benchHP[1] = 0
       g.wild[0].currentHP = 1
       if (manual) castSkill(g, 'tackle')
       else tick(g, 1, bounds)

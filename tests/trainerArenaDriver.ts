@@ -1,5 +1,5 @@
 import { arenaCastFrame, arenaCastTouches } from '../src/game/arenaMoves'
-import { arenaSkills, battleGimmickStatus, currentTrainer, dispatch, moves, tick, typeMultiplier, type GameSave } from '../src/game/engine'
+import { arenaSkills, battleGimmickStatus, currentTrainer, dispatch, hydrateSave, moves, tick, typeMultiplier, type GameSave } from '../src/game/engine'
 
 import { megaFormFor } from '../src/game/battleGimmicks'
 import { formStats } from '../src/game/forms'
@@ -10,6 +10,20 @@ const frame = 100
 
 function resume(game: GameSave) {
   if (game.campaign.battle?.arena.paused) dispatch(game, { type: 'arena-pause', paused: false })
+}
+
+// Resume a legal last-survivor state for tests of one specific opponent's battle mechanics.
+export function resumeWithLastOpponent(game: GameSave, index = currentTrainer(game)!.team.length - 1): GameSave {
+  const saved = structuredClone(game)
+  const team = currentTrainer(saved)!.team, battle = saved.campaign.battle!, member = team[index]
+  battle.opponentIndex = index
+  battle.fieldAI!.benchHP = team.map((_, i) => i === index ? null : 0)
+  Object.assign(saved.wild[0], { speciesId: member.speciesId, formId: member.formId, level: member.level,
+    fieldSlot: index, currentHP: Number.MAX_SAFE_INTEGER })
+  const restored = hydrateSave(saved, game.selectedSlot)!
+  if (restored.campaign.battle?.opponentIndex !== index) throw Error('Invalid trainer test fixture')
+  resume(restored)
+  return restored
 }
 
 // Drive only the same movement, dodge and skill commands as the trainer battle controls.

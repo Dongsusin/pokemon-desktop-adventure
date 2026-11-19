@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { arenaSkills, createGame, dispatch, hydrateSave, playerStats, statsFor } from '../src/game/engine'
+import { arenaSkills, createGame, currentTrainer, dispatch, hydrateSave, playerStats, statsFor } from '../src/game/engine'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
-import { castSkill } from './trainerArenaDriver'
 
 const screen = { width: 1280, height: 720 }
 function localGym(id: RegionId) {
@@ -20,12 +19,13 @@ function localGym(id: RegionId) {
 
 function oldAce(id: 'paldea' | 'galar') {
   const game = localGym(id)
-  const gym = worldRegions[id].gymTrainers[0]
-  for (let i = 1; i < gym.team.length; i++) {
-    game.wild[0].currentHP = 1
-    castSkill(game)
-  }
+  const team = currentTrainer(game)!.team
+  const ace = team[team.length - 1]
   const original = { ...structuredClone(game), schemaVersion: 16 }
+  original.campaign.battle!.opponentIndex = team.length - 1
+  delete original.campaign.battle!.fieldAI
+  Object.assign(original.wild[0], { speciesId: ace.speciesId, formId: ace.formId, level: ace.level, teraType: ace.teraType })
+  delete original.wild[0].fieldSlot
   delete original.runtime.gimmick
   return original
 }

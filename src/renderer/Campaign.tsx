@@ -1,14 +1,15 @@
 import {
-  canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, battleGimmickStatus, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
+  arenaSpriteRefs, canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, battleGimmickStatus, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
   type GameSave
 } from '../game/engine'
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
-import { battleForm, locationForm } from '../game/forms'
+import { locationForm } from '../game/forms'
 import { megaFormFor, regionGimmick } from '../game/battleGimmicks'
 import { gimmickLabels } from '../game/gimmickCombat'
 import { worldRegions, type RegionId } from '../game/regions/world'
 import { species } from '../game/catalog'
 import { Pokemon, TeraIcon, statNames, types } from './shared'
+import { TrainerTactics } from './TrainerTactics'
 import { VenuePreview } from './VenuePreview'
 import './campaign.css'
 
@@ -28,7 +29,7 @@ export function challengeName(trainer: KantoTrainer) {
 export function TrainerTeam({ trainer, regionId, active, activeForm, benchHP }: {
   trainer: KantoTrainer; regionId: RegionId; active?: number; activeForm?: string; benchHP?: readonly (number | null)[]
 }) {
-  return <ul className="trainer-team" aria-label={trainer.name + '의 포켓몬'}>
+  return <><ul className="trainer-team" aria-label={trainer.name + '의 포켓몬'}>
     {trainer.team.map((member, index) => {
       const name = species[member.speciesId].nameKo
       const form = member.formId ?? (trainer.role === 'field' ? undefined : locationForm(regionId, trainer.locationId, member.speciesId))
@@ -39,7 +40,7 @@ export function TrainerTeam({ trainer, regionId, active, activeForm, benchHP }: 
         <small>Lv. {member.level} {member.teraType && <TeraIcon type={member.teraType} />}</small>
       </li>
     })}
-  </ul>
+  </ul>{active === undefined && <TrainerTactics trainer={trainer} />}</>
 }
 
 export function ChallengeActions({ game, kind, busy, begin }: {
@@ -87,6 +88,7 @@ export function ChallengeActions({ game, kind, busy, begin }: {
           {trainer.name}에게 도전 {trainer.type && <small>{types[trainer.type]}</small>}
         </button>
         <VenuePreview region={region.id} trainer={trainer} />
+        <TrainerTactics trainer={trainer} />
       </div>)}
     </div>
   }
@@ -112,7 +114,7 @@ export function TrainerBattleCard({ game }: { game: GameSave }) {
       power?.phase === 'active' && <p key={side} className="campaign-subtitle">{side} · {power.label}
         {power.teraType ? ' · ' + types[power.teraType] : ''} · {power.detail}</p>)}
     {trainer.totemAura && <p className="campaign-subtitle">주인 오라 · {trainer.totemAura.stat === 'all' ? '모든 능력' : statNames[trainer.totemAura.stat]} {trainer.totemAura.stages}랭크 상승</p>}
-    <TrainerTeam trainer={trainer} regionId={game.regionId} active={battle.opponentIndex} benchHP={battle.fieldAI?.benchHP} activeForm={opponent && battleForm(opponent)} />
+    <TrainerTeam trainer={trainer} regionId={game.regionId} active={battle.opponentIndex} benchHP={battle.fieldAI?.benchHP} activeForm={arenaSpriteRefs(game, opponent)?.enemy?.formId} />
     {opponent && <div className="campaign-hp">
       <span>상대 HP <strong>{opponent.currentHP}/{opponent.maxHP}</strong></span>
       <progress aria-label="상대 HP" value={opponent.currentHP} max={opponent.maxHP} />

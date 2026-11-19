@@ -1,11 +1,12 @@
-import { evaluateMatchup, shouldWithdraw, powerMerit, type FieldBattleAI, type Matchup, type TacticalSide, type Tactics } from './championsAi'
+import { evaluateMatchup, shouldWithdraw, powerMerit, type TrainerBattleAI, type Matchup, type TacticalSide, type Tactics } from './championsAi'
+import campaignSets from './regions/campaign-sets.json'
 import { damageWithMultiplier } from './battleDamage'
 import { championsMoves, championsTechniques, damaging, type TrainerPower, type TrainerSet, type TrainerStages } from './championsMoves'
 import { isTrainerAvatar, type TrainerAvatar } from './trainerAvatar'
 import { catalogItems } from './shopCatalog'
 import { shopItemEffect, type ShopItemEffect } from './shopItemEffects'
 import { species, starterIds, wildIds } from './catalog'
-import { megaFormFor, megaFormsFor, regionGimmick, type BattleGimmick } from './battleGimmicks'
+import { megaFormsFor, regionGimmick, type BattleGimmick } from './battleGimmicks'
 import { boostedMove, gimmickLabels, MAX_GIMMICK_ACTIONS, preparedMove, type GimmickSide, type EncounterGimmicks, type UsedGimmick } from './gimmickCombat'
 import { collectionItems, fieldItems, itemEvolution } from './collectionItems'
 import { RESEARCH_VISIT_CHANCE } from './regions/collectionEncounters'
@@ -244,6 +245,7 @@ export interface PartyPokemon {
 export type PokemonBox = (PartyPokemon | null)[]
 
 export interface Wild {
+  // Stable team slot for an opponent that can withdraw and return.
   fieldSlot?: number
   battleActions?: number
   teraType?: string
@@ -343,7 +345,8 @@ interface PracticeParty {
 }
 
 interface TrainerBattle {
-  fieldAI?: FieldBattleAI
+  // Keep the serialized key used by schema 21 field battles.
+  fieldAI?: TrainerBattleAI
   teamNumber?: number
   practice?: PracticeParty
   arena: TrainerArena
@@ -365,7 +368,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 21
+const SAVE_SCHEMA_VERSION = 22
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -1555,7 +1558,7 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const ai = battle.fieldAI
   const committed = arena.casts.find(cast => cast.side === 'enemy')
   if (ai && !committed && !arena.maxClash && !arena.beamClash && game.runtime.clock >= ai.decideAt) {
-    planFieldAction(game,currentTrainer(game)!,opponent)
+    planTrainerAction(game,currentTrainer(game)!,opponent)
     if (findTarget(game) !== opponent) return
   }
   const skills = trainerTechniques(opponent, foeBattleForm(game, opponent), currentSet(game,opponent))
@@ -1850,12 +1853,12 @@ function wildMove(wild: Wild, formId = battleForm(wild)): Move {
 
 const trainerSkills = new WeakMap<Wild, { formId?: string; moves: Move[] }>()
 
-const fieldSkillCache = new WeakMap<TrainerSet, Map<string, Move[]>>()
+const trainerSkillCache = new WeakMap<TrainerSet, Map<string, Move[]>>()
 
 export function fieldMemberMoves(member: Pick<KantoTrainerMember,'speciesId'|'formId'|'plan'>, formId = member.formId): Move[] {
   const set = member.plan
   if (!set) return []
-  const forms = fieldSkillCache.get(set) ?? new Map<string, Move[]>()
+  const forms = trainerSkillCache.get(set) ?? new Map<string, Move[]>()
   const key = formId ?? member.speciesId
   const cached = forms.get(key)
   if (cached) return cached
@@ -1866,7 +1869,7 @@ export function fieldMemberMoves(member: Pick<KantoTrainerMember,'speciesId'|'fo
       .find(move => move && isMoveMotionSupported(member.speciesId,formId,move.id))
     legal.push(native ?? moves.tackle)
   }
-  fieldSkillCache.set(set, forms.set(key, legal))
+  trainerSkillCache.set(set, forms.set(key, legal))
   return legal
 }
 
@@ -1919,7 +1922,7 @@ function chooseTrainerMove(game: GameSave, foe: Wild, arena: TrainerArena, skill
   return best
 }
 
-function newFieldAI(team: readonly KantoTrainerMember[], active: number, clock: number): FieldBattleAI {
+function newTrainerAI(team: readonly KantoTrainerMember[], active: number, clock: number): TrainerBattleAI {
   return { benchHP:team.map((_,i) => i < active ? 0 : null), switchReadyAt:clock + 2300,
     supportReadyAt:0, guardUntil:0, stages:{}, decideAt:0 }
 }
@@ -1935,7 +1938,7 @@ function playerTactics(game: GameSave, opponent: Wild): TacticalSide {
     tera:power?.kind === 'tera' ? power.teraType : undefined, moves:attacks }
 }
 
-function fieldTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmick | undefined, stages?: TrainerStages): TacticalSide {
+function trainerTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmick | undefined, stages?: TrainerStages): TacticalSide {
   const form = power?.formId ?? battleForm(foe)
   const maxHP = power?.kind === 'dynamax' && !foe.maxActionsLeft ? dynamaxHP(foe.maxHP) : foe.maxHP
   const skills = trainerTechniques(foe,form,member.plan)
@@ -1945,7 +1948,7 @@ function fieldTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmick 
     moves:skills.filter(move => power?.kind !== 'dynamax' || damaging(move)).map(move => preparedMove(move,power)) }
 }
 
-function fieldContext(game: GameSave, member: KantoTrainerMember): Tactics {
+function trainerContext(game: GameSave, member: KantoTrainerMember): Tactics {
   const { arena, fieldAI } = game.campaign.battle!
   const cast = arena.casts.find(c => c.side === 'player' && !c.resolved &&
     arenaCastTouches(c,c.elapsedMs,c.profile.startupMs+c.profile.activeMs,arena.enemy,arena.enemy))
@@ -1954,7 +1957,7 @@ function fieldContext(game: GameSave, member: KantoTrainerMember): Tactics {
     incomingCast:cast && boostedMove(moves[cast.moveId],cast.gimmick) }
 }
 
-function bestFieldReserve(game: GameSave, trainer: KantoTrainer, target: Wild, player: TacticalSide) {
+function bestTrainerReserve(game: GameSave, trainer: KantoTrainer, target: Wild, player: TacticalSide) {
   const battle = game.campaign.battle!, ai = battle.fieldAI!
   let best: { index:number; match:Matchup } | undefined
   for (const [index, member] of trainer.team.entries()) {
@@ -1963,15 +1966,15 @@ function bestFieldReserve(game: GameSave, trainer: KantoTrainer, target: Wild, p
     reserve.currentHP = ai.benchHP[index] ?? reserve.maxHP
     const spent = game.runtime.gimmick?.enemy
     const power = spent?.active && spent.owner === opponentOwner(reserve) ? spent : undefined
-    const context = fieldContext(game,member)
-    const side = fieldTactics(reserve,member,power)
+    const context = trainerContext(game,member)
+    const side = trainerTactics(reserve,member,power)
     const match = evaluateMatchup(side,player,{ ...context, supportReady:false, stages:{} })
     if (!best || match.position > best.match.position) best = { index,match }
   }
   return best
 }
 
-function switchFieldOpponent(game: GameSave, trainer: KantoTrainer, target: Wild, index: number) {
+function switchTrainerOpponent(game: GameSave, trainer: KantoTrainer, target: Wild, index: number) {
   const battle = game.campaign.battle!, ai = battle.fieldAI!
   const active = activePower(game,'enemy',target)
   if (active?.kind === 'dynamax' || active?.kind === 'z') endPower(game,target,'enemy')
@@ -1996,14 +1999,14 @@ function switchFieldOpponent(game: GameSave, trainer: KantoTrainer, target: Wild
   addLog(game,'battle',text)
 }
 
-function planFieldAction(game: GameSave, trainer: KantoTrainer, target: Wild): void {
+function planTrainerAction(game: GameSave, trainer: KantoTrainer, target: Wild): void {
   const battle = game.campaign.battle!, ai = battle.fieldAI!
   ai.decideAt = game.runtime.clock + 240
   const member = trainer.team[battle.opponentIndex]
-  const context = fieldContext(game,member)
+  const context = trainerContext(game,member)
   const player = playerTactics(game,target)
   const current = activePower(game,'enemy',target)
-  const own = fieldTactics(target,member,current,ai.stages)
+  const own = trainerTactics(target,member,current,ai.stages)
   const base = evaluateMatchup(own,player,context)
   const last = ai.benchHP.every((hp,i) => i === battle.opponentIndex || hp === 0)
   let bestPower: { option:TrainerPower; match:Matchup; merit:number } | undefined
@@ -2011,7 +2014,7 @@ function planFieldAction(game: GameSave, trainer: KantoTrainer, target: Wild): v
     for (const option of fieldPowerOptions(member)) {
       const power = makeGimmick(game,target,'enemy',option.kind,option.formId,option.type,option)
       if (!power) continue
-      const powered = evaluateMatchup(fieldTactics(target,member,power,ai.stages),player,context)
+      const powered = evaluateMatchup(trainerTactics(target,member,power,ai.stages),player,context)
       if (context.distance > arenaMoveProfile(powered.move).range) continue
       const merit = powerMerit(option.kind,base,powered,player.hp,own.hp/own.maxHP,last)
       if (Number.isFinite(merit) && (!bestPower || merit > bestPower.merit)) bestPower = { option,match:powered,merit }
@@ -2019,9 +2022,9 @@ function planFieldAction(game: GameSave, trainer: KantoTrainer, target: Wild): v
   }
   const stay = bestPower?.match ?? base
   if (!last && current?.kind !== 'dynamax' && current?.kind !== 'z' && game.runtime.clock >= ai.switchReadyAt && !stay.canFinish) {
-    const reserve = bestFieldReserve(game,trainer,target,player)
+    const reserve = bestTrainerReserve(game,trainer,target,player)
     if (reserve && shouldWithdraw(stay,reserve.match,own.hp < own.maxHP * .30,false)) {
-      switchFieldOpponent(game,trainer,target,reserve.index)
+      switchTrainerOpponent(game,trainer,target,reserve.index)
       return
     }
   }
@@ -2065,6 +2068,7 @@ function supportedTrainerMember(region: WorldRegion, trainer: KantoTrainer, memb
   return [member]
 }
 
+const campaignPlans: Readonly<Record<string, Readonly<Record<string, TrainerSet>>>> = campaignSets as Record<string, Record<string, TrainerSet>>
 const resolvedTrainers = new WeakMap<KantoTrainer, Map<string, KantoTrainer>>()
 export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, starterSpeciesId: string): KantoTrainer {
   const key = region.id + ':' + (species[starterSpeciesId]?.types[0] ?? '')
@@ -2079,7 +2083,13 @@ export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, start
   }
   if (!team.length) throw new Error('출전 가능한 포켓몬이 없는 트레이너: ' + original.id)
   const name = original.trialKind === 'totem' ? '주인 ' + species[team[0].speciesId].nameKo : original.name
+  const plans = campaignPlans[original.id]
   const result = { ...original, name, team }
+  if (plans) result.team = team.map(member => {
+    const formId = trainerMemberForm(region.id, original, member)
+    const plan = plans[(formId ?? member.speciesId) + ':' + member.level]
+    return { ...member, ...(formId && { formId }), plan }
+  })
   cache.set(key, result)
   resolvedTrainers.set(trainer, cache)
   return result
@@ -2171,16 +2181,15 @@ function trainerBaseHP(id: string, level: number, formId?: string) {
   return Math.max(8, Math.round(encounterMaxHP(id, level, formId) * TRAINER_HEALTH_MULTIPLIER))
 }
 
-function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentIndex: number, id: number, position: Position, direction: Direction, remainingActions = MAX_GIMMICK_ACTIONS): Wild {
+function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentIndex: number, id: number, position: Position, direction: Direction): Wild {
   const member = trainer.team[opponentIndex]
   const { speciesId, level } = member
   const formId = trainerMemberForm(regionId, trainer, member)
   // Trainer teams use their campaign HP scaling independently of wild encounters.
   const baseHP = trainerBaseHP(speciesId, level, formId)
-  if (trainer.role === 'field') return { id, trainerId: trainer.id, fieldSlot:opponentIndex, abilityId:member.abilityId,
-    formId, speciesId, level, currentHP:baseHP, maxHP:baseHP, position, direction }
-  const maxHP = member.dynamax && remainingActions > 0 ? dynamaxHP(baseHP) : baseHP
-  return { id, trainerId: trainer.id, ...(member.teraType && { teraType: member.teraType }), ...(member.abilityId && { abilityId: member.abilityId }), ...(member.dynamax && { dynamax: member.dynamax, maxActionsLeft: remainingActions }), ...(formId && { formId }), speciesId, level, currentHP: maxHP, maxHP, position, direction }
+  return { id, trainerId: trainer.id, ...(member.plan && { fieldSlot:opponentIndex }),
+    ...(member.abilityId && { abilityId:member.abilityId }), ...(formId && { formId }), speciesId, level,
+    currentHP:baseHP, maxHP:baseHP, position, direction }
 }
 
 function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Position, wait: number): void {
@@ -2206,14 +2215,6 @@ function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Po
     ai.decideAt = 0
     delete ai.moveId
   }
-  const kind = regionGimmick(game.regionId)
-  const isAce = battle.opponentIndex === trainer.team.length - 1
-  // Kalos trainers reserve Mega Evolution for their last compatible team member.
-  const megaAce = kind === 'mega' && megaFormFor(target.speciesId, target.formId) &&
-    !trainer.team.slice(battle.opponentIndex + 1).some(mon => megaFormFor(mon.speciesId, mon.formId))
-  if (!ai && (target.maxActionsLeft || target.teraType || megaAce || (kind === 'z' && isAce && trainer.trialKind !== 'totem'))) {
-    activateGimmick(game, target, 'enemy')
-  }
   faceTarget(game, target)
   game.runtime.turn = playerStats(game).speed >= opponentStats(game, target).speed ? 'player' : 'wild'
   if (!battle.practice) addUnique(game.pokedexSeen, target.speciesId)
@@ -2237,7 +2238,7 @@ function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: Practi
     game.campaign.leagueIndex ??= 0
   }
   game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, ...(teamNumber && { teamNumber }), ...(practice && { practice }), arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
-  if (trainer.role === 'field') game.campaign.battle.fieldAI = newFieldAI(trainer.team,0,game.runtime.clock)
+  if (trainer.team[0].plan) game.campaign.battle.fieldAI = newTrainerAI(trainer.team,0,game.runtime.clock)
   const { x, y } = game.player.position
   const inward = x > 145 * game.settings.spriteScale ? -1 : 1
   sendTrainerOpponent(game, trainer, { x: x + inward * 92, y }, 1050)
@@ -2283,7 +2284,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
   const battle = game.campaign.battle!
   const ai = battle.fieldAI
   if (ai) ai.benchHP[battle.opponentIndex] = 0
-  const next = ai ? bestFieldReserve(game,trainer,opponent,playerTactics(game,opponent))?.index : battle.opponentIndex + 1
+  const next = ai ? bestTrainerReserve(game,trainer,opponent,playerTactics(game,opponent))?.index : battle.opponentIndex + 1
   if (next !== undefined && next < trainer.team.length) {
     if (activePower(game, 'player')?.remaining === 0) endPower(game, opponent, 'player')
     battle.opponentIndex = next
@@ -2512,8 +2513,8 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
   const trainer = target.trainerId ? currentTrainer(game) : undefined
   if (player.currentHP > 0 && target.currentHP > 0 && technique?.pivot && trainer && ai && manual?.cast.result === 'hit' &&
       matchup(game,target,selected,false) > 0) {
-    const reserve = bestFieldReserve(game,trainer,target,playerTactics(game,target))
-    if (reserve) { switchFieldOpponent(game,trainer,target,reserve.index); return }
+    const reserve = bestTrainerReserve(game,trainer,target,playerTactics(game,target))
+    if (reserve) { switchTrainerOpponent(game,trainer,target,reserve.index); return }
   }
   if (target.currentHP === 0) {
     if (trainer) {
@@ -3304,8 +3305,8 @@ function readRegionProgress(region: WorldRegion, value: unknown, version: number
     ...(fieldWins.length && { fieldWins }) }
 }
 
-function readFieldAI(raw: unknown, team: readonly KantoTrainerMember[], active: number, clock: number): FieldBattleAI {
-  const ai = newFieldAI(team,active,clock)
+function readTrainerAI(raw: unknown, team: readonly KantoTrainerMember[], active: number, clock: number): TrainerBattleAI {
+  const ai = newTrainerAI(team,active,clock)
   if (!isRecord(raw) || !Array.isArray(raw.benchHP) || raw.benchHP.length !== team.length) return ai
   for (const [i,member] of team.entries()) {
     const hp = raw.benchHP[i]
@@ -3376,13 +3377,17 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
     const member = oldTeam[index]
     if (!member || !isSpeciesMotionSupported(member.speciesId, trainerMemberForm(region.id, definition, member))) return campaign
     // The same species and level can occur more than once in an original team.
-    const sameMember = (slot: KantoTrainerMember) => slot.speciesId === member.speciesId && slot.level === member.level && slot.formId === member.formId
+    const sameMember = (slot: KantoTrainerMember) => slot.speciesId === member.speciesId && slot.level === member.level &&
+      trainerMemberForm(region.id, definition, slot) === trainerMemberForm(region.id, definition, member)
     let occurrence = oldTeam.slice(0, index).filter(sameMember).length
     opponentIndex = team.findIndex(slot => sameMember(slot) && occurrence-- === 0)
   }
   if (opponentIndex >= 0 && opponentIndex < team.length) {
     campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(teamNumber && { teamNumber }), ...(practice && { practice }), arena: createArena([]) }
-    if (field) campaign.battle.fieldAI = readFieldAI(version >= 21 ? value.battle.fieldAI : undefined,team,opponentIndex,clock)
+    if (team[opponentIndex].plan) {
+      const stored = version >= (field ? 21 : 22) ? value.battle.fieldAI : undefined
+      campaign.battle.fieldAI = readTrainerAI(stored, team, opponentIndex, clock)
+    }
   }
   return campaign
 }
@@ -3423,11 +3428,11 @@ function readEncounterGimmicks(raw: unknown, version: number, region: RegionId, 
       const remaining = foe.maxActionsLeft
       return { targetId: foe.id,
         player: { kind, owner: lead.instanceId, active: remaining > 0, remaining },
-        enemy: { kind, owner: enemy.instanceId, active: remaining > 0, remaining } }
+        enemy: { kind, owner: opponentOwner(foe), active: remaining > 0, remaining } }
     }
     if (kind === 'tera' && foe.teraType) return { targetId: foe.id,
       player: { kind, owner: lead.instanceId, active: true, teraType: formStats(lead.speciesId, lead.formId).types[0] },
-      enemy: { kind, owner: enemy.instanceId, active: true, teraType: foe.teraType } }
+      enemy: { kind, owner: opponentOwner(foe), active: true, teraType: foe.teraType } }
     return
   }
   if (!isRecord(raw) || raw.targetId !== foe.id) return
@@ -3436,14 +3441,16 @@ function readEncounterGimmicks(raw: unknown, version: number, region: RegionId, 
   const player = owner && kind ? readUsedGimmick(playerUse, kind, owner, lead === owner) : undefined
   const enemyUse = raw.enemy
   const currentEnemy = isRecord(enemyUse) && enemyUse.owner === enemy.instanceId
+  const campaignTrainer = foe.trainerId && worldRegions[region].trainerById[foe.trainerId]
   let opponent: UsedGimmick | undefined
-  if (team && isRecord(enemyUse) && ['mega','z','dynamax','tera'].some(k => k === enemyUse.kind)) {
-    const slot = version < 21 && currentEnemy ? foe.fieldSlot : team.findIndex((_,i) => enemyUse.owner === 'slot-' + i)
+  if (team && isRecord(enemyUse) && (!campaignTrainer || enemyUse.kind === kind) &&
+      ['mega','z','dynamax','tera'].some(k => k === enemyUse.kind)) {
+    const slot = version < 22 && currentEnemy ? foe.fieldSlot : team.findIndex((_,i) => enemyUse.owner === 'slot-' + i)
     const member = slot === undefined ? undefined : team[slot]
     const label = member ? 'slot-' + slot : String(enemyUse.owner)
     const source = member && { instanceId:label, speciesId:member.speciesId, formId:member.formId }
     opponent = readUsedGimmick({...enemyUse, owner:label},enemyUse.kind as BattleGimmick,source,slot === foe.fieldSlot)
-  } else if (foe.trainerId && kind) opponent = readUsedGimmick(enemyUse,kind,currentEnemy ? enemy : undefined,currentEnemy)
+  } else if (!team && foe.trainerId && kind) opponent = readUsedGimmick(enemyUse,kind,currentEnemy ? enemy : undefined,currentEnemy)
   if (player || opponent) return { targetId: foe.id, ...(player && { player }), ...(opponent && { enemy: opponent }) }
 }
 
@@ -3460,10 +3467,13 @@ function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Camp
         entry.level !== slot.level || typeof entry.currentHP !== 'number' || entry.currentHP <= 0 || !Number.isFinite(entry.currentHP)) continue
     const position = readPosition(entry.position)
     if (!position) continue
-    const remaining = version < 17 ? Math.ceil(integer(entry.maxActionsLeft, 6, 0, 6) / 2) : integer(entry.maxActionsLeft, 0, 0, 3)
-    const opponent = trainerOpponent(region.id, trainer, battle.opponentIndex, targetId, position, entry.direction === -1 ? -1 : 1, remaining)
+    const opponent = trainerOpponent(region.id, trainer, battle.opponentIndex, targetId, position, entry.direction === -1 ? -1 : 1)
+    if (version < 17) {
+      if (slot.dynamax) opponent.maxActionsLeft = Math.ceil(integer(entry.maxActionsLeft, 6, 0, 6) / 2)
+      if (slot.teraType) opponent.teraType = slot.teraType
+    }
     if (trainer.role === 'field' && entry.formId !== opponent.formId) continue
-    // The field AI can Dynamax across regions. Its validated owner determines max HP below.
+    // The saved gimmick owner determines the active opponent’s final HP limit below.
     opponent.currentHP = integer(entry.currentHP, opponent.maxHP, 1, battle.fieldAI ? dynamaxHP(opponent.maxHP) : opponent.maxHP)
     return opponent
   }
@@ -3614,18 +3624,20 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const { followers, boxes } = readOwnedPokemon(value, leaderId, position, runtime, inventory, heldItemId)
   const lead = { instanceId: leaderId, speciesId, formId }
   const target = wild.find(mon => mon.id === runtime.targetId)
-  const savedFieldTeam = campaign.battle?.fieldAI && trainerDefinition(region,campaign.battle.trainerId,campaign.battle.teamNumber)?.team
+  const savedTrainer = campaign.battle?.fieldAI && trainerDefinition(region, campaign.battle.trainerId, campaign.battle.teamNumber)
+  const savedTeam = savedTrainer && resolveTrainer(region, savedTrainer, starterSpeciesId).team
   const gimmicks = readEncounterGimmicks(isRecord(value.runtime) ? value.runtime.gimmick : undefined,
-    value.schemaVersion, regionId, target, [lead, ...followers],savedFieldTeam)
+    value.schemaVersion, regionId, target, [lead, ...followers],savedTeam)
   if (gimmicks) runtime.gimmick = gimmicks
   const activePlayer = gimmicks?.player?.active && gimmicks.player.owner === leaderId ? gimmicks.player : undefined
   const activeEnemy = target && gimmicks?.enemy?.active && gimmicks.enemy.owner === opponentOwner(target) ? gimmicks.enemy : undefined
   if (target?.fieldSlot !== undefined) {
     if (activeEnemy?.kind === 'tera') target.teraType = activeEnemy.teraType
-    if (activeEnemy?.kind === 'dynamax') {
-      target.dynamax = activeEnemy.formId ? 'gigantamax' : 'dynamax'
-      target.maxActionsLeft = Math.max(1, activeEnemy.remaining ?? 0)
-      target.maxHP = dynamaxHP(target.maxHP)
+    const spent = gimmicks?.enemy
+    if (spent?.kind === 'dynamax' && spent.owner === opponentOwner(target)) {
+      target.dynamax = spent.formId ? 'gigantamax' : 'dynamax'
+      target.maxActionsLeft = activeEnemy ? Math.max(1, spent.remaining ?? 0) : 0
+      if (activeEnemy) target.maxHP = dynamaxHP(target.maxHP)
     }
     target.currentHP = Math.min(target.currentHP,target.maxHP)
   }
@@ -3647,8 +3659,8 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
         ? { ...rawArena, casts: [], beamClash: undefined } : rawArena
       if (isSpeciesMotionSupported(speciesId, formId)) {
         campaign.battle.arena = restoreArena(clearedMaxCasts, [leaderId, ...playableFollowers.map(member => member.instanceId)],
-          currentHP === 0, [...trainerTechniques(foe,activeEnemy?.formId,savedFieldTeam?.[campaign.battle.opponentIndex].plan),
-            ...(savedFieldTeam ? trainerTechniques(foe,activeEnemy?.formId) : [])], id => moveIds.includes(id) ? moves[id] : undefined,
+          currentHP === 0, [...trainerTechniques(foe,activeEnemy?.formId,savedTeam?.[campaign.battle.opponentIndex].plan),
+            ...(savedTeam ? trainerTechniques(foe,activeEnemy?.formId) : [])], id => moveIds.includes(id) ? moves[id] : undefined,
           spriteRefs(speciesId, activeForm, foe, playerMaxed, activeEnemy?.formId))
       }
     }

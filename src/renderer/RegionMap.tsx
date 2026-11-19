@@ -18,7 +18,7 @@ import {
 } from '../game/regions/kantoIllustratedMap'
 import type { KantoLocation } from '../game/regions/kanto'
 import { species } from '../game/catalog'
-import { regionalWeather, eligibleLegends, nextGymTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
+import { regionalWeather, eligibleLegends, nextGymTrainer, resolveTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
 import { formLabel } from '../game/forms'
 import { locationAccess } from '../game/locationAccess'
 import { fieldTrainerById, fieldTrainersByRegion } from '../game/regions/fieldTrainers'
@@ -27,6 +27,7 @@ import { FieldTrainerDirectory } from './FieldTrainerDirectory'
 import { FieldTrainerPortrait } from './fieldTrainerArt'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
 import { Pokemon, types } from './shared'
+import { TrainerTactics } from './TrainerTactics'
 import { VenuePreview } from './VenuePreview'
 import './region-map.css'
 
@@ -235,7 +236,8 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
   const [selectedId, setSelected] = useState(() => focus && region.locationById[focus] ? focus : current.id)
   const [focusedTrainer, focusTrainer] = useState('')
   const selected = region.locationById[selectedId] ?? current
-  const localTrainer = region.gymTrainerByLocationId[selected.id]
+  const localGym = region.gymTrainerByLocationId[selected.id]
+  const localTrainer = localGym && resolveTrainer(region, localGym, game.starterSpeciesId)
   const regionalTrainers = useMemo(() => [...fieldTrainersByRegion[region.id]].sort((first, second) =>
     first.requiredBadges - second.requiredBadges ||
     Math.min(...first.team.map(member => member.level)) - Math.min(...second.team.map(member => member.level))
@@ -359,7 +361,7 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
         <span>{localTrainer.trialKind ? '' : '관장 '}{localTrainer.name} · {localTrainer.badge}</span>
       </div>}
       {selected.kind === 'league' && <div className="kanto-landmark"><strong>{region.id === 'galar' ? '가라르 챔피언컵' : region.id === 'paldea' ? '팔데아 챔피언 테스트' : region.name.replace(/지방$/, '') + ' 포켓몬 리그'}</strong></div>}
-      {localTrainer && <VenuePreview region={region.id} trainer={localTrainer} />}
+      {localTrainer && <><VenuePreview region={region.id} trainer={localTrainer} /><TrainerTactics trainer={localTrainer} /></>}
       {isHere && region.finaleTrainer?.locationId === selected.id && <ChallengeActions game={game} kind="finale" busy={busy} begin={begin} />}
       {isHere && localTrainer && <ChallengeActions game={game} kind="gym" busy={busy} begin={begin} />}
       {isHere && selected.kind === 'league' && <ChallengeActions game={game} kind="league" busy={busy} begin={begin} />}

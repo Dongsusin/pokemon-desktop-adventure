@@ -343,6 +343,9 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
   const invulnerable = arena.invulnerableMs > .00001 && (!rolling || rollMs - arena.dodgeMs >= dodgeIFrameStart - .00001)
   if (rolling) translate(arena.player, arena.dodgeDirection, .125 * elapsed / rollMs)
   else moveFighter(arena, 'player', elapsed, arena.direction, playerSpeed * seconds)
+  // The caller chose this frame's technique before advancing the casts. A long clash
+  // or resumed cast can outlast its cooldown. Let the AI choose anew when it ends.
+  const enemyCasting = arena.casts.some(cast => cast.side === 'enemy')
   const profile = arenaMoveProfile(selected)
   const self = profile.kind === 'self'
   const range = profile.range
@@ -421,7 +424,7 @@ export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: num
     }
   }
   arena.enemyInMs = Math.max(0, arena.enemyInMs - elapsed)
-  if (!arena.casts.some(cast => cast.side === 'enemy') && arena.enemyInMs <= .00001 && (self || arenaDistance(arena.enemy, arena.player) <= range)) {
+  if (!enemyCasting && arena.enemyInMs <= .00001 && (self || arenaDistance(arena.enemy, arena.player) <= range)) {
     const cast = beginArenaCast(arena, 'enemy', selected, sprites)
     arena.enemyInMs = castDuration(cast) + 850
   }

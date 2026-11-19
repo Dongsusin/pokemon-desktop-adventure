@@ -74,6 +74,7 @@ describe('real-time trainer arena', () => {
 
   it('commits an out-of-range miss, charges its cooldown and lets the player close for the next hit', () => {
     const game = gym(), a = arena(game)
+    game.campaign.battle!.fieldAI!.benchHP[1] = 0
     const start = { ...a.player }
     const skill = arenaSkills(game)[0]
     expect(skill.move.id).toBe('tackle')
@@ -113,36 +114,32 @@ describe('real-time trainer arena', () => {
     expect(cast.result).toBe(hit ? 'hit' : 'miss')
   })
 
-  it('chooses a native trainer skill for distance, effectiveness and recent casts', () => {
-    function brockMove(distance: number, partner: string, previous?: string) {
+  it('chooses Brock’s learned moves for coverage and effective range', () => {
+    function brockMove(distance: number, partner: string) {
       const game = gym(), a = arena(game)
       game.player.speciesId = partner
       a.player = { x: .25, y: .5 }
       a.enemy = { x: a.player.x + distance / 1200, y: .5 }
-      a.lastEnemyMoveId = previous
       a.enemyInMs = 0
       tick(game, 15, bounds)
       return a.casts.find(cast => cast.side === 'enemy')?.moveId
     }
-    expect(brockMove(65, 'squirtle')).toBe('tackle')
-    expect(brockMove(400, 'squirtle')).toBe('rockThrow')
-    expect(brockMove(400, 'squirtle', 'rockThrow')).toBe('mudShot')
-    expect(brockMove(400, 'pikachu')).toBe('mudShot')
-    expect(brockMove(400, 'pidgey', 'rockThrow')).toBe('rockThrow')
+    expect(brockMove(65, 'pikachu')).toBe('bulldoze')
+    expect(brockMove(400, 'pikachu')).toBe('rocktomb')
+    expect(brockMove(65, 'pidgey')).toBe('rocktomb')
   })
 
-  it('resumes a secondary enemy skill with the original target, damage and next decision', () => {
+  it('resumes a committed campaign skill with the original target, damage and next decision', () => {
     const game = gym(), a = arena(game)
     a.player = { x: .25, y: .5 }
     a.enemy = { x: .59, y: .5 }
     a.enemyInMs = 0
-    a.lastEnemyMoveId = 'rockThrow'
     tick(game, 10, bounds)
     const committed = a.casts[0]
-    expect(committed.moveId).toBe('mudShot')
+    expect(committed.moveId).toBe('rocktomb')
     const resumed = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
     expect(arena(resumed).casts[0]).toEqual(committed)
-    expect(arena(resumed).lastEnemyMoveId).toBe('mudShot')
+    expect(arena(resumed).lastEnemyMoveId).toBe('rocktomb')
     dispatch(resumed, { type: 'arena-pause', paused: false })
     for (let i = 0; i < 240; i++) {
       tick(game, 16, bounds)
@@ -151,7 +148,7 @@ describe('real-time trainer arena', () => {
     expect(committed.result).toBe('hit')
     expect(resumed.player.currentHP).toBe(game.player.currentHP)
     expect(arena(resumed).casts).toEqual(a.casts)
-    expect(a.lastEnemyMoveId).toBe('rockThrow')
+    expect(arena(resumed).lastEnemyMoveId).toBe(a.lastEnemyMoveId)
   })
 
   it('shows an enemy attack before impact and lets the player escape its marked position', () => {
@@ -202,8 +199,15 @@ describe('real-time trainer arena', () => {
   })
 
   it('locks the beam to its shown aim and resolves damage only on contact', () => {
-    const standing = gym(), a = arena(standing)
-    standing.wild[0].speciesId = 'squirtle'
+    const standing = createGame('squirtle', 1, bounds, time, 19)
+    standing.player.speciesId = 'pikachu'
+    standing.player.level = 18
+    standing.player.currentHP = playerStats(standing).hp
+    standing.player.moveIds = ['thunderShock']
+    standing.campaign.badges = ['brock']
+    standing.locationId = 'cerulean-city'
+    expect(dispatch(standing, { type: 'challenge-gym' })).toBe(true)
+    const a = arena(standing)
     a.player = { x: 0.36, y: 0.5 }
     a.enemy = { x: 0.57, y: 0.5 }
     a.enemyInMs = 0

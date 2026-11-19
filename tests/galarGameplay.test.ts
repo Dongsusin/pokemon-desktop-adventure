@@ -1,4 +1,4 @@
-import { castSkill, idleUntilHit } from './trainerArenaDriver'
+import { resumeWithLastOpponent } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
 import { createGame, dispatch, eligibleLegends, effectiveLevel, hydrateSave, playerStats, statsFor, tick } from '../src/game/engine'
 import { battleForm, locationForm } from '../src/game/forms'
@@ -25,11 +25,7 @@ function faceKabu() {
   game.campaign.fieldWins = ['field-galar-hop', 'field-galar-bede']
   expect(dispatch(game, { type: 'travel', locationId: 'motostoke' })).toBe(true)
   expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
-  for (let i = 0; i < 2; i++) {
-    game.wild[0].currentHP = 1
-    castSkill(game)
-  }
-  return game
+  return resumeWithLastOpponent(game)
 }
 
 describe('Galar stadiums and encounter eligibility', () => {
@@ -37,19 +33,21 @@ describe('Galar stadiums and encounter eligibility', () => {
     const game = faceKabu()
     const base = statsFor(game.player.speciesId, effectiveLevel(game)).hp
     const target = game.wild[0]
-    expect(target.maxActionsLeft).toBe(1)
+    expect(target.maxActionsLeft).toBeUndefined()
     expect(playerStats(game).hp).toBe(base)
-    expect(target.dynamax).toBe('dynamax')
-    expect(battleForm(target)).toBeUndefined()
     const before = target.maxHP
     const a = game.campaign.battle!.arena
     a.player = {x:.34, y:.5}; a.enemy = {x:.48, y:.5}; a.enemyInMs = 0
     game.player.currentHP = base
-    idleUntilHit(game)
-    expect(game.effects.some(effect => effect.kind === 'attack' && effect.text?.startsWith('다이'))).toBe(true)
+    for (let i = 0; i < 90 && !target.maxActionsLeft; i++) tick(game, 30, bounds)
+    expect(target.maxActionsLeft).toBe(1)
+    expect(target.dynamax).toBe('dynamax')
+    expect(battleForm(target)).toBeUndefined()
+    expect(target.maxHP).toBe(Math.floor(before * 1.5))
+    expect(game.campaign.battle!.arena.casts.some(cast => cast.gimmick === 'dynamax')).toBe(true)
     for (let i=0; i<35 && target.maxActionsLeft; i++) tick(game,100,bounds)
     expect(target.maxActionsLeft).toBe(0)
-    expect(target.maxHP).toBeLessThan(before)
+    expect(target.maxHP).toBe(before)
     expect(dispatch(game,{type:'arena-gimmick'})).toBe(true)
     expect(playerStats(game).hp).toBe(Math.floor(base * 1.5))
     const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
