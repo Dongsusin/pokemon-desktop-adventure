@@ -31,9 +31,10 @@ export function TrainerTeam({ trainer, regionId, active, activeForm }: {
   return <ul className="trainer-team" aria-label={trainer.name + '의 포켓몬'}>
     {trainer.team.map((member, index) => {
       const name = species[member.speciesId].nameKo
+      const form = member.formId ?? (trainer.role === 'field' ? undefined : locationForm(regionId, trainer.locationId, member.speciesId))
       const state = active === undefined ? '' : index < active ? ' is-defeated' : index === active ? ' is-battling' : ''
       return <li key={index} className={state} aria-current={index === active ? 'step' : undefined}>
-        <Pokemon id={member.speciesId} formId={index === active ? activeForm : member.formId ?? locationForm(regionId, trainer.locationId, member.speciesId)} />
+        <Pokemon id={member.speciesId} formId={index === active ? activeForm : form} />
         <strong>{name}</strong>
         <small>Lv. {member.level} {member.teraType && <TeraIcon type={member.teraType} />}</small>
       </li>

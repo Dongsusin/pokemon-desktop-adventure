@@ -1,72 +1,76 @@
 import { describe, expect, it } from 'vitest'
 import { species } from '../src/game/catalog'
-import { locationForm } from '../src/game/forms'
 import { isSpeciesMotionSupported } from '../src/game/motionEligibility'
-import { fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
+import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
+import source from '../src/game/regions/champions-arena-roster.json'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
 
-describe('regional field trainers', () => {
-  it('offers six distinct opponents at separate mapped places in each region', () => {
-    expect(Object.keys(fieldTrainersByRegion).sort()).toEqual([...regionOrder].sort())
-    const ids = new Set<string>()
-    for (const regionId of regionOrder) {
-      const region = worldRegions[regionId]
-      const trainers = fieldTrainersByRegion[regionId]
-      expect(trainers).toHaveLength(6)
-      expect(new Set(trainers.map(t => t.locationId)).size).toBe(trainers.length)
-      for (const trainer of trainers) {
-        expect(trainer.role).toBe('field')
-        expect(trainer.name).toMatch(/[가-힣]|^N$/)
-        expect(ids.has(trainer.id)).toBe(false)
-        ids.add(trainer.id)
-        expect(fieldTrainerById[trainer.id]).toBe(trainer)
-        expect(region.locationById[trainer.locationId], trainer.id).toBeDefined()
-        expect(region.trainerById[trainer.id]).toBeUndefined()
-      }
-    }
-    expect(Object.keys(fieldTrainerById).sort()).toEqual([...ids].sort())
+const all = Object.values(fieldTrainersByRegion).flat()
+const regular = all.filter(t => /^[sabcd]-\d{3}$/.test(t.sourceId))
+
+describe('Champions Arena AI opponents', () => {
+  it('maps all original IDs once and includes the human boss duos and Factory opponent', () => {
+    expect(source.regularRosterSha256).toBe('38e11534a3556e9d290b3dcbe0d70b193791e210d37be5536fcfde6537fb4e6a')
+    expect(regular).toHaveLength(238)
+    expect(Object.fromEntries(['S','A','B','C','D'].map(tier => [tier, regular.filter(t => t.tier === tier).length])))
+      .toEqual({ S: 25, A: 14, B: 68, C: 87, D: 44 })
+    expect(all).toHaveLength(241)
+    expect(new Set(all.map(t => t.sourceId))).toEqual(new Set(source.trainers.map(t => t.id)))
+    expect(all.flatMap(t => t.teams)).toHaveLength(721)
+    expect(regular.flatMap(t => t.teams.slice(0, 3)).flat()).toHaveLength(3950)
+    expect(all.flatMap(t => t.teams).flat()).toHaveLength(3983)
     expect(fieldTrainerById['__proto__']).toBeUndefined()
+    expect(fieldTrainerById['field-kanto-hiker']).toBeUndefined()
+    expect(fieldTrainerById['field-kanto-ash']?.name).toBe('지우')
+    expect(fieldTrainerById['field-kanto-rocket-duo']?.teams).toHaveLength(4)
+    expect(fieldTrainerById['field-kanto-giovanni']?.teams).toHaveLength(4)
+    expect(all.find(t=>t.sourceId === 'boss-proton-petrel')?.name).toBe('랜스 / 란다')
+    expect(all.find(t=>t.sourceId === 'boss-ariana-archer')?.name).toBe('아테나 / 아폴로')
+    expect(all.find(t=>t.sourceId === 'factory-clown')?.teams.map(t => t.length)).toEqual([3, 3, 3])
   })
 
-  it('places an early opponent and a stronger later opponent below their reachable regional caps', () => {
-    for (const regionId of regionOrder) {
-      const trainers = fieldTrainersByRegion[regionId]
-      const caps = worldRegions[regionId].levelCaps
-      expect(trainers.some(t => t.requiredBadges === 0 && t.team.every(m => m.level <= 10)), regionId).toBe(true)
-      expect(trainers.some(t => t.requiredBadges >= 4 && t.team.some(m => m.level >= 35)), regionId).toBe(true)
-      expect(trainers.some(t => t.kind === 'villain'), regionId).toBe(true)
-      for (const trainer of trainers) {
-        expect(Number.isInteger(trainer.requiredBadges)).toBe(true)
-        expect(trainer.requiredBadges).toBeGreaterThanOrEqual(0)
-        expect(trainer.requiredBadges).toBeLessThan(caps.length)
-        expect(trainer.team.length).toBeGreaterThan(0)
-        expect(trainer.team.length).toBeLessThanOrEqual(6)
-        for (const mon of trainer.team) {
-          expect(Number.isInteger(mon.level)).toBe(true)
-          expect(mon.level).toBeGreaterThan(0)
-          expect(mon.level, trainer.id).toBeLessThanOrEqual(caps[trainer.requiredBadges])
-          expect(species[mon.speciesId], trainer.id).toBeDefined()
-          const formId = mon.formId ?? locationForm(regionId, trainer.locationId, mon.speciesId)
-          expect(isSpeciesMotionSupported(mon.speciesId, formId), trainer.id + '/' + mon.speciesId).toBe(true)
+  it('preserves every playable source member, form, and order in every team of every trainer', () => {
+    const bySource = new Map(source.trainers.map(t => [t.id, t]))
+    for (const id of regionOrder) {
+      const region = worldRegions[id], placed = fieldTrainersByRegion[id]
+      expect(new Set(placed.map(t => t.locationId)).size).toBe(placed.length)
+      expect(placed.some(t => t.requiredBadges === 0 && t.team.every(m => m.level <= 10))).toBe(true)
+      expect(placed.some(t => t.requiredBadges >= 4 && t.team.some(m => m.level >= 35))).toBe(true)
+      for (const trainer of placed) {
+        expect(region.locationById[trainer.locationId], trainer.name).toBeDefined()
+        expect(fieldTrainerById[trainer.id]).toBe(trainer)
+        expect(trainer.sprite).toBe(trainer.sourceId)
+        const original = bySource.get(trainer.sourceId)!
+        expect(trainer.name).toBe(original.name)
+        expect(trainer.teams.length).toBe(original.teams.length)
+        for (const [index, team] of trainer.teams.entries()) {
+          expect(team.length).toBeGreaterThan(0)
+          expect(team.length).toBeLessThanOrEqual(6)
+          expect(team.map(({speciesId, formId}) => [speciesId, formId]))
+            .toEqual(original.teams[index].map(member => [member.speciesId, 'formId' in member ? member.formId : undefined]))
+          expect(team.filter(m => m.dynamax || m.teraType).length).toBeLessThanOrEqual(1)
+          if (id !== 'galar') expect(team.some(m => m.dynamax)).toBe(false)
+          if (id !== 'paldea') expect(team.some(m => m.teraType)).toBe(false)
+          for (const member of team) {
+            expect(species[member.speciesId], trainer.name).toBeDefined()
+            expect(isSpeciesMotionSupported(member.speciesId, member.formId), trainer.name).toBe(true)
+            expect(member.level).toBeGreaterThan(0)
+            expect(member.level).toBeLessThanOrEqual(region.levelCaps[trainer.requiredBadges])
+          }
         }
       }
     }
   })
 
-  it('preserves the specific party and setting used when an anime or game character is introduced', () => {
-    expect(fieldTrainerById['field-kanto-ash']).toMatchObject({
-      locationId: 'viridian-forest', series: 'anime', team: [{ speciesId: 'caterpie' }, { speciesId: 'pikachu' }],
-    })
-    expect(fieldTrainerById['field-kanto-rocket-duo']).toMatchObject({
-      name: '로사·로이', series: 'both', team: [{ speciesId: 'ekans' }, { speciesId: 'meowth' }, { speciesId: 'koffing' }],
-    })
-    expect(fieldTrainerById['field-kanto-blue']?.venue).toBe('ship')
-    expect(fieldTrainerById['field-hoenn-maxie']?.venue).toBe('volcano')
-    expect(fieldTrainerById['field-kanto-hiker']?.kind).toBe('trainer')
-    expect(fieldTrainerById['field-sinnoh-dawn']?.team.at(-1)?.speciesId).toBe('piplup')
-    expect(fieldTrainerById['field-kalos-alain']).toMatchObject({ locationId: 'lumiose-city', series: 'anime' })
-    expect(fieldTrainerById['field-kalos-alain']?.team.at(-1)?.speciesId).toBe('charizard')
-    expect(fieldTrainerById['field-alola-lusamine']?.venue).toBe('aether-lab')
-    expect(fieldTrainerById['field-paldea-arven']).toMatchObject({ venue: 'desert', team: [{ speciesId: 'scovillain' }] })
+  it('selects one-based teams by identity without mutating another variant or accepting fractional indexes', () => {
+    const ash = fieldTrainerById['field-kanto-ash']!
+    expect(fieldTeamVariant(ash)).toBe(ash)
+    expect(ash.teams[0].map(m => m.speciesId)).toEqual(['pikachu','melmetal','exploud','charizard','greninja','sceptile'])
+    const second = fieldTeamVariant(ash, 2)!
+    expect(second).toBe(fieldTeamVariant(ash, 2))
+    expect(second.team).toBe(ash.teams[1])
+    expect(second.team).toContainEqual(expect.objectContaining({ speciesId: 'ninetales', formId: 'ninetales-alola' }))
+    expect(ash.team).toBe(ash.teams[0])
+    for (const n of [0, -1, 1.5, 4, NaN]) expect(fieldTeamVariant(ash, n)).toBeUndefined()
   })
 })

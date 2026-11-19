@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, expect, it, vi } from 'vitest'
@@ -7,35 +7,57 @@ import { fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
 import { battleVenue } from '../src/renderer/battleGround'
 import { ArenaTrainers } from '../src/renderer/ArenaTrainers'
-import { fieldTrainerPortrait } from '../src/renderer/fieldTrainerArt'
+import { FieldTrainerPortrait } from '../src/renderer/fieldTrainerArt'
 import { VenuePreview } from '../src/renderer/VenuePreview'
+
+const directory = 'assets/battle/field-trainers'
+const rows = readFileSync(join(directory, 'SOURCES.md'), 'utf8').split(/\r?\n/)
+  .filter(line => line.startsWith('| ') && line.split(' | ')[0].endsWith('.png'))
+const originals = new Map(rows.map(line => {
+  const [, file, , source, , hash] = line.split('|').map(cell => cell.trim())
+  expect(source).toMatch(/https:\/\//)
+  return [file, hash.replaceAll('`', '')]
+}))
 
 afterEach(() => vi.unstubAllGlobals())
 
-it('ships distinct credited character portraits and resolves their local battle terrain in the preview and arena', () => {
+it('ships the credited original transparent PNGs for the Champions Arena trainer roster', () => {
+  expect(originals.size).toBe(242)
+  expect(readdirSync(directory).filter(file => file.endsWith('.png')).sort()).toEqual([...originals.keys()].sort())
+  for (const [file, hash] of originals) {
+    const bytes = readFileSync(join(directory, file))
+    expect(bytes.subarray(0, 8).toString('hex'), file).toBe('89504e470d0a1a0a')
+    expect([4, 6].includes(bytes[25]) || bytes.includes(Buffer.from('tRNS')), file).toBe(true)
+    expect(createHash('sha256').update(bytes).digest('hex'), file).toBe(hash)
+  }
+})
+
+it('renders the same original opponent portraits in the map and battle and resolves each local venue', () => {
   vi.stubGlobal('document', { baseURI: 'file:///game/' })
-  const portraits = new Map<string, string>()
-  const stages = new Map<string, string>()
-  const credits = readFileSync('assets/battle/field-trainers/SOURCES.md', 'utf8')
+  const used = new Set<string>()
+  const checkedStages = new Set<string>()
   for (const region of regionOrder) {
     for (const trainer of fieldTrainersByRegion[region]) {
-      const portrait = fieldTrainerPortrait(trainer)
-      const face = readFileSync(join('assets', portrait))
-      expect(face.subarray(0, 8).toString('hex')).toBe('89504e470d0a1a0a')
-      expect(credits).toContain('| ' + trainer.sprite + '.png |')
-      portraits.set(trainer.sprite, createHash('sha256').update(face).digest('hex'))
-      const html = renderToStaticMarkup(<ArenaTrainers trainer={trainer} avatar="female" commanding={false} />)
-      expect(html).toContain(portrait)
-      expect(html).toContain('data-trainer-sprite="' + trainer.sprite + '"')
+      const map = renderToStaticMarkup(<FieldTrainerPortrait trainer={trainer} />)
+      const arena = renderToStaticMarkup(<ArenaTrainers trainer={trainer} avatar="female" commanding={false} />)
+      const faces = [...map.matchAll(/<img[^>]+src="battle\/field-trainers\/([^"]+\.png)"/g)].map(match => match[1])
+      const expectedPair = trainer.sprite === 'boss-proton-petrel' ? ['proton.png', 'petrel.png']
+        : trainer.sprite === 'boss-ariana-archer' ? ['ariana.png', 'd-192.png'] : undefined
+      expect(faces, trainer.id).toEqual(expectedPair ?? [trainer.sprite + '.png'])
+      for (const face of faces) {
+        expect(arena).toContain('src="battle/field-trainers/' + face + '"')
+        used.add(face)
+      }
       const stage = battleVenue(region, trainer)
       expect(stage.name).toBe(worldRegions[region].locationById[trainer.locationId].name)
       expect(stage.image).toBe('battle/field-venues/' + trainer.venue + '.png')
       expect(renderToStaticMarkup(<VenuePreview region={region} trainer={trainer} />)).toContain(stage.image)
-      const ground = readFileSync(join('assets', stage.image))
-      expect([ground.readUInt32BE(16), ground.readUInt32BE(20)]).toEqual([600, 380])
-      stages.set(stage.image, createHash('sha256').update(ground).digest('hex'))
+      if (!checkedStages.has(stage.image)) {
+        const ground = readFileSync(join('assets', stage.image))
+        expect([ground.readUInt32BE(16), ground.readUInt32BE(20)]).toEqual([600, 380])
+        checkedStages.add(stage.image)
+      }
     }
   }
-  expect(new Set(portraits.values()).size).toBe(portraits.size)
-  expect(new Set(stages.values()).size).toBe(stages.size)
+  expect([...used].sort()).toEqual([...originals.keys()].sort())
 })

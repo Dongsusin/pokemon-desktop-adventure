@@ -2,18 +2,21 @@ import { describe, expect, it } from 'vitest'
 import {
   canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, hydrateSave, playerStats, tick,
 } from '../src/game/engine'
-import { fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
+import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
 import { parseCommand } from '../src/main/commands'
 import { finishChallenge, playFrame } from './trainerArenaDriver'
 
 const bounds = { width: 1280, height: 720 }
-const first = fieldTrainersByRegion.kanto[0]
+const first = fieldTrainerById['field-kanto-ash']!
 const challenge = (id: string) => ({ type: 'challenge-field-trainer' as const, trainerId: id })
 
 function opening(id: RegionId = 'kanto') {
   const game = createGame('squirtle', 1, bounds, Date.UTC(2026, 10, 19), 19)
   game.regionId = id
+  for (const prior of regionOrder.slice(0, regionOrder.indexOf(id))) {
+    game.regionProgress[prior] = { champion: true, badges: worldRegions[prior].gymTrainers.map(trainer => trainer.id) }
+  }
   game.locationId = worldRegions[id].startLocationId
   game.campaign.badges = worldRegions[id].gymTrainers.map(trainer => trainer.id)
   game.player.level = 55
@@ -57,6 +60,25 @@ describe('regional field trainer battles', () => {
     }
   })
 
+  it('starts and reloads every source team with exactly the roster and forms displayed on its map', () => {
+    for (const regionId of regionOrder) {
+      const game = opening(regionId)
+      for (const trainer of fieldTrainersByRegion[regionId]) {
+        game.locationId = trainer.locationId
+        for (const [index, team] of trainer.teams.entries()) {
+          const teamNumber = index + 1
+          expect(dispatch(game, { ...challenge(trainer.id), teamNumber }), trainer.id).toBe(true)
+          const restored = hydrateSave(game, 1)!
+          expect(restored.campaign.battle?.teamNumber).toBe(teamNumber)
+          expect(currentTrainer(restored)?.team, trainer.id + '/' + teamNumber).toEqual(team)
+          expect(restored.wild[0].speciesId).toBe(team[0].speciesId)
+          expect(restored.wild[0].formId).toBe(team[0].formId)
+          expect(dispatch(game, { type: 'arena-surrender' })).toBe(true)
+        }
+      }
+    }
+  })
+
   it('resumes a field battle in the same arena and pays its reward once without advancing the league', () => {
     const game = opening()
     expect(dispatch(game, { type: 'travel', locationId: first.locationId })).toBe(true)
@@ -75,10 +97,19 @@ describe('regional field trainer battles', () => {
     expect(restored.wins).toBe(game.wins + 1)
     expect(restored.coins).toBe(game.coins + rewards.coins)
     expect(restored.player.exp).toBe(game.player.exp + rewards.experience)
-    expect(dispatch(restored, challenge(first.id))).toBe(false)
+    const cleared = { wins: restored.wins, coins: restored.coins, exp: restored.player.exp }
+    const teamNumber = first.teams.length
+    const variant = fieldTeamVariant(first, teamNumber)!
+    expect(dispatch(restored, { ...challenge(first.id), teamNumber })).toBe(true)
+    expect(restored.campaign.battle?.practice).toBeDefined()
     const reopened = hydrateSave(restored, 1)!
+    expect(reopened.campaign.battle?.teamNumber).toBe(teamNumber)
+    expect(currentTrainer(reopened)?.team).toEqual(variant.team)
+    expect(reopened.wild[0].speciesId).toBe(variant.team[0].speciesId)
+    finishChallenge(reopened)
+    expect(reopened.history[0].practiceResult).toBe('win')
+    expect({ wins: reopened.wins, coins: reopened.coins, exp: reopened.player.exp }).toEqual(cleared)
     expect(reopened.campaign.fieldWins).toEqual([first.id])
-    expect(dispatch(reopened, challenge(first.id))).toBe(false)
 
     reopened.campaign.champion = true
     expect(dispatch(reopened, { type: 'transfer-region', regionId: 'johto' })).toBe(true)
@@ -88,11 +119,12 @@ describe('regional field trainer battles', () => {
     expect(dispatch(away, { type: 'transfer-region', regionId: 'kanto' })).toBe(true)
     expect(dispatch(away, { type: 'travel', locationId: first.locationId })).toBe(true)
     expect(away.campaign.fieldWins).toEqual([first.id])
-    expect(dispatch(away, challenge(first.id))).toBe(false)
+    expect(dispatch(away, challenge(first.id))).toBe(true)
+    expect(away.campaign.battle?.practice).toBeDefined()
   })
 
   it('waits for the whole opposing team and resumes the next member without duplicating rewards', () => {
-    const opponent = fieldTrainersByRegion.kanto.find(trainer => trainer.team.length > 1)!
+    const opponent = first
     const game = opening()
     game.locationId = opponent.locationId
     expect(dispatch(game, challenge(opponent.id))).toBe(true)
@@ -110,7 +142,8 @@ describe('regional field trainer battles', () => {
     finishChallenge(resumed)
     expect(resumed.campaign.fieldWins).toEqual([opponent.id])
     expect(resumed.coins - startingCoins).toBe(reward.coins)
-    expect(dispatch(resumed, challenge(opponent.id))).toBe(false)
+    expect(dispatch(resumed, challenge(opponent.id))).toBe(true)
+    expect(resumed.campaign.battle?.practice).toBeDefined()
     expect(resumed.coins - startingCoins).toBe(reward.coins)
   })
 
@@ -124,7 +157,8 @@ describe('regional field trainer battles', () => {
     expect(moved.coins).toBe(game.coins)
     const cleared = hydrateSave({ ...game, campaign: { ...game.campaign, fieldWins: [first.id] } }, 1)!
     expect(cleared.campaign.battle).toBeNull()
-    expect(dispatch(cleared, challenge(first.id))).toBe(false)
+    expect(dispatch(cleared, challenge(first.id))).toBe(true)
+    expect(cleared.campaign.battle?.practice).toBeDefined()
     expect(cleared.coins).toBe(game.coins)
   })
 
@@ -148,6 +182,36 @@ describe('regional field trainer battles', () => {
     expect(game.coins).toBe(coins)
     expect(game.losses).toBe(1)
     expect(dispatch(game, challenge(first.id))).toBe(true)
+  })
+
+  it('validates team numbers, restores their lineup, and grants only one first win per identity', () => {
+    const game = opening()
+    game.locationId = first.locationId
+    for (const invalid of [0, -1, 1.5, first.teams.length + 1, NaN]) {
+      expect(dispatch(game, { ...challenge(first.id), teamNumber: invalid })).toBe(false)
+      expect(game.campaign.battle).toBeNull()
+    }
+    expect(first.teams.length).toBeGreaterThan(1)
+    for (const teamNumber of [2, 1]) {
+      const trainer = fieldTeamVariant(first, teamNumber)!
+      expect(dispatch(game, { ...challenge(first.id), teamNumber })).toBe(true)
+      const saved = hydrateSave(game, 1)!
+      expect(currentTrainer(saved)?.team).toEqual(trainer.team)
+      expect(saved.wild[0].speciesId).toBe(trainer.team[0].speciesId)
+      expect(dispatch(game, { type: 'arena-surrender' })).toBe(true)
+    }
+    expect(game.campaign.fieldWins).toBeUndefined()
+  })
+
+  it('ends a retired legacy lineup in place, without awarding a loss, a win or coins', () => {
+    const game = opening()
+    game.locationId = first.locationId
+    expect(dispatch(game, challenge(first.id))).toBe(true)
+    const old = { ...game, schemaVersion: 19 }
+    const restored = hydrateSave(old, 1)!
+    expect(restored).toMatchObject({ locationId: game.locationId, wins: 0, losses: 0, coins: 0, wild: [], campaign: { battle: null } })
+    expect(restored.campaign.fieldWins).toBeUndefined()
+    expect(dispatch(restored, challenge(first.id))).toBe(true)
   })
 
   it('upgrades older slots and filters duplicates and unrelated clearances', () => {

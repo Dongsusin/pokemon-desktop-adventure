@@ -84,6 +84,32 @@ describe('regional map travel', () => {
     expect(travel(game, 'cerulean-city')).toBe(false)
   })
 
+  it.each([
+    ['johto', 'field-johto-ariana', 'field-johto-boss-ariana-archer', 'goldenrod-radio-tower'],
+    ['unova', 'field-unova-hugh', 'field-unova-s-012', 'virbank-city'],
+    ['paldea', 'field-paldea-giacomo', 'field-paldea-b-098', 'asado-desert'],
+  ] as const)('preserves older %s passage without crediting the new opponent', (id, former, successor, place) => {
+    const game = opening()
+    game.regionId = id
+    game.locationId = worldRegions[id].startLocationId
+    for (const region of Object.values(worldRegions)) {
+      if (region.id === id) break
+      game.regionProgress[region.id] = { badges: region.gymTrainers.map(t => t.id), champion: true }
+    }
+    game.campaign.badges = worldRegions[id].gymTrainers.map(trainer => trainer.id)
+    const legacy = { ...game, schemaVersion: 19, campaign: { ...game.campaign, fieldWins: [former, former] } }
+    const upgraded = hydrateSave(legacy, 1)!
+    expect(upgraded.regionId).toBe(id)
+    expect(upgraded.campaign.fieldWins).toBeUndefined()
+    expect(upgraded.campaign.legacyGatePasses).toEqual([successor])
+    expect(travel(upgraded, place)).toBe(true)
+    const savedAgain = hydrateSave(upgraded, 1)!
+    expect(locationAccess(savedAgain, place).unlocked).toBe(true)
+    expect(savedAgain.coins).toBe(game.coins)
+    expect(dispatch(savedAgain, { type: 'transfer-region', regionId: 'kanto' })).toBe(true)
+    expect(hydrateSave(savedAgain, 1)?.regionProgress[id]?.legacyGatePasses).toEqual([successor])
+  })
+
   it('requires the Paldea finale for the crater even with Champion Rank', () => {
     const game = opening()
     game.regionId = 'paldea'

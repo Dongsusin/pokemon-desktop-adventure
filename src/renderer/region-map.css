@@ -134,6 +134,13 @@
 .field-trainer-marker b { position: absolute; right: -4px; bottom: -2px; padding: 1px 2px; border-radius: 4px; background: #286045; color: white; font: bold 10px/1 sans-serif; }
 .field-cleared .field-trainer-marker { background: #e1eadf; border-color: #356047; }
 .field-trainer-directory { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+.field-trainer-search { width: 100%; margin: 8px 0 0; border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; color: var(--ink); background: white; }
+.field-trainer-directory > ul, .field-other-regions ul { max-height: 20rem; overflow-y: auto; }
+.field-other-regions h3 { margin: 9px 0 2px; font-size: 12px; }
+.field-other-regions li { display: grid; gap: 2px; padding: 3px 5px; font-size: 11px; }
+.field-other-regions small { color: var(--muted); }
+.field-party-picker { display: flex; align-items: center; gap: 8px; font-size: 12px; padding-bottom: 6px; }
+.field-party-picker select { border-radius: 4px; border: 1px solid var(--border); color: var(--ink); padding: 3px 5px; }
 .field-trainer-directory summary { cursor: pointer; color: var(--ink); font-size: 12px; font-weight: 700; }
 .field-trainer-directory summary span { margin-left: 5px; color: var(--muted); font-size: 10px; font-weight: 500; }
 .field-trainer-directory ul { display: grid; grid-template-columns: repeat(auto-fit,minmax(150px, 1fr)); gap: 4px; padding: 0; margin: 7px 0 0; list-style: none; }
@@ -143,7 +150,7 @@
 }
 .field-trainer-directory button:hover, .field-trainer-directory button[aria-pressed="true"] { border-color: #9aa98e; background: #e7eee1; }
 .field-trainer-directory button img { flex: none; object-fit: contain; image-rendering: pixelated; }
-.field-trainer-directory button span { flex: 1; display: grid; min-width: 0; }
+.field-trainer-directory button > span:not(.field-portrait-pair) { flex: 1; display: grid; min-width: 0; }
 .field-trainer-directory button strong { font-size: 11px; }
 .field-trainer-directory button small { color: var(--muted); font-size: 10px; }
 .field-trainer-card { margin: 10px 0; border: 1px solid #d8ceae; border-radius: 8px; padding: 8px; background: #fbf8ee; }

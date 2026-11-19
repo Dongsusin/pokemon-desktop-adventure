@@ -21,7 +21,7 @@ export function locationAccess(game: Pick<GameSave, 'regionId' | 'campaign'>, lo
   const rule = rules[locationId]
   const requiredBadges = rule.badges ?? 0
   const missingBadges = Math.max(0, requiredBadges - campaign.badges.length)
-  const missingTrainerId = rule.trainerId && !campaign.fieldWins?.includes(rule.trainerId)
+  const missingTrainerId = rule.trainerId && !campaign.fieldWins?.includes(rule.trainerId) && !campaign.legacyGatePasses?.includes(rule.trainerId)
     ? rule.trainerId : undefined
   const needsFinale = !!places[locationId].afterFinale && !campaign.finaleWon
   return { unlocked: missingBadges === 0 && !missingTrainerId && !needsFinale,

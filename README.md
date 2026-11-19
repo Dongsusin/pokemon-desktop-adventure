@@ -4,7 +4,7 @@ Windows 바탕화면에서 포켓몬과 함께하는 자동 육성 게임입니�
 
 ## 실행
 
-Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.27.0/Pokemon-Desktop-Adventure-0.27.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
+Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.28.0/Pokemon-Desktop-Adventure-0.28.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
 
 소스 코드로 실행하려면 Windows 10 또는 11의 PowerShell에서 프로젝트 폴더를 엽니다. Node.js 22.12 이상과 npm이 필요합니다.
 
@@ -30,11 +30,11 @@ npm run dev
 
 프리져는 쌍둥이섬, 썬더는 무인발전소, 파이어는 챔피언로드, 뮤츠는 블루동굴에 출현 판정당 약 0.65% 확률로 나타납니다. 체육관의 실제 위치와 관장, 석영고원 리그 위치를 확인할 수 있습니다. [지도와 지형 이미지 출처](assets/maps/kanto/SOURCES.md)
 
-## 지도에서 만나는 지역 트레이너
+## 지도에서 만나는 챔피언스 아레나 트레이너
 
-9개 지방마다 라이벌·동료·악의 조직 인물이 등장하는 지역 대결이 6개씩 있습니다. **지도 → 지역 트레이너**를 펼치거나 지도 위의 인물 도트를 누르면 장소, 상대 팀과 레벨, 필요한 배지·시련 수, 첫 승리 보상을 확인할 수 있습니다. 특정 장소를 여는 상대는 카드에서 연결된 목적지를 볼 수 있고, 추가로 찾아가 싸울 수 있는 상대는 **자유 대결**로 표시합니다. 해당 장소로 이동한 뒤 **[상대 이름]에게 도전** 버튼을 누르면 실시간 배틀을 시작합니다.
+[Pokémon Champions Arena](https://pokemon-champions-area-web.co.kr/)의 정규 AI 트레이너 238명, 로켓단 2인조 두 팀과 팩토리 삐에로가 9개 지방에서 등장합니다. **지도 → 지역 트레이너**에서 이름이나 장소를 검색해 상대를 찾으세요. 다른 지방의 검색 결과에는 그 상대가 있는 지방과 장소가 표시됩니다.
 
-관동에서는 상록숲의 지우와 배지 없이 싸울 수 있습니다. 배지를 얻으면 달맞이산의 로사·로이, 상트앙느호의 그린, 실프주식회사의 비주기에게 차례로 도전할 수 있습니다. 팀과 레벨은 배치 장소와 이 게임의 지방별 레벨 상한에 맞춰 편성했습니다. 승리하면 경험치와 코인을 한 번 받고 지방 지도에 승리가 기록됩니다. 패배하거나 철수한 상대는 다시 도전할 수 있습니다. [9개 지방의 인물·장소·원작 참고 자료](docs/field-trainers.md) · [돌산터널 등산가전](docs/screenshots/rock-tunnel-hiker.png) · [실프주식회사 배틀 화면](docs/screenshots/field-trainer-battle.png)
+상대 위치에 도착하면 **상대 파티**에서 편성을 고르고 도전할 수 있습니다. 원작 팀의 순서와 지원하는 폼을 따르며, 레벨은 각 지방의 진행 단계에 맞춥니다. 승리하면 경험치와 코인을 한 번 받고, 이후 다른 파티로도 연습 재대결할 수 있습니다. 기존 저장은 이미 열어 둔 길을 이어서 이용할 수 있습니다. [전체 241개 대결 배치표](docs/field-trainers.md) · [지우의 원작 파티 선택 화면](docs/screenshots/champions-arena-map.png) · [황토마을 로켓단 2인조전](docs/screenshots/champions-arena-rocket.png)
 
 ## 체육관·리그 실시간 배틀
 

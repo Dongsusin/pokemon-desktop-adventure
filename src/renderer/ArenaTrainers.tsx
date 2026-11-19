@@ -2,7 +2,7 @@ import type { KantoTrainer } from '../game/regions/kantoCampaign'
 import type { TrainerAvatar } from '../game/trainerAvatar'
 import { PlayerTrainerSprite } from './PlayerTrainer'
 import { fieldTrainerById } from '../game/regions/fieldTrainers'
-import { fieldTrainerPortrait } from './fieldTrainerArt'
+import { FieldTrainerPortrait } from './fieldTrainerArt'
 
 const namedSprites = new Set([
   'aaron', 'acerola', 'agatha', 'bea', 'bede', 'bertha', 'blaine', 'blue', 'brassius', 'brawly', 'brock', 'bruno',
@@ -34,8 +34,7 @@ export function ArenaTrainers({ trainer, avatar, commanding }: {
   const rival = namedSprites.has(name) ? name : femaleFallback.has(name) ? 'ace-f' : 'ace-m'
   return <div style={{ pointerEvents: 'none' }}>
     {avatar && <PlayerTrainerSprite avatar={avatar} pose={commanding ? 'command' : 'idle'} className="ring-player-trainer" />}
-    {field ? <img className="ring-field-opponent" src={fieldTrainerPortrait(field)} data-trainer-sprite={field.sprite}
-      alt={field.name} draggable={false} /> : trainer.trialKind !== 'totem' && (name === 'tate-liza'
+    {field ? <FieldTrainerPortrait className="ring-field-opponent" trainer={field} alt={field.name} /> : trainer.trialKind !== 'totem' && (name === 'tate-liza'
       ? <><TrainerFigure image="tate" x={97.8} y={48}/><TrainerFigure image="liza" x={97.8} y={55}/></>
       : <TrainerFigure image={rival} x={97.8} y={51}/>)}
   </div>

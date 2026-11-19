@@ -33,7 +33,7 @@ it.each(regionOrder)('keeps locked %s destinations selectable and shows where to
   expect(locked.action).toContain('disabled=""')
   expect(locked.action).toContain('aria-describedby="map-travel-requirements"')
   expect(locked.html).toContain(region.locationById[destination].name + ' · 이동 잠김</option>')
-  expect(locked.html).toContain(trainer.name + '에게 승리')
+  expect(locked.html).toContain(renderToStaticMarkup(<>{trainer.name}에게 승리</>))
   expect(locked.html).toContain('aria-label="' + region.locationById[trainer.locationId].name + ' 지도에서 보기"')
   expect(locked.html).toMatch(/class="kanto-pin [^"]*is-locked[^"]*"/)
   if (rule.badges) {

@@ -19,7 +19,8 @@ import { defensiveAbility, teraStabBonus, typeMultiplier } from './regions/palde
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
-import { fieldTrainersByRegion } from './regions/fieldTrainers'
+import { fieldTeamVariant, fieldTrainersByRegion } from './regions/fieldTrainers'
+import { replacedGatekeepers } from './regions/locationGates'
 import { locationAccess } from './locationAccess'
 import type { KantoTrainer, KantoTrainerMember } from './regions/kantoCampaign'
 import { isRegionId, regionOrder, worldRegions, type RegionId, type WorldRegion } from './regions/world'
@@ -338,6 +339,7 @@ interface PracticeParty {
 }
 
 interface TrainerBattle {
+  teamNumber?: number
   practice?: PracticeParty
   arena: TrainerArena
   trainerId: string
@@ -345,6 +347,7 @@ interface TrainerBattle {
 }
 
 export interface RegionProgress {
+  legacyGatePasses?: string[]
   fieldWins?: string[]
   finaleWon?: true
   badges: string[]
@@ -357,7 +360,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 19
+const SAVE_SCHEMA_VERSION = 20
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -414,7 +417,7 @@ export type GameAction =
   | { type: 'travel'; locationId: string }
   | { type: 'transfer-region'; regionId: RegionId }
   | { type: 'challenge-gym' }
-  | { type: 'challenge-field-trainer'; trainerId: string }
+  | { type: 'challenge-field-trainer'; trainerId: string; teamNumber?: number }
   | { type: 'practice-gym' }
   | { type: 'challenge-finale' }
   | { type: 'challenge-league'; trainerId?: string }
@@ -1454,7 +1457,7 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   return true
 }
 
-function restoreTrainerParty(game: GameSave, arena: TrainerArena, healParticipants: boolean): void {
+function restoreTrainerParty(game: GameSave, arena: Pick<TrainerArena, 'partyOrder' | 'participants'>, healParticipants: boolean): void {
   if (healParticipants) {
     heal(game, playerStats(game).hp)
     for (const member of game.followers) {
@@ -1869,8 +1872,12 @@ function originalTrainer(region: WorldRegion, trainer: KantoTrainer, speciesId: 
   return trainer.role === 'champion' ? region.championForStarter?.(speciesId) ?? trainer : trainer
 }
 
+function trainerMemberForm(regionId: RegionId, trainer: KantoTrainer, member: KantoTrainerMember) {
+  return member.formId ?? (trainer.role === 'field' ? undefined : locationForm(regionId, trainer.locationId, member.speciesId))
+}
+
 function supportedTrainerMember(region: WorldRegion, trainer: KantoTrainer, member: KantoTrainerMember): KantoTrainerMember[] {
-  const formId = member.formId ?? locationForm(region.id, trainer.locationId, member.speciesId)
+  const formId = trainerMemberForm(region.id, trainer, member)
   if (!isSpeciesMotionSupported(member.speciesId, formId)) return []
   if (formId === 'wishiwashi-school' && !isSpeciesMotionSupported(member.speciesId)) return []
   if (member.dynamax === 'gigantamax' && !isSpeciesMotionSupported(member.speciesId, member.speciesId + '-gmax')) {
@@ -1922,15 +1929,16 @@ function resetLeagueRun(campaign: Campaign): void {
   delete campaign.eliteWins
 }
 
-function trainerDefinition(region: WorldRegion, id: string): KantoTrainer | undefined {
-  return region.trainerById[id] ?? fieldTrainersByRegion[region.id].find(trainer => trainer.id === id)
+function trainerDefinition(region: WorldRegion, id: string, teamNumber?: number): KantoTrainer | undefined {
+  const field = fieldTrainersByRegion[region.id].find(trainer => trainer.id === id)
+  return field ? fieldTeamVariant(field, teamNumber) : region.trainerById[id]
 }
 
 export function currentTrainer(game: GameSave): KantoTrainer | undefined {
   const id = game.campaign.battle?.trainerId
   if (!id) return
   const region = worldRegions[game.regionId]
-  const trainer = trainerDefinition(region, id)
+  const trainer = trainerDefinition(region, id, game.campaign.battle?.teamNumber)
   return trainer && resolveTrainer(region, trainer, game.starterSpeciesId)
 }
 
@@ -1940,12 +1948,13 @@ function canChallenge(game: GameSave): boolean {
 }
 
 function availableFieldTrainer(region: WorldRegion, campaign: Campaign, locationId: string, trainerId: string) {
-  if (campaign.leagueIndex !== null || campaign.fieldWins?.includes(trainerId)) return undefined
+  if (campaign.leagueIndex !== null) return undefined
   return fieldTrainersByRegion[region.id].find(trainer => trainer.id === trainerId &&
     trainer.locationId === locationId && campaign.badges.length >= trainer.requiredBadges)
 }
 
 export function canChallengeFieldTrainer(game: GameSave, trainerId: string): boolean {
+  if (game.campaign.fieldWins?.includes(trainerId) && game.runtime.drop) return false
   return canChallenge(game) && !!availableFieldTrainer(worldRegions[game.regionId], game.campaign, game.locationId, trainerId)
 }
 
@@ -1982,7 +1991,7 @@ function resizeHP(current: number, previousMax: number, newMax: number) {
 function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentIndex: number, id: number, position: Position, direction: Direction, remainingActions = MAX_GIMMICK_ACTIONS): Wild {
   const member = trainer.team[opponentIndex]
   const { speciesId, level } = member
-  const formId = member.formId ?? locationForm(regionId, trainer.locationId, speciesId)
+  const formId = trainerMemberForm(regionId, trainer, member)
   // Trainer teams use their campaign HP scaling independently of wild encounters.
   const baseHP = Math.max(8, Math.round(encounterMaxHP(speciesId, level, formId) * TRAINER_HEALTH_MULTIPLIER))
   const maxHP = member.dynamax && remainingActions > 0 ? dynamaxHP(baseHP) : baseHP
@@ -2019,7 +2028,7 @@ function practiceParty(game: GameSave): PracticeParty {
     battleItem: activeBattleItem(game), itemReadyAt: game.runtime.itemReadyAt, heldHealReadyAt: game.runtime.heldHealReadyAt, cooldowns: game.runtime.cooldowns, boostUntil: game.runtime.boostUntil }
 }
 
-function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: PracticeParty): boolean {
+function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: PracticeParty, teamNumber?: number): boolean {
   clearGimmicks(game)
   if (game.runtime.drop) collect(game, game.runtime.drop)
   game.effects = []
@@ -2030,7 +2039,7 @@ function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: Practi
   if ((trainer.role === 'elite' || trainer.role === 'champion') && trainer.id !== worldRegions[game.regionId].finaleTrainer?.id) {
     game.campaign.leagueIndex ??= 0
   }
-  game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, ...(practice && { practice }), arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
+  game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, ...(teamNumber && { teamNumber }), ...(practice && { practice }), arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
   const { x, y } = game.player.position
   const inward = x > 145 * game.settings.spriteScale ? -1 : 1
   sendTrainerOpponent(game, trainer, { x: x + inward * 92, y }, 1050)
@@ -2369,11 +2378,11 @@ export function canTransferRegion(game: GameSave, regionId: RegionId): boolean {
 function transferRegion(game: GameSave, regionId: RegionId): boolean {
   if (!canTransferRegion(game, regionId)) return false
   const prior = game.regionId
-  const { badges, champion, fieldWins } = game.campaign
+  const { badges, champion, fieldWins, legacyGatePasses } = game.campaign
   const destination = worldRegions[regionId]
   travelTo(game, destination.locationById[destination.startLocationId])
   game.regionProgress[prior] = { badges: [...badges], champion, ...(game.campaign.finaleWon && { finaleWon: true }),
-    ...(fieldWins?.length && { fieldWins: [...fieldWins] }) }
+    ...(fieldWins?.length && { fieldWins: [...fieldWins] }), ...(legacyGatePasses?.length && { legacyGatePasses: [...legacyGatePasses] }) }
   game.regionId = regionId
   game.campaign = newCampaign(game.regionProgress[regionId])
   delete game.regionProgress[regionId]
@@ -2671,8 +2680,12 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     }
     case 'challenge-field-trainer': {
       const region = worldRegions[game.regionId]
-      const trainer = availableFieldTrainer(region, game.campaign, game.locationId, action.trainerId)
-      return !!trainer && canChallenge(game) && startChallenge(game, resolveTrainer(region, trainer, game.starterSpeciesId))
+      if (!canChallengeFieldTrainer(game, action.trainerId)) return false
+      const teamNumber = action.teamNumber === undefined ? 1 : action.teamNumber
+      const trainer = trainerDefinition(region, action.trainerId, teamNumber)
+      if (!trainer) return false
+      const practice = game.campaign.fieldWins?.includes(trainer.id) ? structuredClone(practiceParty(game)) : undefined
+      return startChallenge(game, resolveTrainer(region, trainer, game.starterSpeciesId), practice, teamNumber)
     }
     case 'practice-gym': {
       const region = worldRegions[game.regionId]
@@ -3038,7 +3051,7 @@ for (const starterId of starterIds) {
   }
 }
 
-function readRegionProgress(region: WorldRegion, value: unknown): RegionProgress {
+function readRegionProgress(region: WorldRegion, value: unknown, version: number): RegionProgress {
   if (!isRecord(value)) return { badges: [], champion: false }
   const savedBadges = value.badges
   const badges = Array.isArray(savedBadges)
@@ -3049,12 +3062,16 @@ function readRegionProgress(region: WorldRegion, value: unknown): RegionProgress
   const fieldWins = Array.isArray(savedWins)
     ? fieldTrainersByRegion[region.id].filter(trainer => savedWins.includes(trainer.id)).map(trainer => trainer.id)
     : []
-  return { badges, champion, ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }),
+  const savedPasses = version < 20 ? savedWins : value.legacyGatePasses
+  const legacyGatePasses = Object.entries(replacedGatekeepers[region.id] ?? {})
+    .filter(([oldId, activeId]) => Array.isArray(savedPasses) && savedPasses.includes(version < 20 ? oldId : activeId))
+    .map(([, activeId]) => activeId)
+  return { badges, champion, ...(legacyGatePasses.length && { legacyGatePasses }), ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }),
     ...(fieldWins.length && { fieldWins }) }
 }
 
 function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number, practice?: PracticeParty): Campaign {
-  const campaign = newCampaign(readRegionProgress(region, value))
+  const campaign = newCampaign(readRegionProgress(region, value, version))
   if (!isRecord(value)) return campaign
   const gym = remainingGym(region, campaign.badges)
   const atLeague = locationId === region.leagueLocationId
@@ -3079,27 +3096,37 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   const finale = region.finaleTrainer
   const availableFinale = finale?.locationId === locationId && campaign.champion && !campaign.finaleWon ? finale : undefined
   const field = availableFieldTrainer(region, campaign, locationId, savedTrainerId)
-  const eligibleTrainer = practice ? (localGym && campaign.badges.includes(localGym.id) ? localGym : undefined)
-    : field ?? (localGym && !campaign.badges.includes(localGym.id) ? localGym
-      : campaign.leagueIndex !== null ? eligibleLeagueOpponents(region, campaign, speciesId)
-        .find(trainer => trainer.id === savedTrainerId) : availableFinale)
+  // The entire field roster changed in schema 20. An older mid-fight slot has no source team number.
+  if (field && version < 20) return campaign
+  let teamNumber: number | undefined
+  if (field) {
+    const selected = value.battle.teamNumber === undefined ? 1 : value.battle.teamNumber
+    if (typeof selected !== 'number' || !Number.isInteger(selected) || !!practice !== !!campaign.fieldWins?.includes(field.id)) return campaign
+    teamNumber = selected
+  }
+  let eligibleTrainer: KantoTrainer | undefined = field
+  if (!eligibleTrainer) {
+    if (localGym && !!practice === campaign.badges.includes(localGym.id)) eligibleTrainer = localGym
+    else if (!practice) eligibleTrainer = campaign.leagueIndex !== null ? eligibleLeagueOpponents(region, campaign, speciesId)
+      .find(trainer => trainer.id === savedTrainerId) : availableFinale
+  }
   const index = value.battle.opponentIndex
   if (eligibleTrainer?.id !== savedTrainerId || typeof index !== 'number' || !Number.isInteger(index) || index < 0) return campaign
-  const definition = trainerDefinition(region, savedTrainerId)
+  const definition = trainerDefinition(region, savedTrainerId, teamNumber)
   if (!definition) return campaign
   const team = resolveTrainer(region, definition, speciesId).team
   let opponentIndex = index
   if (version < 16) {
     const oldTeam = originalTrainer(region, definition, speciesId).team
     const member = oldTeam[index]
-    if (!member || !isSpeciesMotionSupported(member.speciesId, member.formId ?? locationForm(region.id, definition.locationId, member.speciesId))) return campaign
+    if (!member || !isSpeciesMotionSupported(member.speciesId, trainerMemberForm(region.id, definition, member))) return campaign
     // The same species and level can occur more than once in an original team.
     const sameMember = (slot: KantoTrainerMember) => slot.speciesId === member.speciesId && slot.level === member.level && slot.formId === member.formId
     let occurrence = oldTeam.slice(0, index).filter(sameMember).length
     opponentIndex = team.findIndex(slot => sameMember(slot) && occurrence-- === 0)
   }
   if (opponentIndex >= 0 && opponentIndex < team.length) {
-    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(practice && { practice }), arena: createArena([]) }
+    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(teamNumber && { teamNumber }), ...(practice && { practice }), arena: createArena([]) }
   }
   return campaign
 }
@@ -3159,7 +3186,7 @@ function readEncounterGimmicks(raw: unknown, version: number, region: RegionId, 
 function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Campaign, speciesId: string, targetId: number | null, version: number): Wild | undefined {
   const battle = campaign.battle
   if (!battle || !Array.isArray(value) || !targetId) return
-  const definition = trainerDefinition(region, battle.trainerId)
+  const definition = trainerDefinition(region, battle.trainerId, battle.teamNumber)
   if (!definition) return
   const trainer = resolveTrainer(region, definition, speciesId)
   const slot = trainer.team[battle.opponentIndex]
@@ -3171,6 +3198,7 @@ function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Camp
     if (!position) continue
     const remaining = version < 17 ? Math.ceil(integer(entry.maxActionsLeft, 6, 0, 6) / 2) : integer(entry.maxActionsLeft, 0, 0, 3)
     const opponent = trainerOpponent(region.id, trainer, battle.opponentIndex, targetId, position, entry.direction === -1 ? -1 : 1, remaining)
+    if (trainer.role === 'field' && entry.formId !== opponent.formId) continue
     opponent.currentHP = integer(entry.currentHP, opponent.maxHP, 1, opponent.maxHP)
     return opponent
   }
@@ -3286,7 +3314,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
     const active = id === savedRegion
     const record = active ? value.campaign : savedProgress[id]
     if (!active && !isRecord(record)) break
-    const progress = readRegionProgress(worldRegions[id], record)
+    const progress = readRegionProgress(worldRegions[id], record, value.schemaVersion)
     if (active) regionId = id
     else regionProgress[id] = progress
     if (!progress.champion) break
@@ -3296,7 +3324,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
     ? readLocation(region, value.locationId) : undefined
   const savedCampaign = savedRegion === regionId ? value.campaign : regionProgress[regionId]
   // Keep legacy players at their saved location. New route requirements apply when entering a destination.
-  const savedLocation = proposedLocation?.afterFinale && !readRegionProgress(region, savedCampaign).finaleWon ? undefined : proposedLocation
+  const savedLocation = proposedLocation?.afterFinale && !readRegionProgress(region, savedCampaign, value.schemaVersion).finaleWon ? undefined : proposedLocation
   const fallbackLocationId = regionId === 'kanto' ? LEGACY_LOCATION_ID : region.startLocationId
   const location = savedLocation ?? region.locationById[fallbackLocationId]
   delete regionProgress[regionId]
@@ -3438,6 +3466,16 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
     if (currentHP > 0) {
       runtime.pausedState = 'IDLE'
       transition(hydrated, autoBattle ? 'RECOVER' : 'IDLE', autoBattle ? RECOVERY_MS : 700)
+    }
+  }
+  if (value.schemaVersion < 20 && isRecord(savedCampaign) && isRecord(savedCampaign.battle) &&
+      typeof savedCampaign.battle.trainerId === 'string' && savedCampaign.battle.trainerId.startsWith('field-')) {
+    // The old challenger has left, but a mid-fight switch must not reorder the saved party.
+    const arena = savedCampaign.battle.arena
+    const order: unknown = isRecord(arena) ? arena.partyOrder : undefined
+    const members = [leaderId, ...followers.map(member => member.instanceId)]
+    if (Array.isArray(order) && order.length === members.length && members.every(id => order.includes(id))) {
+      restoreTrainerParty(hydrated, { partyOrder: order, participants: [] }, false)
     }
   }
   restorePlayableParty(hydrated)

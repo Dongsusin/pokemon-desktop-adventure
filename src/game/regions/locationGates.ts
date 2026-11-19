@@ -5,6 +5,13 @@ export interface LocationGateRule {
   readonly trainerId?: string
 }
 
+// Earlier saves can retain passage gained by beating a former gatekeeper.
+export const replacedGatekeepers: Partial<Record<RegionId, Readonly<Record<string, string>>>> = {
+  johto: { 'field-johto-ariana': 'field-johto-boss-ariana-archer' },
+  unova: { 'field-unova-hugh': 'field-unova-s-012' },
+  paldea: { 'field-paldea-giacomo': 'field-paldea-b-098' },
+}
+
 type GateGroup = readonly [rule: LocationGateRule, ...locations: string[]]
 
 function byLocation(groups: readonly GateGroup[]): Readonly<Record<string, LocationGateRule>> {
@@ -76,7 +83,7 @@ export const locationGateRules: Readonly<Record<RegionId, Readonly<Record<string
     [{ badges: 6 },
       'route-42', 'mt-mortar', 'mahogany-town', 'route-43', 'lake-of-rage',
     ],
-    [{ badges: 7, trainerId: 'field-johto-ariana' },
+    [{ badges: 7, trainerId: 'field-johto-boss-ariana-archer' },
       'goldenrod-radio-tower',
     ],
     [{ badges: 7, trainerId: 'field-johto-archer' },
@@ -187,7 +194,7 @@ export const locationGateRules: Readonly<Record<RegionId, Readonly<Record<string
       'aspertia-city', 'unova-route-19', 'floccesy-town', 'unova-route-20', 'floccesy-ranch',
       'pledge-grove',
     ],
-    [{ badges: 1, trainerId: 'field-unova-hugh' },
+    [{ badges: 1, trainerId: 'field-unova-s-012' },
       'virbank-city', 'virbank-complex', 'pokestar-studios',
     ],
     [{ badges: 2 },
@@ -391,7 +398,7 @@ export const locationGateRules: Readonly<Record<RegionId, Readonly<Record<string
     [{ badges: 2 },
       'segin-squad', 'east-province-area-two', 'levincia', 'schedar-squad',
     ],
-    [{ badges: 3, trainerId: 'field-paldea-giacomo' },
+    [{ badges: 3, trainerId: 'field-paldea-b-098' },
       'asado-desert', 'cascarrafa', 'west-province-area-two', 'porto-marinada',
     ],
     [{ badges: 3 },

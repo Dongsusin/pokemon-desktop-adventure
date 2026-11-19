@@ -144,9 +144,15 @@ export function parseCommand(value: unknown): AdventureCommand | null {
     case 'setMoves':
       return Array.isArray(value.moveIds) && value.moveIds.length <= 4 && value.moveIds.every(knownId)
         ? { type: value.type, moveIds: value.moveIds } : null
-    case 'challengeFieldTrainer':
-      return knownId(value.trainerId) && Object.hasOwn(fieldTrainerById, value.trainerId)
-        ? { type: value.type, trainerId: value.trainerId } : null
+    case 'challengeFieldTrainer': {
+      if (!knownId(value.trainerId)) return null
+      const trainer = fieldTrainerById[value.trainerId]
+      if (!trainer) return null
+      const { teamNumber } = value
+      if (teamNumber === undefined) return { type: value.type, trainerId: trainer.id }
+      return typeof teamNumber === 'number' && Number.isInteger(teamNumber) && teamNumber >= 1 && teamNumber <= trainer.teams.length
+        ? { type: value.type, trainerId: trainer.id, teamNumber } : null
+    }
     case 'challengeLeague':
       if (value.trainerId === undefined) return { type: value.type }
       return knownId(value.trainerId) ? { type: value.type, trainerId: value.trainerId } : null
