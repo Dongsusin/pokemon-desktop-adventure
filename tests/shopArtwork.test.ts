@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { expect, it } from 'vitest'
 import { catalogItems } from '../src/game/shopCatalog'
@@ -7,6 +7,9 @@ import manifest from '../src/renderer/shop-item-icons.json'
 it('ships a local PNG for every shop and bag entry, including Z-A DLC', () => {
   const files: Record<string, string> = manifest.icons
   expect(Object.keys(files).sort()).toEqual(catalogItems.map(item => item.id).sort())
+  const shipped = readdirSync(resolve('assets/items'), { recursive: true, encoding: 'utf8' })
+    .filter(file => file.endsWith('.png')).map(file => file.replaceAll('\\', '/')).sort()
+  expect(shipped).toEqual([...new Set(Object.values(files).map(file => file + '.png'))].sort())
   for (const file of new Set(Object.values(files))) {
     expect(file).toMatch(/^(catalog\/)?[a-zA-Z0-9_-]+$/)
     const png = readFileSync(resolve('assets', 'items', file + '.png'))
@@ -14,7 +17,7 @@ it('ships a local PNG for every shop and bag entry, including Z-A DLC', () => {
     expect(png.readUInt32BE(16), file).toBeGreaterThan(0)
     expect(png.readUInt32BE(20), file).toBeGreaterThan(0)
   }
-  for (const id of ['pokeball', 'master-ball', 'hyper-oran-berry', 'charizardite-x', 'glimmoranite']) {
+  for (const id of ['pokeball', 'master-ball', 'oran-berry', 'charizardite-x', 'glimmoranite']) {
     expect(files[id]).toBeTruthy()
     expect(manifest.shared).not.toContain(id)
   }

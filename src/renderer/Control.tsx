@@ -14,6 +14,7 @@ import type { GameSave, Settings } from '../game/engine'
 import type { AdventureCommand, AdventureSnapshot } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName, statNames, types, useAdventure } from './shared'
 import { Party } from './Party'
+import { PokemonCare } from './PokemonCare'
 import { FriendlyShop } from './FriendlyShop'
 import { InventoryBag } from './InventoryBag'
 import { TrainerArena, BattleResult, type TrainerResult } from './TrainerArena'
@@ -232,10 +233,11 @@ function Status({ game, send }: { game: GameSave; send: Command }) {
       <Habitat id={mon.id} formId={player.formId} mode={player.state === 'BATTLE' ? '공격' : player.state === 'WANDER' ? '걷기' : '대기'} />
       <div className="preview-content">
         <div className="partner-title"><h2>{pokemonName(mon.id, player.formId)}</h2><span className="level-label">Lv. {level}</span></div>
-        <p className="subtext">{activityLabels[player.state]} · 레벨 상한 Lv. {cap}
+        <p className="subtext">{activityLabels[player.state]}
           {level < player.level && ' · 기록 Lv. ' + player.level}
         </p>
         <Meter label="HP" value={player.currentHP} max={stats.hp} />
+        <PokemonCare game={game} member={player} showHP={false} send={send} />
         <Meter label="EXP" value={player.exp} max={level < cap ? requiredExp(level) : 0} limitText="레벨 상한 도달" />
         <Switch label="자동 사냥" checked={game.autoBattle} onChange={enabled => send({ type: 'autoBattle', enabled })} />
       </div>
@@ -245,6 +247,7 @@ function Status({ game, send }: { game: GameSave; send: Command }) {
       <CapturePanel game={game} send={send} />
       <Card title="모험 현황">
         <dl className="totals"><div><dt>승리</dt><dd>{game.wins}</dd></div><div><dt>패배</dt><dd>{game.losses}</dd></div><div><dt>코인</dt><dd>{game.coins.toLocaleString('ko-KR')}</dd></div><div><dt>파티</dt><dd>{1 + game.followers.length}/{MAX_PARTY_SIZE}</dd></div></dl>
+        <p className="status-level-cap"><strong>현재 레벨캡</strong> <b>Lv. {cap}</b> · {worldRegions[game.regionId].name}</p>
         {next && <div className="next-evolution"><Pokemon id={next.speciesId} formId={next.formId} /><div><span>다음 진화 · Lv. {next.minLevel}</span><strong>{pokemonName(next.speciesId, next.formId)}</strong></div>
           {canEvolve(game) && !game.settings.autoEvolve && <button className="small-button" onClick={() => send({ type: 'evolve' })}>진화하기</button>}
         </div>}
@@ -358,7 +361,8 @@ function SettingsPane({ game, snapshot, send }: { game: GameSave; snapshot: Adve
   return <div className="pane-grid">
     <Card title="모험">
       <Switch label="자동 사냥" checked={game.autoBattle} onChange={enabled => send({ type: 'autoBattle', enabled })} />
-      <Switch label="자동 회복" checked={settings.autoHeal} onChange={autoHeal => change({ autoHeal })} />
+      <Switch label="배틀 도구 전부 자동 사용" checked={settings.autoUseAllItems} onChange={autoUseAllItems => change({ autoUseAllItems })}
+        note="HP가 낮으면 회복 도구를 우선합니다. 장착 중인 수량과 종류별 마지막 1개는 보관합니다." />
       <Switch label="자동 진화" checked={settings.autoEvolve} onChange={autoEvolve => change({ autoEvolve })} />
       <label className="select-field"><span><strong>자동 포획</strong><small className="field-note">야생 HP 35% 이하에서 조우당 1회</small></span>
         <select aria-label="자동 포획" value={settings.autoCaptureBall ?? ''}
@@ -464,7 +468,7 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     {tab === '포켓몬' && <Partner game={game} send={send} />}
     {tab === '파티' && <Party game={game} busy={busy} send={send} />}
     {tab === '도감' && <Pokedex game={game} />}
-    {tab === '가방' && <div className="dashboard-stack"><FriendlyShop game={game} busy={busy} buy={send} /><InventoryBag game={game} busy={busy} send={send} /></div>}
+    {tab === '가방' && <div className="dashboard-stack"><FriendlyShop game={game} busy={busy} trade={send} /><InventoryBag game={game} busy={busy} send={send} /></div>}
     {tab === '전투 기록' && <Card title="전투 기록"><History game={game} /></Card>}
     {tab === '설정' && <SettingsPane game={game} snapshot={snapshot} send={send} />}
   </>

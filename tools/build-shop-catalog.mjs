@@ -268,5 +268,17 @@ assert(catalog.every(row => row.nameKo && row.nameEn && Number.isSafeInteger(row
 assert(catalog.every(row => Object.hasOwn(description, row.category)))
 for (const id of Object.values(saveIds)) assert(catalog.some(row => row.id === id), 'Missing old save key ' + id)
 assert(catalog.length > 2300)
-await writeFile(new URL('../src/game/shop-catalog.json', import.meta.url), '[\n' + catalog.map(row => JSON.stringify(row)).join(',\n') + '\n]\n')
-console.log(catalog.length + ' items written.')
+const scope = JSON.parse(await readFile(new URL('data/shop-scope.json', import.meta.url), 'utf8'))
+const arena = new Set(scope.arenaItems), restorative = new Set(scope.otherRestoratives)
+const sources = new Set(scope.restorativeCategories)
+const playable = catalog.filter(row => arena.has(row.slug) || row.category === 'balls' ||
+  sources.has(row.sourceCategory) || restorative.has(row.slug))
+for (const slug of [...arena, ...restorative]) assert(playable.some(row => row.slug === slug), 'Missing playable item ' + slug)
+for (const row of playable) {
+  if (restorative.has(row.slug) && row.category !== 'berries' && row.category !== 'medicine') {
+    row.category = 'medicine'
+    row.description = '포켓몬의 체력이나 배틀 상태를 회복하는 도구.'
+  }
+}
+await writeFile(new URL('../src/game/shop-catalog.json', import.meta.url), '[\n' + playable.map(row => JSON.stringify(row)).join(',\n') + '\n]\n')
+console.log(playable.length + ' playable items written.')

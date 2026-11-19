@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { battleGimmickStatus, arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
+import { REVIVAL_COST, revivalRemaining, battleGimmickStatus, arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
 import { battleForm } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
 import { Pokemon, pokemonName, types } from './shared'
@@ -12,6 +12,7 @@ import { useMoveSounds } from './useMoveSounds'
 import { battleVenue } from './battleGround'
 import { GimmickControl } from './GimmickControl'
 import { ActiveBattleItem } from './InventoryBag'
+import { revivalTime } from './PokemonCare'
 import './trainer-arena.css'
 
 type Input = Extract<GameAction, { type: `arena-${string}` }>
@@ -193,10 +194,11 @@ export function TrainerArena({ game }: { game: GameSave }) {
         {(confirmExit || arena.paused || arena.needsSwitch) && <div className="ring-scrim" onPointerDown={e => e.stopPropagation()}>
           <div className="ring-pause-panel">
             <strong>{confirmExit ? (battle.practice ? '연습을 끝낼까요?' : '이 도전을 포기할까요?') : arena.needsSwitch ? '교체할 포켓몬을 선택하세요' : '일시정지'}</strong>
-            {confirmExit && <small>{battle.practice ? '입장 전 파티와 체력으로 돌아갑니다.' : trainer.role === 'gym' || trainer.role === 'field' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
+            {confirmExit && <small>{battle.practice ? '현재 HP와 도구 수량으로 연습을 마칩니다.' : trainer.role === 'gym' || trainer.role === 'field' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
             {confirmExit ? <div><button onClick={cancelExit}>돌아가기</button>
               <button className="danger" onClick={() => input({ type: 'arena-surrender' })}>{battle.practice ? '연습 종료' : '포기 확정'}</button></div>
-              : <>{arena.needsSwitch && <small>아래 파티에서 포켓몬을 누르거나 자리 번호를 입력하세요.</small>}
+              : <>{arena.needsSwitch && <><small>교체할 포켓몬을 누르거나 자리 번호를 입력하세요. 부활까지 {revivalTime(revivalRemaining(player))}</small>
+                  <button disabled={game.coins < REVIVAL_COST} onClick={() => void window.adventure.dispatch({ type: 'revivePokemon', instanceId: player.instanceId }).catch(() => setHint('부활에 필요한 코인을 확인해 주세요.'))}>즉시 부활 · {REVIVAL_COST}코인</button></>}
                 {arena.paused && <div><button onClick={() => pause(false)}>배틀 재개</button>
                   <button onClick={requestExit}>{battle.practice ? '연습 나가기' : '도전 포기'}</button></div>}</>}
           </div></div>}

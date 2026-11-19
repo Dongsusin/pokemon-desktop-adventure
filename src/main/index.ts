@@ -1,6 +1,6 @@
 import { app, dialog, ipcMain, Menu, Notification, powerMonitor, session, Tray, type IpcMainInvokeEvent } from 'electron'
 import { join } from 'node:path'
-import { applyOffline, canChangeLead, createGame, dispatch, tick, type GameSave } from '../game/engine'
+import { advanceRevival, applyOffline, canChangeLead, createGame, dispatch, tick, type GameSave } from '../game/engine'
 import {
   adventureChannels,
   SLOTS,
@@ -44,6 +44,9 @@ function startDesktop(): void {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
 
   let quitting = false
+  let suspended: { at: number; game: GameSave | null } | null = null
+  let lastTick = performance.now()
+  let lastCareTick = lastTick
   const repository = new SaveRepository(join(app.getPath('userData'), 'saves'))
   let selectedSlot = repository.readSelectedSlot()
   const storedSlots = new Map(SLOTS.map((slot) => [slot, repository.read(slot)]))
@@ -81,7 +84,14 @@ function startDesktop(): void {
     }
   }
 
+  // Settle the outgoing party before moving members, switching saves, or stamping a save file.
+  function settlePartyTime(now = performance.now()): void {
+    if (game && !suspended) advanceRevival(game, now - lastCareTick)
+    lastCareTick = now
+  }
+
   function saveCurrent(): boolean {
+    settlePartyTime()
     if (!game) return true
     try {
       repository.write(game)
@@ -96,6 +106,7 @@ function startDesktop(): void {
   }
 
   function prepareLoadedGame(status: SaveRead['status']): void {
+    lastTick = lastCareTick = performance.now()
     lastNotice = 0
     if (!game) return
     game.settings.startOnLogin = launchAtLogin
@@ -205,6 +216,7 @@ function startDesktop(): void {
     }
     starter.settings.startOnLogin = launchAtLogin
     game = starter
+    lastTick = lastCareTick = performance.now()
     if (saveCurrent()) {
       loadWarning = null
       lastNotice = 0
@@ -255,6 +267,7 @@ function startDesktop(): void {
   }
 
   function runCommand(command: AdventureCommand): AdventureSnapshot {
+    settlePartyTime()
     switch (command.type) {
       case 'arenaInput':
         return runArenaInput(command.action)
@@ -357,6 +370,14 @@ function startDesktop(): void {
         }
         saveCurrent()
         break
+      case 'sellItem':
+        if (!dispatch(requireGame(), command)) throw new Error('판매할 수 있는 수량과 현재 장소를 확인해 주세요.')
+        saveCurrent()
+        break
+      case 'revivePokemon':
+        if (!dispatch(requireGame(), command)) throw new Error('기절 상태와 보유 코인을 확인해 주세요.')
+        saveCurrent()
+        break
       case 'buyItem':
         if (!dispatch(requireGame(), command)) throw new Error('현재 장소와 구매 수량, 잔액을 다시 확인해 주세요.')
         saveCurrent()
@@ -446,20 +467,19 @@ function startDesktop(): void {
   app.on('second-instance', windows.showControl)
   app.on('activate', windows.showControl)
 
-  let suspended: { at: number; game: GameSave | null } | null = null
-  let lastTick = performance.now()
   let controlInterval = 0
   let step = setTimeout(advanceSimulation, simulationInterval)
   function advanceSimulation(): void {
     step = setTimeout(advanceSimulation, game?.campaign.battle ? arenaInterval : simulationInterval)
     const now = performance.now()
     const elapsed = Math.min(now - lastTick, 500)
-    lastTick = now
+    const careElapsed = now - lastCareTick
+    lastTick = lastCareTick = now
     if (!game || suspended) return
     const previousOpponent = game.campaign.battle?.opponentIndex
     const hadEnemyPower = Boolean(game.runtime.gimmick?.enemy)
     const wasChoosingReplacement = game.campaign.battle?.arena.needsSwitch
-    tick(game, elapsed, overlayWorkArea())
+    tick(game, elapsed, overlayWorkArea(), undefined, careElapsed)
     if (previousOpponent !== undefined && (previousOpponent !== game.campaign.battle?.opponentIndex ||
         wasChoosingReplacement !== game.campaign.battle?.arena.needsSwitch || (!hadEnemyPower && game.runtime.gimmick?.enemy))) {
       saveCurrent()
@@ -481,11 +501,12 @@ function startDesktop(): void {
   windows.control.on('session-end', () => saveCurrent())
   powerMonitor.on('suspend', () => {
     if (suspended) return
+    settlePartyTime()
     suspended = { at: Date.now(), game }
     if (!pauseArena()) saveCurrent()
   })
   powerMonitor.on('resume', () => {
-    lastTick = performance.now()
+    lastTick = lastCareTick = performance.now()
     const interval = suspended
     suspended = null
     if (!interval || !game || interval.game !== game) return

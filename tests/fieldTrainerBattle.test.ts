@@ -1,7 +1,7 @@
 import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
 import {
-  canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, hydrateSave, playerStats,
+  tick, canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, hydrateSave, playerStats,
 } from '../src/game/engine'
 import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
@@ -180,6 +180,11 @@ describe('regional field trainer battles', () => {
     expect(game.wins).toBe(0)
     expect(game.coins).toBe(coins)
     expect(game.losses).toBe(1)
+    if (how === 'knockout') {
+      expect(dispatch(game, challenge(first.id))).toBe(false)
+      dispatch(game, { type: 'set-auto-battle', value: false })
+      tick(game, 300000, bounds)
+    }
     expect(dispatch(game, challenge(first.id))).toBe(true)
   })
 

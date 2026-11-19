@@ -11,37 +11,15 @@
 | `ultraBall.png` | 하이퍼볼 | [`ultra-ball.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/ultra-ball.png) |
 | `muscleBand.png` | 힘의머리띠 | [`muscle-band.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/muscle-band.png) |
 | `guardCharm.png` | 진화의휘석 | [`eviolite.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/eviolite.png) |
-| `luckyEgg.png` | 행복의알 | [`lucky-egg.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/lucky-egg.png) |
-| `soothingBell.png` | 평온의방울 | [`soothe-bell.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/soothe-bell.png) |
-| `explorerBadge.png` | 부적금화 | [`amulet-coin.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/amulet-coin.png) |
 | `swiftBerry.png` | 캄라열매 | [`salac-berry.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/salac-berry.png) |
 | `trailStone.png` | 딱딱한돌 | [`hard-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/hard-stone.png) |
-| `linkingCord.png` | 연결의끈 | [`linking-cord.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/linking-cord.png) |
-| `fireStone.png` | 불꽃의돌 | [`fire-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/fire-stone.png) |
-| `waterStone.png` | 물의돌 | [`water-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/water-stone.png) |
-| `thunderStone.png` | 천둥의돌 | [`thunder-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/thunder-stone.png) |
-| `leafStone.png` | 리프의돌 | [`leaf-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/leaf-stone.png) |
-| `moonStone.png` | 달의돌 | [`moon-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/moon-stone.png) |
-| `sunStone.png` | 태양의돌 | [`sun-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/sun-stone.png) |
-| `shinyStone.png` | 빛의돌 | [`shiny-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/shiny-stone.png) |
-| `duskStone.png` | 어둠의돌 | [`dusk-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/dusk-stone.png) |
-| `iceStone.png` | 얼음의돌 | [`ice-stone.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/ice-stone.png) |
-| `oldAmber.png` | 비밀의호박 | [`old-amber.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/old-amber.png) |
-| `helixFossil.png` | 조개화석 | [`helix-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/helix-fossil.png) |
-| `domeFossil.png` | 껍질화석 | [`dome-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/dome-fossil.png) |
-| `clawFossil.png` | 발톱화석 | [`claw-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/claw-fossil.png) |
-| `skullFossil.png` | 두개의화석 | [`skull-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/skull-fossil.png) |
-| `armorFossil.png` | 방패의화석 | [`armor-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/armor-fossil.png) |
-| `plumeFossil.png` | 날개화석 | [`plume-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/plume-fossil.png) |
-| `jawFossil.png` | 턱화석 | [`jaw-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/jaw-fossil.png) |
-| `sailFossil.png` | 지느러미화석 | [`sail-fossil.png`](https://raw.githubusercontent.com/PokeAPI/sprites/c0542f7c51215d9672439012838c99f520596cbd/sprites/items/sail-fossil.png) |
 
 아이템 이미지의 저작권은 The Pokémon Company 등 원작 권리자에게 있습니다. [PokéAPI 저작권 안내](https://github.com/PokeAPI/sprites/blob/c0542f7c51215d9672439012838c99f520596cbd/LICENCE.txt)
 
-`guardCharm`, `explorerBadge`, `swiftBerry`, `trailStone` 등의 내부 이름은 이전 가방 데이터를 읽기 위해 사용합니다.
+기존 저장에 있던 힘의머리띠, 진화의휘석 등은 같은 아이콘 경로를 사용합니다.
 
-## 확장 프렌들리숍
+## 프렌들리숍
 
-상품 2,317개에는 모두 오프라인 PNG를 연결했습니다. 2,200개는 해당 도구에 대응하는 원작 그림(같은 그림을 공유하는 기술머신·폼 포함)을 사용합니다. 전용 그림을 확인하지 못한 117개는 해당 분류의 아이콘을 사용하며, 그림 위에 마우스를 올리면 공용 아이콘이라고 표시합니다. 기존 가방 이미지 경로와 도구 ID도 유지합니다. [PokéAPI 가방 그림](https://github.com/PokeAPI/sprites/tree/c0542f7c51215d9672439012838c99f520596cbd/sprites/items) · [히스이 도구 그림](https://www.serebii.net/legendsarceus/newitems.shtml) · [신오 석판](https://www.serebii.net/brilliantdiamondshiningpearl/newitems.shtml) · [미르시티 도구](https://www.dittobase.com/legends-za/items)
+445종의 도구 모두 오프라인 PNG를 사용합니다. 432종에는 해당 도구의 그림을 연결했고, 전용 그림이 없는 13종에는 분류 아이콘을 표시합니다. 공용 아이콘은 마우스를 올리면 구분할 수 있습니다. [도구 스프라이트](https://github.com/PokeAPI/sprites/tree/c0542f7c51215d9672439012838c99f520596cbd/sprites/items)
 
 프로젝트 루트에서 `node tools/build-shop-icons.mjs`를 실행하면 도구별 경로와 PNG를 재생성합니다. 가져온 원본의 Git 블롭 ID와 추가 자료의 SHA-256을 검사합니다. [품목별 추가 자료와 해시](../../tools/data/shop-icon-supplement.json) · [메가스톤·전용 Z크리스털의 대응 자료](https://github.com/smogon/pokemon-showdown/blob/5b88c476113d51a939bddbcd00b5cd182a5d8058/data/items.ts)

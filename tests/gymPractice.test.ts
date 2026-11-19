@@ -23,7 +23,7 @@ function opening() {
 
 function records(g: GameSave) {
   return {
-    members: [g.player, ...g.followers].map(m => [m.instanceId, m.speciesId, m.level, m.exp, m.currentHP, m.heldItemId, m.moveIds]),
+    members: [g.player, ...g.followers].map(m => [m.instanceId, m.speciesId, m.level, m.exp, m.currentHP, m.heldItemId ?? null, m.moveIds]),
     campaign: { ...g.campaign, battle: null },
     regions: g.regionProgress, coins: g.coins, bag: g.inventory, wins: g.wins, losses: g.losses,
     seen: g.pokedexSeen, caught: g.pokedexCaught, boxes: g.boxes
@@ -71,11 +71,12 @@ describe('gym practice', () => {
     expect(dispatch(resumed, { type: 'arena-surrender' })).toBe(true)
     expect(dispatch(resumed, { type: 'arena-surrender' })).toBe(false)
     expect(resumed.history[0].practiceResult).toBe('left')
+    original.members[1][4] = 1
     expect(records(resumed)).toEqual(original)
     expect(records(hydrateSave(resumed, 1)!)).toEqual(original)
   })
 
-  it('restores HP and records on a knockout or when an old practice opponent is unavailable', () => {
+  it('keeps the knockout and records when practice ends or its saved opponent is unavailable', () => {
     const g = opening()
     g.player.currentHP = 1
     g.followers[0].currentHP = 0
@@ -84,6 +85,7 @@ describe('gym practice', () => {
     const invalid = structuredClone(g)
     invalid.wild = []
     invalid.player.currentHP = 0
+    original.members[0][4] = 0
     expect(records(hydrateSave(invalid, 1)!)).toEqual(original)
     for (let i = 0; i < 1500 && g.campaign.battle; i++) advanceScripted(g, 100, bounds)
     expect(g.history[0].practiceResult).toBe('loss')

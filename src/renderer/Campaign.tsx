@@ -43,7 +43,7 @@ export function ChallengeActions({ game, kind, busy, begin }: {
       <p className="campaign-result">✓ {gym.badge} 획득</p>
       <button className="primary campaign-cta" disabled={busy || !canPracticeGym(game)}
         onClick={() => begin('practice')}>{gym.name} 연습 재대결</button>
-      <p className="campaign-requirement">연습 후 파티의 입장 전 체력을 복원합니다. 경험치와 코인은 정식 도전에서 획득합니다.</p>
+      <p className="campaign-requirement">연습에서 잃은 HP와 사용한 도구는 그대로 반영됩니다. 승리 보상은 정식 도전에서 획득합니다.</p>
     </>
     const next = nextGymTrainer(game)
     if (next && next.id !== gym.id) {

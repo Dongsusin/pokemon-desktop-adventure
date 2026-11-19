@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { starterIds, wildIds } from '../src/game/catalog'
-import { collectionItems, fieldItems, itemEvolution } from '../src/game/collectionItems'
 import { collectionGuide } from '../src/game/collectionGuide'
 import { createGame, dispatch, eligibleLegends, evolutionFor, hydrateSave, tick, type GameSave } from '../src/game/engine'
 import { isSpeciesMotionSupported } from '../src/game/motionEligibility'
@@ -33,15 +32,6 @@ describe('National Pokédex collection paths', () => {
         }
       }
     }
-    for (const [id, item] of Object.entries(collectionItems)) {
-      expect(worldLocationById[item.site].encounters.length, id).toBeGreaterThan(0)
-      expect(fieldItems[item.site]).toContain(id)
-      if (item.fossil) {
-        expect(worldLocationById[item.fossil.lab]).toBeDefined()
-        expect(isSpeciesMotionSupported(item.fossil.speciesId)).toBe(true)
-        ordinary.set(item.fossil.speciesId, { speciesId: item.fossil.speciesId })
-      }
-    }
     for (const starter of starterIds) {
       const actors = new Map(ordinary)
       actors.set(starter, { speciesId: starter })
@@ -57,72 +47,31 @@ describe('National Pokédex collection paths', () => {
       }
       // Map iteration includes newly obtained evolutions and therefore follows complete chains.
       for (const { speciesId, formId } of actors.values()) {
-        for (const next of [evolutionFor(speciesId, formId),
-          ...Object.keys(collectionItems).map(id => itemEvolution(id, speciesId, formId))]) {
-          if (next && !actors.has(actorKey(next))) actors.set(actorKey(next), next)
-        }
+        const next = evolutionFor(speciesId, formId)
+        if (next && !actors.has(actorKey(next))) actors.set(actorKey(next), next)
       }
-      expect([...new Set([...actors.values()].map(mon => mon.speciesId))].sort(), starter).toEqual(expected)
+      const reachable = new Set([...actors.values()].map(mon => mon.speciesId))
+      expect(expected.filter(id => !reachable.has(id)), starter).toEqual([])
     }
   })
 
-  it('applies a compatible evolution item exactly once, including regional forms and saves during the animation', () => {
+  it('keeps former fossil Pokémon obtainable by exploring after the regional league', () => {
+    expect(postgameVisitors['cinnabar-island'].map(mon => mon.speciesId)).toContain('aerodactyl')
     const game = fresh()
-    game.inventory.linkingCord = 2
-    expect(dispatch(game, { type: 'use-item', itemId: 'linkingCord' })).toBe(false)
-    game.player.speciesId = 'kadabra'
-    const identity = game.player.instanceId
-    expect(dispatch(game, { type: 'use-item', itemId: 'linkingCord' })).toBe(true)
-    const revived = reload(game)
-    expect(revived.player).toMatchObject({ instanceId: identity, speciesId: 'alakazam', state: 'EVOLUTION' })
-    expect(revived.runtime.evolutionFrom).toBe('kadabra')
-    expect(revived.pokedexCaught).toContain('alakazam')
-    expect(revived.inventory.linkingCord).toBe(1)
-    expect(dispatch(revived, { type: 'use-item', itemId: 'linkingCord' })).toBe(false)
-    expect(itemEvolution('linkingCord', 'graveler', 'graveler-alola')).toEqual({ speciesId: 'golem', formId: 'golem-alola' })
-    expect(itemEvolution('fireStone', 'vulpix', 'vulpix-alola')).toBeUndefined()
-    expect(collectionGuide('alakazam', 'squirtle').join(' ')).toContain('연결의끈')
-  })
-
-  it('finds and collects new field supplies through ordinary hunts at their excavation site', () => {
-    const game = fresh()
-    game.campaign.badges = ['brock']
-    game.campaign.fieldWins = ['field-kanto-ash']
-    expect(dispatch(game, { type: 'travel', locationId: 'mt-moon' })).toBe(true)
-    const wanted = new Set(fieldItems['mt-moon'])
-    const found = new Set<string>()
-    for (let seed = 1; seed <= 1500 && found.size < wanted.size; seed++) {
-      game.player.state = 'BATTLE'
-      game.runtime.drop = null
-      game.wild = [{ id: 42, speciesId: 'zubat', currentHP: 1, maxHP: 12, level: 8,
-        position: { ...game.player.position }, direction: 1 }]
-      Object.assign(game.runtime, { rngState: Math.imul(seed, 0x9e3779b9) >>> 0, targetId: 42, turn: 'player', spawnIn: 120000, stateIn: 0 })
-      tick(game, 20, bounds)
-      const drop = (game as GameSave).runtime.drop
-      if (!drop || !wanted.has(drop.itemId)) continue
-      game.runtime.stateIn = 0
-      tick(game, 20, bounds)
-      expect(game.inventory[drop.itemId]).toBeGreaterThan(0)
-      found.add(drop.itemId)
-    }
-    expect(found).toEqual(wanted)
-  })
-
-  it('revives fossils only in the specified laboratory, puts overflow in the PC, and persists every individual', () => {
-    const game = fresh()
-    game.inventory.oldAmber = 6
-    expect(dispatch(game, { type: 'use-item', itemId: 'oldAmber' })).toBe(false)
-    expect(game.inventory.oldAmber).toBe(6)
-    game.campaign.badges = worldRegions.kanto.gymTrainers.slice(0, 6).map(gym => gym.id)
+    game.campaign.badges = worldRegions.kanto.gymTrainers.map(gym => gym.id)
+    game.campaign.champion = true
     expect(dispatch(game, { type: 'travel', locationId: 'cinnabar-island' })).toBe(true)
-    for (let i = 0; i < 6; i++) expect(dispatch(game, { type: 'use-item', itemId: 'oldAmber' })).toBe(true)
-    const again = reload(game)
-    expect(again.inventory.oldAmber).toBeUndefined()
-    expect(again.followers).toHaveLength(5)
-    expect(again.boxes[0][0]).toMatchObject({ speciesId: 'aerodactyl', level: 20, active: false })
-    expect(new Set([...again.followers, again.boxes[0][0]!].map(mon => mon.instanceId)).size).toBe(6)
-    expect(again.pokedexCaught.filter(id => id === 'aerodactyl')).toHaveLength(1)
+    game.runtime.spawnIn = 0
+    game.runtime.rngState = firstRareRoll
+    tick(game, 1, bounds)
+    expect(['aerodactyl', 'omanyte', 'kabuto']).toContain(game.wild[0]?.speciesId)
+    expect(reload(game).wild[0]?.speciesId).toBe(game.wild[0].speciesId)
+    for (const [site, id] of [['blush-mountain', 'golem'], ['mount-lanakila', 'ninetales'], ['mount-lanakila', 'sandslash']]) {
+      const visitor = worldLocationById[site].visitors!.find(mon => mon.speciesId === id)!
+      expect(supportedWildForms('alola', site, id, visitor.level)[0].formId).toBe(id + '-alola')
+    }
     expect(collectionGuide('aerodactyl', 'squirtle').join(' ')).toContain('홍련섬')
+    expect(collectionGuide('alakazam', 'squirtle').join(' ')).not.toContain('연결의끈')
   })
 
   it('unlocks a real visitor after its own local league and resumes only legal encounters', () => {

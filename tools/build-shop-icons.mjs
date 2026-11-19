@@ -37,36 +37,23 @@ const put = (id, url, name, blob, sha256) => {
   return destinations.get(id)
 }
 const categoryArt = {
-  balls: 'poke-ball', medicine: 'potion', berries: 'oran-berry', held: 'leftovers', evolution: 'fire-stone',
-  machines: 'tm-normal', battle: 'x-attack', materials: 'green-shard', treasures: 'nugget',
-  key: 'town-map', gimmicks: 'key-stone', food: 'old-gateau', other: 'explorer-kit',
-}
-function commonIcon(row) {
-  if (/recipe/.test(row.slug)) return 'rule-book'
-  if (/mail/.test(row.slug)) return 'harbor-mail'
-  if (/slate/.test(row.slug)) return 'stone-plate'
-  if (/balm/.test(row.slug)) return 'sticky-barb'
-  if (/charm/.test(row.slug)) return 'oval-charm'
-  return categoryArt[row.category]
+  balls: 'poke-ball', medicine: 'potion', berries: 'oran-berry', held: 'leftovers',
+  key: 'town-map', gimmicks: 'key-stone',
 }
 for (const row of catalog) {
-  // The original 31 save-identity PNGs are shipped separately.
+  // Retain existing paths for the original desktop item sprites.
   if (await readFile(path.join(root, 'assets/items', row.id + '.png')).then(() => true, () => false)) {
     icons[row.id] = row.id
     continue
   }
   let slug = row.slug
-  if (row.category === 'machines' && row.moveType && source.has('tm-' + row.moveType) && /^tm\d+$/.test(slug)) {
-    slug = 'tm-' + row.moveType
-  }
   if (!source.has(slug) && supplement[row.slug]) {
     const [url, sha256] = supplement[row.slug]
     icons[row.id] = put(sha256, url, 'extra-' + row.slug, undefined, sha256)
     continue
   }
   if (!source.has(slug)) {
-    slug = commonIcon(row)
-    if (!source.has(slug)) slug = categoryArt[row.category]
+    slug = categoryArt[row.category]
     shared.push(row.id)
   }
   const entry = source.get(slug)

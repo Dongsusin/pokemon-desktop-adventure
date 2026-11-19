@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { catalogCategoryLabels, catalogItems } from '../src/game/shopCatalog'
-import { collectionItems } from '../src/game/collectionItems'
+import scope from '../tools/data/shop-scope.json'
 
 const byId = new Map(catalogItems.map(item => [item.id, item]))
 
 describe('Friendly Shop source catalog', () => {
   it('keeps all prices valid and every saved identity, Korean label and named modern index distinct', () => {
-    expect(catalogItems.length).toBeGreaterThan(2300)
+    expect(catalogItems.length).toBe(445)
     expect(byId.size).toBe(catalogItems.length)
     const indexed = catalogItems.flatMap(item => item.gameIndex ? [item.gameIndex] : [])
     expect(new Set(indexed).size).toBe(indexed.length)
@@ -15,7 +15,7 @@ describe('Friendly Shop source catalog', () => {
       expect(Number.isSafeInteger(item.price) && item.price > 0).toBe(true)
       expect(item.nameEn && item.description && catalogCategoryLabels[item.category]).toBeTruthy()
     }
-    for (const id of [...Object.keys(collectionItems), 'pokeball','greatBall','ultraBall','guardCharm','swiftBerry','trailStone']) {
+    for (const id of ['pokeball','greatBall','ultraBall','guardCharm','swiftBerry','trailStone']) {
       expect(byId.has(id)).toBe(true)
     }
   })
@@ -27,20 +27,19 @@ describe('Friendly Shop source catalog', () => {
     expect(byId.get('master-ball')).toMatchObject({ price:100000, priceSource:'desktop' })
     expect(byId.get('laheavy-ball')).toMatchObject({ price:120, priceSource:'legends-arceus' })
     expect(byId.get('heavy-ball')?.price).toBeGreaterThan(120)
-    expect(byId.get('rare-candy')?.price).toBeGreaterThan(0)
+    expect(byId.has('rare-candy')).toBe(false)
   })
 
-  it('covers historical and DLC items and differentiates usable balls, crafting recipes and current TMs', () => {
-    for (const id of ['berserk-gene','e-reader-pumkin-berry','distortion-slate','metal-alloy','hyper-cheri-berry','raichunite-y','glimmoranite','canari-bread']) {
-      expect(byId.has(id), id).toBe(true)
+  it('matches the Arena registry and admits only real balls and recovery items beyond it', () => {
+    const arena = new Set(scope.arenaItems), slugs = new Set(catalogItems.map(item => item.slug))
+    expect(arena.size).toBe(345)
+    expect(scope.arenaItems.filter(id => !slugs.has(id))).toEqual([])
+    expect(catalogItems.filter(item => item.category === 'balls')).toHaveLength(38)
+    for (const row of catalogItems) {
+      expect(arena.has(row.slug) || row.category === 'balls' || scope.restorativeCategories.includes(row.sourceCategory) ||
+        scope.otherRestoratives.includes(row.slug), row.slug).toBe(true)
     }
-    expect(byId.get('poke-ball-recipe')?.category).toBe('key')
-    expect(byId.get('lapoke-ball')?.category).toBe('balls')
-    expect(catalogItems.filter(item => item.nameEn === 'Strange Ball')).toHaveLength(1)
-    expect(byId.get('bike--yellow')?.gameIndex).toBe(713)
-    expect(byId.get('tm01')).toMatchObject({ nameEn:'TM001', moveId:'headbutt', moveType:'normal' })
-    expect(catalogItems.filter(item => item.sourceCategory === 'dynamax-crystals')).toHaveLength(12)
-    expect(catalogItems.some(item => item.gameIndex === 1622 || item.gameIndex === 2612)).toBe(false)
-    expect(byId.has('god-stone')).toBe(false)
+    for (const id of ['e-reader-pumkin-berry', 'lapoke-ball', 'glimmoranite', 'canari-bread']) expect(byId.has(id), id).toBe(true)
+    for (const id of ['poke-ball-recipe', 'hyper-oran-berry', 'e-reader-nutpea-berry', 'bike--yellow', 'tm01', 'oldAmber']) expect(byId.has(id), id).toBe(false)
   })
 })

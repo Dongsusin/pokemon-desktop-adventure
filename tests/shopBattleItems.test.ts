@@ -62,7 +62,7 @@ describe('Friendly Shop battle items', () => {
       g.player.currentHP = effect.kind === 'revive' ? 0 : 1
       expect(parseCommand(action), row.id).toEqual(action)
       expect(applySupply(g, action), row.id).toBe(true)
-      expect(g.inventory[row.id], row.id).toBe(effect.reusable ? 2 : 1)
+      expect(g.inventory[row.id], row.id).toBe(1)
       if (effect.kind === 'heal' || effect.kind === 'revive') expect(g.player.currentHP, row.id).toBeGreaterThan(1)
       else if (effect.kind === 'capture' && !manual) expect(g.runtime.captureIn, row.id).toBeGreaterThan(0)
       else expect(activeBattleItem(g)?.itemId, row.id).toBe(row.id)
@@ -91,7 +91,7 @@ describe('Friendly Shop battle items', () => {
     expect(hit(byEffect('focus')).cooldown).toBeLessThan(neutral.cooldown)
   })
 
-  it('keeps the practice bag, active supply and remaining duration intact after use, save and surrender', () => {
+  it('keeps spent practice supplies and elapsed buff time after save and surrender', () => {
     const game = createGame('squirtle', 1, bounds)
     const speed = byEffect('speed')
     expect(applySupply(game, supply(game, speed))).toBe(true)
@@ -106,10 +106,10 @@ describe('Friendly Shop battle items', () => {
     const resumed = hydrateSave(game, 1)!
     expect(resumed.inventory.potion).toBe(3)
     expect(dispatch(resumed, { type: 'arena-surrender' })).toBe(true)
-    expect(resumed.inventory.potion).toBe(4)
-    expect(activeBattleItem(resumed)!.until - resumed.runtime.clock).toBe(expectedDuration)
+    expect(resumed.inventory.potion).toBe(3)
+    expect(activeBattleItem(resumed)!.until - resumed.runtime.clock).toBe(expectedDuration - 3500)
     expect(dispatch(resumed, { type: 'arena-surrender' })).toBe(false)
-    expect(hydrateSave(resumed, 1)!.inventory.potion).toBe(4)
+    expect(hydrateSave(resumed, 1)!.inventory.potion).toBe(3)
   })
 
   it('respects an equipped copy, missing stock, the bag cooldown and full HP', () => {
@@ -131,7 +131,7 @@ describe('Friendly Shop battle items', () => {
     expect(g.player.currentHP).toBeGreaterThan(2)
   })
 
-  it.each([false, true])('applies incoming resistance, passive healing and real battle EXP (arena=%s)', manual => {
+  it.each([false, true])('applies incoming resistance and preserves normal victory EXP while protecting held medicine (arena=%s)', manual => {
     const template = battle(manual)
     template.player.level = 7
     if (!manual) Object.assign(template.wild[0], { speciesId: 'tauros', level: 30 })
@@ -159,11 +159,12 @@ describe('Friendly Shop battle items', () => {
     medic.inventory.leftovers = 1
     medic.player.heldItemId = 'leftovers'
     hit(medic)
-    expect(medic.effects.some(e => e.kind === 'heal' && e.itemId === 'leftovers')).toBe(true)
-    expect(medic.player.currentHP).toBeGreaterThan(plain.player.currentHP)
+    expect(medic.effects.some(e => e.kind === 'heal' && e.itemId === 'leftovers')).toBe(false)
+    expect(medic.player.currentHP).toBe(plain.player.currentHP)
+    expect(medic.inventory.leftovers).toBe(1)
     function win(buff: boolean) {
       const g = structuredClone(template)
-      if (buff) expect(applySupply(g, supply(g, byEffect('experience')))).toBe(true)
+      if (buff) expect(applySupply(g, supply(g, 'luckyEgg'))).toBe(false)
       if (manual) g.campaign.battle!.fieldAI!.benchHP[1] = 0
       g.wild[0].currentHP = 1
       if (manual) castSkill(g, 'tackle')
@@ -173,28 +174,28 @@ describe('Friendly Shop battle items', () => {
       expect(g.wins).toBe(1)
       return exp
     }
-    expect(win(true)).toBeGreaterThan(win(false))
+    expect(win(true)).toBe(win(false))
   })
 
   it('spends the designated item in challenging wild fights and in the automatic arena', () => {
     const g = battle(false)
-    const settings = { autoUseItem: 'x-attack' }
+    const settings = { autoUseItem: 'wise-glasses' }
     expect(parseCommand({ type: 'settings', settings })).toEqual({ type: 'settings', settings })
     expect(dispatch(g, { type: 'update-settings', settings })).toBe(true)
-    g.inventory['x-attack'] = 2
+    g.inventory['wise-glasses'] = 2
     advanceScripted(g, 1, bounds)
-    expect(g.inventory['x-attack']).toBe(2)
+    expect(g.inventory['wise-glasses']).toBe(2)
     g.runtime.stateIn = 0
     g.runtime.turn = 'player'
     g.wild[0].level = g.player.level
     advanceScripted(g, 1, bounds)
-    expect(activeBattleItem(g)?.itemId).toBe('x-attack')
-    expect(g.inventory['x-attack']).toBe(1)
+    expect(activeBattleItem(g)?.itemId).toBe('wise-glasses')
+    expect(g.inventory['wise-glasses']).toBe(1)
     g.runtime.clock += 3100
     g.runtime.stateIn = 0
     advanceScripted(g, 1, bounds)
-    expect(g.inventory['x-attack']).toBe(1)
-    expect(hydrateSave(g, 1)?.settings.autoUseItem).toBe('x-attack')
+    expect(g.inventory['wise-glasses']).toBe(1)
+    expect(hydrateSave(g, 1)?.settings.autoUseItem).toBe('wise-glasses')
 
     const manual = battle(true)
     manual.settings.autoUseItem = 'potion'
@@ -204,11 +205,11 @@ describe('Friendly Shop battle items', () => {
     expect(manual.player.currentHP).toBeGreaterThan(1)
     const fainted = battle(false)
     fainted.settings.autoUseItem = 'revive'
-    fainted.inventory.revive = 1
+    fainted.inventory.revive = 2
     fainted.runtime.turn = 'wild'
     fainted.player.currentHP = 1
     advanceScripted(fainted, 1, bounds)
-    expect(fainted.inventory.revive).toBeUndefined()
+    expect(fainted.inventory.revive).toBe(1)
     expect(fainted.player.currentHP).toBeGreaterThan(0)
     expect(fainted.losses).toBe(0)
   })

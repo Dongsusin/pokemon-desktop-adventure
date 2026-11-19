@@ -9,7 +9,7 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 const booleanSettings = [
-  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve', 'effects', 'hud', 'notifications'
+  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoUseAllItems', 'autoEvolve', 'effects', 'hud', 'notifications'
 ] as const
 
 function parseSettings(value: unknown): Partial<Settings> | null {
@@ -21,6 +21,9 @@ function parseSettings(value: unknown): Partial<Settings> | null {
   if (value.fps === 15 || value.fps === 30) settings.fps = value.fps
   const autoBall = captureBallIds.find(id => id === value.autoCaptureBall)
   if (value.autoCaptureBall === null || autoBall) settings.autoCaptureBall = autoBall ?? null
+  if (Array.isArray(value.autoUseItems) && value.autoUseItems.length <= Object.keys(items).length && value.autoUseItems.every(knownItem)) {
+    settings.autoUseItems = [...new Set(value.autoUseItems as string[])]
+  }
   if (value.autoUseItem === null || knownItem(value.autoUseItem)) {
     settings.autoUseItem = value.autoUseItem
   }
@@ -94,17 +97,21 @@ export function parseCommand(value: unknown): AdventureCommand | null {
       return memberId(value.instanceId) ? { type: 'takeBoxItem', instanceId: value.instanceId } : null
     case 'equip':
       return value.itemId === null || knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null
+    case 'revivePokemon':
+      return memberId(value.instanceId) ? { type: value.type, instanceId: value.instanceId } : null
+    case 'sellItem':
     case 'buyItem': {
       const offer = typeof value.itemId === 'string' ? shopOffer(value.itemId) : undefined
       const { quantity, expectedOwned } = value
       return offer && typeof quantity === 'number' && Number.isSafeInteger(quantity) && quantity > 0 &&
         typeof expectedOwned === 'number' && Number.isSafeInteger(expectedOwned) && expectedOwned >= 0
-        ? { type: 'buyItem', itemId: offer.itemId, quantity, expectedOwned } : null
+        ? { type: value.type, itemId: offer.itemId, quantity, expectedOwned } : null
     }
     case 'useBattleItem': {
+      if (value.targetId !== undefined && !memberId(value.targetId)) return null
       const owned = value.expectedOwned
       return knownItem(value.itemId) && typeof owned === 'number' && Number.isSafeInteger(owned) && owned > 0
-        ? { type: value.type, itemId: value.itemId, expectedOwned: owned } : null
+        ? { type: value.type, itemId: value.itemId, expectedOwned: owned, ...(value.targetId !== undefined && { targetId: value.targetId }) } : null
     }
     case 'useItem':
       return knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null

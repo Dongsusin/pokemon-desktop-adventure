@@ -5,6 +5,7 @@ import { BOX_SIZE, canChangeLead, effectiveLevel, items, levelCap, MAX_PARTY_SIZ
 import type { AdventureCommand } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName } from './shared'
 import { BoxSearch } from './BoxSearch'
+import { PokemonCare } from './PokemonCare'
 import './party.css'
 
 type Member = Pick<PartyPokemon, 'instanceId' | 'speciesId' | 'level' | 'formId'>
@@ -68,6 +69,7 @@ export function Party({ game, busy, send }: {
           <div className="storage-member-name"><strong>{nameOf(member)}</strong>
             <small>{index === 0 ? '선두 · 배틀' : '동료'} · Lv. {index === 0 ? effectiveLevel(game) : member.level}
               {index === 0 && effectiveLevel(game) < member.level && ' · 기록 Lv. ' + member.level} · {member.level >= levelCap(game) ? '레벨 상한' : (member.exp ?? 0) + ' / ' + requiredExp(member.level) + ' EXP'}</small>
+            <PokemonCare game={game} member={member} send={send} busy={busy} />
           </div>
           <div className="storage-member-actions" role="group" aria-label={nameOf(member) + ' 파티 편집'}>
             <button className="small-button order-step" aria-label="위로 이동" title="위로 이동"
@@ -118,6 +120,7 @@ export function Party({ game, busy, send }: {
         <div className="storage-selection"><Pokemon id={selected.speciesId} formId={selected.formId} />
           <div><strong>{nameOf(selected)}</strong><small>Lv. {selected.level} · 박스 {pageIndex + 1} · {selectedSlot + 1}번 칸{archived && ' · 전용 모션 미지원 (보관 전용)'}</small></div>
         </div>
+        <PokemonCare game={game} member={selected} send={send} boxed busy={busy} />
         <div className="storage-box-actions">
           {selected.heldItemId && <button className="small-button box-held-item" disabled={busy}
             aria-label={items[selected.heldItemId].nameKo + ' 회수'}

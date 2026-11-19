@@ -2,7 +2,7 @@ import { advanceScripted } from './arenaSimulation'
 import { castSkill, idleUntilHit, resumeWithLastOpponent } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
 import {
-  canChallengeFinale, createGame, currentTrainer, dispatch, effectiveLevel, hydrateSave, levelCap,
+  tick, canChallengeFinale, createGame, currentTrainer, dispatch, effectiveLevel, hydrateSave, levelCap,
   movesFor, playerStats, type GameSave,
 } from '../src/game/engine'
 import { teraAttackMultiplier } from '../src/game/regions/paldeaTera'
@@ -145,6 +145,9 @@ describe('Paldea campaign and Terastallization', () => {
     game = reload(game)
     expect(game.campaign).toMatchObject({ badges, champion: true, battle: null, leagueIndex: null })
     expect(game.campaign.finaleWon).toBeUndefined()
+    expect(canChallengeFinale(game)).toBe(false)
+    dispatch(game, { type: 'set-auto-battle', value: false })
+    tick(game, 300000, bounds)
     expect(canChallengeFinale(game)).toBe(true)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(true)
     expect(currentTrainer(game)?.team.at(-1)?.speciesId).toBe(expectedAce)

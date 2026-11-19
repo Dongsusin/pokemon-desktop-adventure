@@ -287,7 +287,7 @@ describe('Kanto travel and encounters', () => {
     }
     const loaded = hydrateSave(old, 1)!
     expect(loaded).toMatchObject({
-      schemaVersion: 23, locationId: 'route-1', coins: 72,
+      schemaVersion: 24, locationId: 'route-1', coins: 72,
       inventory: { potion: 7, pokeball: 2, greatBall: 1 },
       player: { instanceId: game.player.instanceId, level: 12 },
     })
@@ -430,14 +430,16 @@ describe('autonomous simulation', () => {
     expect(game.coins).toBe(0)
     expect(game.player.exp).toBe(0)
     run(game, 4)
-    expect(game.player.currentHP).toBeGreaterThan(0)
+    expect(game.player.currentHP).toBe(0)
+    tick(game, 296000, bounds)
+    expect(game.player.currentHP).toBe(Math.ceil(playerStats(game).hp / 2))
   })
 })
 
 describe('combat, inventory, and save recovery', () => {
   it('migrates existing saves to topmost once while retaining progression and later opt-out', () => {
     const game = makeGame('bulbasaur')
-    expect(game).toMatchObject({ schemaVersion: 23, settings: { alwaysOnTop: true } })
+    expect(game).toMatchObject({ schemaVersion: 24, settings: { alwaysOnTop: true } })
     const legacy = {
       ...game, schemaVersion: 1, settings: { ...game.settings, alwaysOnTop: false },
       player: { ...game.player, level: 10, exp: 22 },
@@ -445,7 +447,7 @@ describe('combat, inventory, and save recovery', () => {
     }
     const migrated = hydrateSave(legacy, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 23, locationId: 'route-1',
+      schemaVersion: 24, locationId: 'route-1',
       settings: { alwaysOnTop: true }, coins: 45, inventory: { potion: 7, pokeball: 8 },
       player: { instanceId: game.player.instanceId, speciesId: 'bulbasaur', level: 10, exp: 22 },
     })
@@ -496,12 +498,12 @@ describe('combat, inventory, and save recovery', () => {
     expect(dispatch(game, { type: 'use-item', itemId: 'potion' })).toBe(true)
     expect(game.inventory.potion).toBe(4)
     expect(game.player.currentHP).toBeGreaterThan(1)
-    expect(dispatch(game, { type: 'equip-item', itemId: 'luckyEgg' })).toBe(false)
-    game.inventory.luckyEgg = 1
-    expect(dispatch(game, { type: 'equip-item', itemId: 'luckyEgg' })).toBe(true)
-    expect(game.player.heldItemId).toBe('luckyEgg')
+    expect(dispatch(game, { type: 'equip-item', itemId: 'muscleBand' })).toBe(false)
+    game.inventory.muscleBand = 1
+    expect(dispatch(game, { type: 'equip-item', itemId: 'muscleBand' })).toBe(true)
+    expect(game.player.heldItemId).toBe('muscleBand')
     expect(dispatch(game, { type: 'equip-item', itemId: null })).toBe(true)
-    expect(game.inventory.luckyEgg).toBe(1)
+    expect(game.inventory.muscleBand).toBe(1)
   })
 
   it('collects a saved pending loot drop exactly once after restart', () => {
@@ -553,10 +555,10 @@ describe('combat, inventory, and save recovery', () => {
     expect(hydrateSave({
       ...game,
       settings: { sound: 'false', fps: 345, spriteScale: 78, spawnRate: 0 },
-      inventory: { potion: -1, luckyEgg: 2, fake: 10 },
+      inventory: { potion: -1, muscleBand: 2, fake: 10 },
     }, 1)).toMatchObject({
       settings: { sound: false, fps: 30, spriteScale: 2, spawnRate: 0.5 },
-      inventory: { luckyEgg: 2 },
+      inventory: { muscleBand: 2 },
     })
   })
 })
@@ -707,6 +709,7 @@ describe('capture and party', () => {
     expect(game.pokedexCaught).not.toContain('mewtwo')
     run(game, 5)
     expect(game.inventory.pokeball).toBe(7)
+    if (game.player.currentHP === 0) tick(game, 300000, bounds)
     encounter(game, 'mewtwo', 7)
     tick(game, 200, bounds)
     expect(game.inventory.pokeball).toBe(6)
@@ -749,7 +752,7 @@ describe('capture and party', () => {
     }
     const migrated = hydrateSave(oldSave, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 23, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
+      schemaVersion: 24, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
       followers: [], player: { instanceId: game.player.instanceId },
     })
     delete migrated.inventory.pokeball
@@ -816,6 +819,14 @@ describe('offline progression', () => {
 })
 
 describe('regional gyms and Pokémon Leagues', () => {
+  function healBetweenChallenges(game: GameSave) {
+    if (game.player.currentHP === playerStats(game).hp) return
+    const owned = game.inventory['max-potion']
+    expect(dispatch(game, { type: 'useBattleItem', itemId: 'max-potion', expectedOwned: owned })).toBe(true)
+    expect(game.inventory['max-potion'] ?? 0).toBe(owned - 1)
+    expect(game.player.currentHP).toBe(playerStats(game).hp)
+  }
+
   function train(game: GameSave, speciesId: string, level: number) {
     game.player.speciesId = speciesId
     game.player.level = level
@@ -880,12 +891,15 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
     dispatch(game, { type: 'travel', locationId: 'indigo-plateau' })
     const beforeLeague = game.coins
+    game.inventory['max-potion'] = 8
     for (const trainer of kantoLeagueTrainers) {
+      healBetweenChallenges(game)
       expect(nextLeagueTrainer(game)?.id).toBe(trainer.id)
       expect(dispatch(game, { type: 'challenge-league' })).toBe(true)
       expect(currentTrainer(game)?.id).toBe(trainer.id)
       finishChallenge(game)
-      expect(game.player.currentHP).toBe(statsFor(game.player.speciesId, game.player.level).hp)
+      expect(game.player.currentHP).toBeGreaterThan(0)
+      expect(game.player.currentHP).toBeLessThanOrEqual(playerStats(game).hp)
       if (trainer.role === 'elite') expect(game.coins).toBe(beforeLeague)
     }
     expect(game.losses).toBe(0)
@@ -941,6 +955,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     }, 1)!
     expect(veteran.regionId).toBe('kanto')
     expect(levelCap(veteran)).toBe(100)
+    const departingHp = veteran.player.currentHP / playerStats(veteran).hp
     expect(dispatch(veteran, { type: 'transfer-region', regionId: 'johto' })).toBe(true)
     expect(veteran).toMatchObject({
       regionId: 'johto', locationId: johto.startLocationId, coins: 330,
@@ -950,7 +965,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     })
     expect(levelCap(veteran)).toBe(25)
     expect(effectiveLevel(veteran)).toBe(25)
-    expect(veteran.player.currentHP).toBe(statsFor('blastoise', 25).hp)
+    expect(veteran.player.currentHP).toBe(Math.ceil(departingHp * statsFor('blastoise', 25).hp))
     expect(dispatch(veteran, { type: 'travel', locationId: 'pallet-town' })).toBe(false)
     expect(dispatch(veteran, { type: 'travel', locationId: 'route-29' })).toBe(true)
     veteran.runtime.spawnIn = 0
@@ -992,7 +1007,9 @@ describe('regional gyms and Pokémon Leagues', () => {
     }
     expect(levelCap(veteran)).toBe(100)
     dispatch(veteran, { type: 'travel', locationId: johto.leagueLocationId })
+    veteran.inventory['max-potion'] = 8
     for (const trainer of johto.leagueTrainers) {
+      healBetweenChallenges(veteran)
       expect(nextLeagueTrainer(veteran)?.id).toBe(trainer.id)
       expect(dispatch(veteran, { type: 'challenge-league' })).toBe(true)
       expect(currentTrainer(veteran)?.id).toBe(trainer.id)
@@ -1055,7 +1072,9 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'travel', locationId: region.leagueLocationId })).toBe(false)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
 
+    game.inventory['max-potion'] = 24
     for (const [index, trainer] of region.gymTrainers.entries()) {
+      healBetweenChallenges(game)
       expect(nextGymTrainer(game)?.id).toBe(trainer.id)
 
       expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
@@ -1073,6 +1092,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'challenge-league', trainerId: champion.id })).toBe(false)
     const opponents = [...(region.freeEliteOrder ? elites.reverse() : elites), champion]
     for (const trainer of opponents) {
+      healBetweenChallenges(game)
       if (!region.freeEliteOrder) expect(nextLeagueTrainer(game)?.id).toBe(trainer.id)
       expect(dispatch(game, { type: 'challenge-league', trainerId: trainer.id })).toBe(true)
       game = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -1093,6 +1113,8 @@ describe('regional gyms and Pokémon Leagues', () => {
         expect(lost.campaign.leagueIndex).toBeNull()
         expect(lost.campaign.eliteWins).toBeUndefined()
         expect(lost.campaign.badges).toHaveLength(region.gymTrainers.length)
+        expect(dispatch(lost, { type: 'challenge-league', trainerId: trainer.id })).toBe(false)
+        tick(lost, 300000, bounds)
         expect(dispatch(lost, { type: 'challenge-league', trainerId: trainer.id })).toBe(true)
       }
     }
@@ -1158,7 +1180,9 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(game.losses).toBe(1)
     expect(game.campaign).toEqual({ badges, champion: false, leagueIndex: null, battle: null })
     expect(game.coins).toBe(0)
-    expect(game.player.currentHP).toBeGreaterThan(0)
+    expect(game.player.currentHP).toBe(0)
+    expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
+    tick(game, 300000, bounds)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(true)
     expect(currentTrainer(game)?.id).toBe('lorelei')
     dispatch(game, { type: 'travel', locationId: 'pallet-town' })
@@ -1175,7 +1199,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     const { campaign: _campaign, ...old } = structuredClone(game)
     const restored = hydrateSave({ ...old, schemaVersion: 4 }, 1)!
     expect(restored).toMatchObject({
-      schemaVersion: 23, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
+      schemaVersion: 24, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
       campaign: { badges: [], champion: false, leagueIndex: null, battle: null }
     })
     const stale = hydrateSave({

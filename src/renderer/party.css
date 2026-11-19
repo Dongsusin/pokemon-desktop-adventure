@@ -72,3 +72,10 @@
 }
 
 .party-display-setting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .75rem 0; }
+
+.pokemon-care { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 7px; font-size: 11px; }
+.pokemon-care:not(:empty) { margin: 5px 0; }
+.pokemon-care small { font-variant-numeric: tabular-nums; }
+.pokemon-care select { max-width: 100%; min-height: 26px; }
+.status-level-cap { display: flex; align-items: baseline; gap: 6px; margin: 10px 0 0; font-size: 12px; color: var(--muted); }
+.status-level-cap b { font-size: 16px; color: var(--ink); }

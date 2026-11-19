@@ -32,7 +32,7 @@ describe('exploration party experience and desktop visibility', () => {
     tick(g, 80, bounds)
     expect(g.wins).toBe(1)
     expect(g.player.exp).toBe(25)
-    expect(next).toMatchObject({ level: 6, exp: 4, currentHP: hp + statsFor('squirtle', 6).hp - statsFor('squirtle', 5).hp })
+    expect(next).toMatchObject({ level: 6, exp: 4, currentHP: hp })
     expect(fresh.exp).toBe(12)
     expect(extra.exp).toBe(12)
     expect(fainted.exp ?? 0).toBe(0)

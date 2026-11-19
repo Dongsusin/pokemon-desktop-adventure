@@ -9,7 +9,6 @@ import { shopItemEffect, type ShopItemEffect } from './shopItemEffects'
 import { species, starterIds, wildIds } from './catalog'
 import { megaFormsFor, regionGimmick, type BattleGimmick } from './battleGimmicks'
 import { boostedMove, gimmickLabels, MAX_GIMMICK_ACTIONS, preparedMove, type GimmickSide, type EncounterGimmicks, type UsedGimmick } from './gimmickCombat'
-import { collectionItems, fieldItems, itemEvolution } from './collectionItems'
 import { RESEARCH_VISIT_CHANCE } from './regions/collectionEncounters'
 import { isSpeciesMotionSupported, isMoveMotionSupported } from './motionEligibility'
 import { supportedEncounters, supportedWildForms } from './regions/motionEncounters'
@@ -77,12 +76,13 @@ export interface Settings {
   autoCaptureBall: CaptureBallId | null
   autoCaptureUncaughtOnly: boolean
   autoUseItem: string | null
+  autoUseItems: string[]
+  autoUseAllItems: boolean
   sound: boolean
   fps: 15 | 30
   showPartyOnDesktop: boolean
   overlayVisible: boolean
   alwaysOnTop: boolean
-  autoHeal: boolean
   autoEvolve: boolean
   spriteScale: number
   spawnRate: number
@@ -97,12 +97,13 @@ export const defaultSettings: Settings = {
   autoCaptureBall: null,
   autoCaptureUncaughtOnly: false,
   autoUseItem: null,
+  autoUseItems: [],
+  autoUseAllItems: false,
   sound: false,
   fps: 30,
   showPartyOnDesktop: true,
   overlayVisible: true,
   alwaysOnTop: true,
-  autoHeal: true,
   autoEvolve: true,
   spriteScale: 1,
   spawnRate: 1,
@@ -151,7 +152,7 @@ export interface Item {
   id: string
   nameKo: string
   description: string
-  kind: 'recovery' | 'capture' | 'equipment' | 'boost' | 'material' | 'evolution' | 'fossil'
+  kind: 'recovery' | 'capture' | 'equipment' | 'boost'
   rarity: 'common' | 'uncommon' | 'rare' | 'epic'
   symbol: string
   heal?: number
@@ -176,26 +177,9 @@ export const items: Record<string, Item> = {
   ultraBall: item('ultraBall', '하이퍼볼', '슈퍼볼보다 포획 확률이 높아요.', 'capture', 'rare', '●'),
   muscleBand: item('muscleBand', '힘의머리띠', '공격과 특수공격이 8% 증가해요.', 'equipment', 'uncommon', '▲', { attack: 0.08 }),
   guardCharm: item('guardCharm', '진화의휘석', '방어와 특수방어가 8% 증가해요.', 'equipment', 'uncommon', '◆', { defense: 0.08 }),
-  luckyEgg: item('luckyEgg', '행복의알', '전투 경험치가 12% 증가해요.', 'equipment', 'rare', '○', { exp: 0.12 }),
-  soothingBell: item('soothingBell', '평온의방울', '휴식 중 HP 회복량이 25% 증가해요.', 'equipment', 'rare', '◇', { recovery: 0.25 }),
-  explorerBadge: item('explorerBadge', '부적금화', '전리품 확률이 15%p 증가해요.', 'equipment', 'epic', '★', { drop: 0.15 }),
   swiftBerry: item('swiftBerry', '캄라열매', '2분 동안 이동 속도가 30% 증가해요.', 'boost', 'common', '»', { speed: 0.3, boostMs: 120000 }),
-  trailStone: item('trailStone', '딱딱한돌', '야생 포켓몬에게서 얻는 수집 재료예요.', 'material', 'common', '◇'),
-}
-const dropPools: Record<Item['rarity'], Item[]> = {
-  common: Object.values(items).filter((entry) => entry.rarity === 'common'),
-  uncommon: Object.values(items).filter((entry) => entry.rarity === 'uncommon'),
-  rare: Object.values(items).filter((entry) => entry.rarity === 'rare'),
-  epic: Object.values(items).filter((entry) => entry.rarity === 'epic'),
 }
 
-// Field supplies have named excavation sites and stay outside the ordinary drop pools.
-for (const [id, data] of Object.entries(collectionItems)) {
-  items[id] = item(id, data.name, data.fossil ? '지정 연구소에서 포켓몬으로 복원해요.' : '조건에 맞는 선두 포켓몬을 진화시켜요.',
-    data.fossil ? 'fossil' : 'evolution', 'rare', '◇')
-}
-
-// Keep field drops and excavation sites independent of the worldwide retail catalog.
 const nativeEquipment = new Set(Object.values(items).filter(entry => entry.kind === 'equipment').map(entry => entry.id))
 for (const row of catalogItems) {
   if (Object.hasOwn(items, row.id)) {
@@ -203,7 +187,7 @@ for (const row of catalogItems) {
     continue
   }
   const effect = shopItemEffect(row.id)
-  const kind: Item['kind'] = row.category === 'balls' ? 'capture' : row.category === 'held' && effect.reusable ? 'equipment'
+  const kind: Item['kind'] = row.category === 'balls' ? 'capture' : row.category === 'held' ? 'equipment'
     : effect.kind === 'heal' || effect.kind === 'revive' ? 'recovery' : 'boost'
   const rarity: Item['rarity'] = row.price >= 10000 ? 'epic' : row.price >= 2000 ? 'rare' : row.price >= 500 ? 'uncommon' : 'common'
   items[row.id] = item(row.id, row.nameKo, effect.description, kind, rarity, kind === 'capture' ? '●' : kind === 'recovery' ? '+' : '◇')
@@ -219,6 +203,7 @@ export interface Player {
   level: number
   exp: number
   currentHP: number
+  reviveInMs?: number
   moveIds: string[]
   heldItemId: string | null
   state: Activity
@@ -237,6 +222,7 @@ export interface PartyPokemon {
   speciesId: string
   level: number
   currentHP: number
+  reviveInMs?: number
   position: Position
   direction: Direction
   state: 'IDLE' | 'WANDER'
@@ -313,9 +299,9 @@ type FieldTrainerSpot = Position & { direction: Direction }
 
 interface Runtime {
   fieldTrainerSpot?: FieldTrainerSpot
+  otherBattleItems?: BattleItemState[]
   battleItem?: BattleItemState
   itemReadyAt?: number
-  heldHealReadyAt?: number
   gimmick?: EncounterGimmicks
   captureIn: number
   autoCaptureTargetId: number | null
@@ -341,7 +327,6 @@ interface PracticeParty {
   inventory: GameSave['inventory']
   battleItem?: BattleItemState
   itemReadyAt?: number
-  heldHealReadyAt?: number
   player: Player
   followers: PartyPokemon[]
   cooldowns: Runtime['cooldowns']
@@ -372,7 +357,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 23
+const SAVE_SCHEMA_VERSION = 24
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -421,12 +406,16 @@ export type ShopPurchase = {
   expectedOwned: number
 }
 
-export type BattleItemUse = { type: 'useBattleItem'; itemId: string; expectedOwned: number }
+export type ShopSale = Omit<ShopPurchase, 'type'> & { type: 'sellItem' }
+export type PaidRevival = { type: 'revivePokemon'; instanceId: string }
+export type BattleItemUse = { type: 'useBattleItem'; itemId: string; expectedOwned: number; targetId?: string }
 
 export type GameAction =
   | { type: 'choose-trainer'; avatar: TrainerAvatar }
   | BattleItemUse
   | ShopPurchase
+  | ShopSale
+  | PaidRevival
   | ArenaAction
   | { type: 'travel'; locationId: string }
   | { type: 'transfer-region'; regionId: RegionId }
@@ -451,6 +440,8 @@ export interface OfflineReward { minutes: number; exp: number; coins: number }
 
 export const MAX_PARTY_SIZE = 6
 export const BOX_SIZE = 30
+export const REVIVAL_MS = 5 * 60 * 1000
+export const REVIVAL_COST = 100
 const STARTER_BALLS = 8
 const CAPTURE_MS = 2200
 const AUTO_CAPTURE_HP = 0.35
@@ -637,7 +628,7 @@ export function createGame(speciesId: string, slot: number, bounds: Bounds, now 
     pokedexCaught: [speciesId],
     coins: 0,
     autoBattle: true,
-    settings: { ...defaultSettings },
+    settings: { ...defaultSettings, autoUseItems: [] },
     lastSavedAt: new Date(now).toISOString(),
     wild: [],
     history: [],
@@ -694,7 +685,18 @@ export function effectiveLevel(game: GameSave, level = game.player.level): numbe
 
 export function activeBattleItem(game: GameSave) {
   const provision = game.runtime.battleItem
-  return provision && provision.until > game.runtime.clock ? provision : undefined
+  return provision && catalogById.has(provision.itemId) && provision.until > game.runtime.clock ? provision : undefined
+}
+
+export function activeBattleItems(game: GameSave): BattleItemState[] {
+  const current = activeBattleItem(game)
+  const others = (game.runtime.otherBattleItems ?? []).filter(item => catalogById.has(item.itemId) && item.until > game.runtime.clock)
+  return current ? [...others, current] : others
+}
+
+function effectSlot(itemId: string): string {
+  const effect = shopItemEffect(itemId)
+  return effect.kind + (effect.type ?? '')
 }
 
 function provisionBonus(game: GameSave, kind: ShopItemEffect['kind'], type?: string): number {
@@ -704,10 +706,9 @@ function provisionBonus(game: GameSave, kind: ShopItemEffect['kind'], type?: str
     if (effect.kind !== kind) return 0
     return type && effect.type !== type ? Math.min(.05, effect.magnitude) : effect.magnitude
   }
-  const active = activeBattleItem(game)
   const held = game.player.heldItemId
-  return Math.max(active ? magnitude(shopItemEffect(active.itemId)) : 0,
-    held && !nativeEquipment.has(held) ? magnitude(shopItemEffect(held)) : 0)
+  return Math.max(0, ...activeBattleItems(game).map(active => magnitude(shopItemEffect(active.itemId))),
+    held && catalogById.has(held) && !nativeEquipment.has(held) ? magnitude(shopItemEffect(held)) : 0)
 }
 
 function focusedDelay(game: GameSave, ms: number): number {
@@ -768,6 +769,30 @@ export function availableEquipment(game: GameSave, itemId: string): number {
   return Math.max(0, available)
 }
 
+/** Inventory counts every copy, including items held in the PC. */
+export function freeItemCopies(game: GameSave, itemId: string): number {
+  if (items[itemId]?.kind !== 'equipment') return game.inventory[itemId] ?? 0
+  return Math.max(0, availableEquipment(game, itemId) - Number(game.player.heldItemId === itemId))
+}
+
+export function salePrice(itemId: string): number {
+  return Math.floor((shopOffer(itemId)?.price ?? 0) / 2)
+}
+
+function sellItem(game: GameSave, order: ShopSale): boolean {
+  const owned = game.inventory[order.itemId] ?? 0
+  const price = salePrice(order.itemId)
+  const proceeds = price * order.quantity
+  if (!hasShop(game) || game.campaign.battle || !price || owned !== order.expectedOwned ||
+      !Number.isSafeInteger(order.quantity) || order.quantity < 1 || order.quantity > freeItemCopies(game, order.itemId) ||
+      !Number.isSafeInteger(game.coins + proceeds)) return false
+  if (order.quantity === owned) delete game.inventory[order.itemId]
+  else game.inventory[order.itemId] = owned - order.quantity
+  game.coins += proceeds
+  addLog(game, 'loot', items[order.itemId].nameKo + ' ' + order.quantity + '개 판매 · +' + proceeds + ' 코인')
+  return true
+}
+
 function equipped(game: GameSave): Item | undefined {
   const id = game.player.heldItemId
   return id ? items[id] : undefined
@@ -779,13 +804,54 @@ function heal(game: GameSave, amount: number): number {
   return game.player.currentHP - before
 }
 
-export function canUseCollectionItem(game: GameSave, itemId: string) {
-  if (game.campaign.battle || game.player.currentHP <= 0 || !game.inventory[itemId] ||
-      !Object.hasOwn(collectionItems, itemId)) return false
-  if (!['IDLE', 'WANDER', 'RECOVER'].includes(activeState(game))) return false
-  const fossil = collectionItems[itemId].fossil
-  return fossil ? game.locationId === fossil.lab && isSpeciesMotionSupported(fossil.speciesId)
-    : Boolean(itemEvolution(itemId, game.player.speciesId, game.player.formId))
+type OwnedPokemon = Player | PartyPokemon
+
+export function memberMaxHP(game: GameSave, member: OwnedPokemon): number {
+  return member === game.player ? playerStats(game).hp : statsFor(member.speciesId, member.level, member.heldItemId, member.formId).hp
+}
+
+function partyMember(game: GameSave, id?: string): OwnedPokemon | undefined {
+  return id === undefined || id === game.player.instanceId ? game.player : game.followers.find(member => member.instanceId === id)
+}
+
+export function revivalRemaining(member: OwnedPokemon): number {
+  return member.currentHP > 0 ? 0 : member.reviveInMs ?? REVIVAL_MS
+}
+
+function reviveMember(game: GameSave, member: OwnedPokemon, fraction: number): void {
+  member.currentHP = Math.max(1, Math.ceil(memberMaxHP(game, member) * fraction))
+  delete member.reviveInMs
+  if (member !== game.player) return
+  delete game.player.uncappedHP
+  const arena = game.campaign.battle?.arena
+  if (arena) {
+    arena.needsSwitch = false
+    arena.enemyInMs = Math.max(700, arena.enemyInMs)
+  } else if (activeState(game) !== 'BATTLE' || !findTarget(game)) {
+    game.runtime.pausedState = 'IDLE'
+    transition(game, 'IDLE', 600)
+  }
+}
+
+function payForRevival(game: GameSave, id: string): boolean {
+  const member = partyMember(game, id) ?? findBoxSlot(game.boxes, id)?.pokemon
+  if (!member || member.currentHP > 0 || game.coins < REVIVAL_COST) return false
+  game.coins -= REVIVAL_COST
+  reviveMember(game, member, .5)
+  addLog(game, 'recovery', species[member.speciesId].nameKo + ' 즉시 부활 · −' + REVIVAL_COST + ' 코인')
+  return true
+}
+
+export function advanceRevival(game: GameSave, elapsed: number): void {
+  if (!Number.isFinite(elapsed) || elapsed <= 0) return
+  for (const member of [game.player, ...game.followers]) {
+    if (member.currentHP > 0) continue
+    member.reviveInMs = Math.max(0, revivalRemaining(member) - elapsed)
+    if (member.reviveInMs === 0) {
+      reviveMember(game, member, .5)
+      addLog(game, 'recovery', species[member.speciesId].nameKo + ' 기절 회복')
+    }
+  }
 }
 
 function consume(game: GameSave, itemId: string): boolean {
@@ -793,23 +859,8 @@ function consume(game: GameSave, itemId: string): boolean {
   const entry = items[itemId]
   if (!(count > 0) || !entry || game.player.currentHP <= 0) return false
 
-  if (entry.kind === 'evolution' || entry.kind === 'fossil') {
-    if (!canUseCollectionItem(game, itemId)) return false
-    const fossil = collectionItems[itemId].fossil
-    if (fossil) {
-      const result = receivePokemon(game, fossil.speciesId, undefined, 20, game.player.position, game.player.direction)
-      const message = entry.nameKo + ' 복원 · ' + species[fossil.speciesId].nameKo + ' Lv.20 · ' + result.destination
-      addLog(game, 'capture', message)
-      addEffect(game, 'reward', game.player.position, 1800, { text: message, actor: 'partner' })
-    } else {
-      performEvolution(game, itemEvolution(itemId, game.player.speciesId, game.player.formId)!)
-      game.runtime.pausedState = 'IDLE'
-    }
-  } else if (entry.heal) {
-    const amount = heal(game, Math.ceil(playerStats(game).hp * entry.heal))
-    if (amount <= 0) return false
-    addEffect(game, 'heal', game.player.position, 900, { text: '+' + amount + ' HP' })
-    addLog(game, 'recovery', entry.nameKo + '으로 HP ' + amount + ' 회복')
+  if (entry.heal) {
+    return useBattleItem(game, { type: 'useBattleItem', itemId, expectedOwned: count })
   } else if (entry.boostMs) {
     game.runtime.boostUntil = game.runtime.clock + entry.boostMs
     addEffect(game, 'reward', game.player.position, 1100, { text: '이동 속도 증가' })
@@ -823,33 +874,25 @@ function consume(game: GameSave, itemId: string): boolean {
 
 const ITEM_USE_DELAY = 3000
 
-function machineMoveToLearn(game: GameSave, itemId: string) {
-  const machine = catalogById.get(itemId)
-  const lead = game.player
-  if (machine?.category !== 'machines' || !machine.moveId || lead.moveIds.length >= 4) return undefined
-  // Only restore a native move from this species and form's existing learnable set.
-  return movesFor(lead.speciesId, effectiveLevel(game), lead.formId).find(move =>
-    move.id.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) === machine.moveId &&
-    !lead.moveIds.includes(move.id) && isMoveMotionSupported(lead.speciesId, playerBattleForm(game), move.id))
-}
-
-export function canUseBattleItem(game: GameSave, itemId: string): boolean {
+export function canUseBattleItem(game: GameSave, itemId: string, targetId?: string): boolean {
   const entry = catalogById.get(itemId)
-  if (!entry || !(game.inventory[itemId] > 0) || (game.runtime.itemReadyAt ?? 0) > game.runtime.clock ||
-      game.campaign.battle?.arena.maxClash) return false
+  if (!entry || !(game.inventory[itemId] > 0) || game.campaign.battle?.arena.maxClash) return false
+  const inBattle = Boolean(game.campaign.battle) || activeState(game) === 'BATTLE'
+  if (inBattle && (game.runtime.itemReadyAt ?? 0) > game.runtime.clock) return false
   const effect = shopItemEffect(itemId)
-  if (items[itemId].kind === 'equipment' && availableEquipment(game, itemId) - (game.player.heldItemId === itemId ? 1 : 0) < 1) return false
-  if (effect.kind === 'revive') return game.player.currentHP === 0
-  if (game.player.currentHP <= 0) return false
-  if (effect.kind === 'heal') return game.player.currentHP < playerStats(game).hp
+  const target = partyMember(game, targetId)
+  if (!target || (items[itemId].kind === 'equipment' && freeItemCopies(game, itemId) < 1)) return false
+  if (effect.kind === 'revive') return target.currentHP === 0
+  if (target.currentHP <= 0) return false
+  if (effect.kind === 'heal') return target.currentHP < memberMaxHP(game, target)
+  if (target !== game.player) return false
   if (effect.kind === 'capture' && !game.campaign.battle) return canThrowBall(game, itemId)
-  if (activeBattleItem(game)?.itemId !== itemId) return true
-  return Boolean((effect.growth && game.player.level < levelCap(game)) || machineMoveToLearn(game, itemId))
+  return !activeBattleItems(game).some(active => active.itemId === itemId)
 }
 
 function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
   const id = order.itemId
-  if (order.expectedOwned !== game.inventory[id] || !canUseBattleItem(game, id)) return false
+  if (order.expectedOwned !== game.inventory[id] || !canUseBattleItem(game, id, order.targetId)) return false
   const effect = shopItemEffect(id)
   const arena = game.campaign.battle?.arena
   if (effect.kind === 'capture' && !arena) {
@@ -859,24 +902,20 @@ function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
   }
   let detail = arena ? effect.arenaDescription ?? effect.description : effect.description
   if (effect.kind === 'heal' || effect.kind === 'revive') {
-    const hp = heal(game, Math.ceil(playerStats(game).hp * effect.magnitude))
-    if (effect.kind === 'revive') {
-      if (arena) { arena.needsSwitch = false; arena.enemyInMs = Math.max(700, arena.enemyInMs) }
-      else if (game.player.state === 'FAINT') transition(game, 'RECOVER', 600)
+    const target = partyMember(game, order.targetId)!
+    const before = target.currentHP
+    if (effect.kind === 'revive') reviveMember(game, target, effect.magnitude)
+    else {
+      const max = memberMaxHP(game, target)
+      const bonus = target.heldItemId && shopItemEffect(target.heldItemId).kind === 'heal' ? 1.25 : 1
+      target.currentHP = Math.min(max, before + Math.ceil(max * effect.magnitude * bonus))
     }
-    detail = (effect.kind === 'revive' ? '기절 회복 · ' : '') + '+' + hp + ' HP'
+    detail = species[target.speciesId].nameKo + (effect.kind === 'revive' ? ' 기절 회복 · ' : ' · ') + '+' + (target.currentHP - before) + ' HP'
   } else {
+    const others = activeBattleItems(game).filter(active => effectSlot(active.itemId) !== effectSlot(id))
+    if (others.length) game.runtime.otherBattleItems = others
+    else delete game.runtime.otherBattleItems
     game.runtime.battleItem = { itemId: id, until: game.runtime.clock + (effect.durationMs ?? 30000) }
-    if (effect.growth) {
-      const exp = effect.growth === 'level' ? requiredExp(game.player.level) - game.player.exp : effect.growth
-      const gained = addExperience(game, exp)
-      detail = (gained ? 'EXP +' + gained.toLocaleString('ko-KR') : '지방 레벨 상한 도달') + ' · ' + detail
-    }
-    const learned = machineMoveToLearn(game, id)
-    if (learned) {
-      game.player.moveIds.push(learned.id)
-      detail = learned.nameKo + ' 습득 · ' + detail
-    }
     const foe = findTarget(game)
     if (!arena && game.player.state === 'BATTLE' && foe && effect.gimmick && effect.gimmick === regionGimmick(game.regionId) &&
         (!effect.users || effect.users.includes(game.player.formId ?? game.player.speciesId) || effect.users.includes(game.player.speciesId))) {
@@ -884,7 +923,7 @@ function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
       if (!effect.megaForms || form) activateGimmick(game, foe, 'player', form, { zType: effect.gimmick === 'z' ? effect.type : undefined })
     }
   }
-  if (!effect.reusable) spendItem(game, id)
+  spendItem(game, id)
   game.runtime.itemReadyAt = game.runtime.clock + ITEM_USE_DELAY
   const text = items[id].nameKo + ' · ' + detail
   addLog(game, effect.kind === 'heal' || effect.kind === 'revive' ? 'recovery' : 'battle', text)
@@ -894,30 +933,34 @@ function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
   return true
 }
 
-export function autoUseBattleItem(game: GameSave, foe: Wild) {
-  const id = game.settings.autoUseItem
-  if (game.campaign.battle?.arena.paused) return false
-  if (!id || (!game.campaign.battle && !game.autoBattle) || !canUseBattleItem(game, id)) return false
-  const effect = shopItemEffect(id)
-  if (!game.campaign.battle && effect.kind === 'capture') return false
-  if (effect.kind !== 'revive') {
-    const lowHP = game.player.currentHP <= playerStats(game).hp * .5
-    if (effect.kind === 'heal' ? !lowHP : activeBattleItem(game) || (!game.campaign.battle && !lowHP && foe.level + 2 < effectiveLevel(game))) return false
-  }
-  return useBattleItem(game, { type: 'useBattleItem', itemId: id, expectedOwned: game.inventory[id] })
+export function selectedAutoItems(settings: Settings): string[] {
+  return settings.autoUseItems.length ? settings.autoUseItems : settings.autoUseItem ? [settings.autoUseItem] : []
 }
 
-function recoverFromHeldItem(game: GameSave) {
-  const id = game.player.heldItemId
-  if (!id || !game.player.currentHP || (game.runtime.heldHealReadyAt ?? 0) > game.runtime.clock ||
-      shopItemEffect(id).kind !== 'heal') return
-  const amount = heal(game, Math.max(1, Math.floor(playerStats(game).hp / 16)))
-  if (amount) {
-    game.runtime.heldHealReadyAt = game.runtime.clock + 8000
-    addEffect(game, 'heal', game.player.position, 900, { text: '+' + amount + ' HP', itemId: id, actor: 'partner' })
-    const arena = game.campaign.battle?.arena
-    if (arena) arenaNotice(game, arena, { actor: 'player', kind: 'heal', amount, text: items[id].nameKo + ' · +' + amount + ' HP' })
+export function autoUseBattleItem(game: GameSave, foe?: Wild): boolean {
+  if (game.campaign.battle?.arena.paused || (!game.campaign.battle && !game.autoBattle) ||
+      (game.runtime.itemReadyAt ?? 0) > game.runtime.clock) return false
+  const ids = game.settings.autoUseAllItems ? Object.keys(game.inventory) : selectedAutoItems(game.settings)
+  if (!ids.length) return false
+  const hp = game.player.currentHP
+  const lowHP = hp <= playerStats(game).hp * .5
+  const activeSlots = new Set(activeBattleItems(game).map(active => effectSlot(active.itemId)))
+  let boost: string | undefined
+  for (const id of ids) {
+    if (!(game.inventory[id] > 1) || !catalogById.has(id)) continue
+    const effect = shopItemEffect(id)
+    if (effect.kind === 'revive' || effect.kind === 'heal') {
+      if ((effect.kind === 'revive' ? hp === 0 : hp > 0 && lowHP) && canUseBattleItem(game, id)) {
+        return useBattleItem(game, { type: 'useBattleItem', itemId: id, expectedOwned: game.inventory[id] })
+      }
+      continue
+    }
+    if (boost || !hp || !foe || (effect.kind === 'capture' && !game.campaign.battle)) continue
+    if (!game.settings.autoUseAllItems && !game.campaign.battle && effect.kind !== 'experience' && !lowHP && foe.level + 2 < effectiveLevel(game)) continue
+    if (!canUseBattleItem(game, id)) continue
+    if (!activeSlots.has(effectSlot(id))) boost = id
   }
+  return !!boost && useBattleItem(game, { type: 'useBattleItem', itemId: boost, expectedOwned: game.inventory[boost] })
 }
 
 function spendItem(game: GameSave, itemId: string): void {
@@ -931,9 +974,6 @@ function addExperience(game: GameSave, amount: number, member: Player | PartyPok
   if (amount <= 0 || member.level >= cap) return 0
 
   const initialLevel = member.level
-  const maxHP = () => member === game.player ? playerStats(game).hp
-    : statsFor(member.speciesId, member.level, member.heldItemId, member.formId).hp
-  const previousHP = maxHP()
   member.exp ??= 0
   let remaining = amount
   while (remaining > 0 && member.level < cap) {
@@ -952,20 +992,19 @@ function addExperience(game: GameSave, amount: number, member: Player | PartyPok
     const learned = movesFor(member.speciesId, member.level, member.formId)
       .filter(move => !before.some(known => known.id === move.id))
     member.moveIds = [...(member.moveIds ?? before.map(move => move.id)), ...learned.map(move => move.id)].slice(0, 4)
-    if (member.currentHP > 0) member.currentHP = Math.min(maxHP(), member.currentHP + maxHP() - previousHP)
     if (member === game.player) addEffect(game, 'level', member.position, 1700, { text: 'Lv.' + member.level })
     addLog(game, 'level', species[member.speciesId].nameKo + ' Lv.' + initialLevel + ' → Lv.' + member.level)
   }
   return amount - remaining
 }
 
-function awardPartyExperience(game: GameSave, base: number, participants = [game.player.instanceId], wild = false): number {
+function awardPartyExperience(game: GameSave, base: number, participants = [game.player.instanceId], wild = false, memberBases?: ReadonlyMap<string, number>): number {
   if (base <= 0) return 0
   let leadExp = 0, sharedExp = 0, recipients = 0
   for (const member of [game.player, ...game.followers]) {
     if (member.currentHP <= 0) continue
     const held = member.heldItemId ? items[member.heldItemId] : undefined
-    const total = wild ? Math.round(base * (1 + (held?.exp ?? 0) + provisionBonus(game, 'experience'))) : base
+    const total = wild ? Math.round(base * (1 + (held?.exp ?? 0) + provisionBonus(game, 'experience'))) : memberBases?.get(member.instanceId) ?? base
     const gained = addExperience(game, participants.includes(member.instanceId) ? total : Math.floor(total / 2), member)
     if (member === game.player) leadExp = gained
     else if (gained > 0) { sharedExp += gained; recipients++ }
@@ -1016,7 +1055,6 @@ function evolve(game: GameSave): boolean {
 function performEvolution(game: GameSave, next: { speciesId: string; formId?: string }): boolean {
   const player = game.player
   const previous = species[player.speciesId]
-  const previousHP = playerStats(game).hp
   game.runtime.evolutionFromForm = player.formId
   player.speciesId = next.speciesId
   player.formId = next.formId
@@ -1024,7 +1062,7 @@ function performEvolution(game: GameSave, next: { speciesId: string; formId?: st
   const availableMoves = movesFor(player.speciesId, player.level, player.formId).map((entry) => entry.id)
   player.moveIds = player.moveIds.filter((id) => availableMoves.includes(id))
   if (!player.moveIds.length) player.moveIds = availableMoves
-  player.currentHP = clamp(player.currentHP + playerStats(game).hp - previousHP, 1, playerStats(game).hp)
+  player.currentHP = Math.min(player.currentHP, playerStats(game).hp)
   addUnique(game.pokedexSeen, player.speciesId)
   addUnique(game.pokedexCaught, player.speciesId)
   game.runtime.evolutionFrom = previous.id
@@ -1070,6 +1108,8 @@ function isCaptureBallId(id: unknown): id is CaptureBallId {
 
 const ultraBeasts = new Set(['nihilego', 'buzzwole', 'pheromosa', 'xurkitree', 'celesteela', 'kartana', 'guzzlord', 'poipole', 'naganadel', 'stakataka', 'blacephalon'])
 
+const moonBallTargets = new Set(['nidorina', 'nidorino', 'clefairy', 'jigglypuff', 'skitty', 'munna'])
+
 function ballBonus(wild: Wild, itemId: CaptureBallId, game?: GameSave): number {
   const types = formStats(wild.speciesId, wild.formId).types
   switch (catalogById.get(itemId)?.slug) {
@@ -1079,7 +1119,7 @@ function ballBonus(wild: Wild, itemId: CaptureBallId, game?: GameSave): number {
     case 'timer-ball': return Math.min(4, 1 + Math.floor((wild.battleActions ?? 0) / 2) * .3)
     case 'nest-ball': return Math.max(1, (41 - wild.level) / 10)
     case 'fast-ball': return formStats(wild.speciesId, wild.formId).baseStats.speed >= 100 ? 4 : 1
-    case 'moon-ball': return collectionItems.moonStone.evolutions?.[wild.formId ?? wild.speciesId] ? 4 : 1
+    case 'moon-ball': return moonBallTargets.has(wild.formId ?? wild.speciesId) ? 4 : 1
     case 'level-ball': {
       const level = game ? effectiveLevel(game) : 1
       return level >= wild.level * 4 ? 8 : level >= wild.level * 2 ? 4 : level > wild.level ? 2 : 1
@@ -1149,7 +1189,7 @@ function setRoaming(pokemon: PartyPokemon, active: boolean) {
 export function canChangeLead(game: GameSave): boolean {
   const state = activeState(game)
   return !game.campaign.battle && game.runtime.captureIn <= 0 &&
-    (state === 'IDLE' || state === 'WANDER' || state === 'RECOVER')
+    (state === 'IDLE' || state === 'WANDER' || state === 'RECOVER' || state === 'FAINT')
 }
 
 function leadAsMember(game: GameSave, active: boolean): PartyPokemon {
@@ -1162,6 +1202,7 @@ function leadAsMember(game: GameSave, active: boolean): PartyPokemon {
   const cooldowns = Object.fromEntries(Object.entries(game.runtime.cooldowns).filter(([, until]) => until > game.runtime.clock))
   return {
     instanceId, speciesId, ...(formId && { formId }), level, exp, moveIds, heldItemId, currentHP: storedHP,
+    ...(!currentHP && { reviveInMs: revivalRemaining(game.player) }),
     position, direction, active, state: 'IDLE', destination: null, restMs: active ? 350 : 0,
     roamSeed: game.player.roamSeed ?? (game.runtime.encounterSeed ^ species[speciesId].pokedexNumber) >>> 0,
     ...(Object.keys(cooldowns).length && { cooldowns }),
@@ -1177,12 +1218,13 @@ function installLead(game: GameSave, member: PartyPokemon): void {
   const maxHP = reserve?.active && reserve.owner === instanceId && reserve.kind === 'mega'
     ? statsFor(speciesId, effectiveLevel(game, level), heldItemId, reserve.formId).hp : cappedHP
   const currentHP = resizeHP(member.currentHP, fullHP, maxHP)
-  const state = currentHP > 0 ? 'IDLE' : 'RECOVER'
+  const state = currentHP > 0 ? 'IDLE' : 'FAINT'
   game.player = {
     instanceId, speciesId, ...(formId && { formId }), level, exp: exp ?? 0,
     moveIds: equippedMoves(moveIds, speciesId, level, formId), heldItemId: heldItemId ?? null,
     currentHP, ...(fullHP !== maxHP && { uncappedHP: member.currentHP }), position, direction, roamSeed: member.roamSeed,
-    state: state === 'RECOVER' && !game.autoBattle ? 'PAUSED' : state,
+    ...(!currentHP && { reviveInMs: revivalRemaining(member) }),
+    state: state === 'FAINT' && !game.autoBattle ? 'PAUSED' : state,
   }
   const runtime = game.runtime
   runtime.pausedState = state
@@ -1532,15 +1574,7 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   return true
 }
 
-function restoreTrainerParty(game: GameSave, arena: Pick<TrainerArena, 'partyOrder' | 'participants'>, healParticipants: boolean): void {
-  if (healParticipants) {
-    heal(game, playerStats(game).hp)
-    for (const member of game.followers) {
-      if (arena.participants.includes(member.instanceId)) {
-        member.currentHP = statsFor(member.speciesId, member.level, member.heldItemId, member.formId).hp
-      }
-    }
-  }
+function restoreTrainerParty(game: GameSave, arena: Pick<TrainerArena, 'partyOrder'>): void {
   const first = arena.partyOrder[0]
   if (first !== game.player.instanceId) {
     const index = game.followers.findIndex(member => member.instanceId === first)
@@ -2308,7 +2342,7 @@ function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Po
 
 function practiceParty(game: GameSave): PracticeParty {
   return { player: game.player, followers: game.followers, inventory: game.inventory, clock: game.runtime.clock,
-    battleItem: activeBattleItem(game), itemReadyAt: game.runtime.itemReadyAt, heldHealReadyAt: game.runtime.heldHealReadyAt, cooldowns: game.runtime.cooldowns, boostUntil: game.runtime.boostUntil }
+    battleItem: activeBattleItem(game), itemReadyAt: game.runtime.itemReadyAt, cooldowns: game.runtime.cooldowns, boostUntil: game.runtime.boostUntil }
 }
 
 function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: PracticeParty, teamNumber?: number): boolean {
@@ -2344,25 +2378,18 @@ function clearChallenge(game: GameSave): void {
 }
 
 function restAfterChallenge(game: GameSave): void {
-  heal(game, playerStats(game).hp)
-  transition(game, 'IDLE', 900)
+  const state = game.player.currentHP > 0 ? 'IDLE' : 'FAINT'
+  game.runtime.pausedState = state
+  transition(game, state === 'FAINT' && !game.autoBattle ? 'PAUSED' : state, 900)
 }
 
-function endPractice(game: GameSave, trainer: KantoTrainer, party: PracticeParty, outcome: PracticeResult): void {
+function endPractice(game: GameSave, trainer: KantoTrainer, outcome: PracticeResult): void {
+  const arena = game.campaign.battle!.arena
   clearChallenge(game)
-  game.player = party.player
-  game.followers = party.followers
-  game.runtime.cooldowns = party.cooldowns
-  game.runtime.boostUntil = party.boostUntil
-  game.inventory = party.inventory
-  const practiceElapsed = Math.max(0, game.runtime.clock - party.clock)
-  game.runtime.battleItem = party.battleItem && { ...party.battleItem, until: party.battleItem.until + practiceElapsed }
-  game.runtime.itemReadyAt = party.itemReadyAt === undefined ? undefined : party.itemReadyAt + practiceElapsed
-  game.runtime.heldHealReadyAt = party.heldHealReadyAt === undefined ? undefined : party.heldHealReadyAt + practiceElapsed
-  game.effects = []
-  transition(game, 'IDLE', 700)
+  restoreTrainerParty(game, arena)
+  restAfterChallenge(game)
   const label = { win: '승리', loss: '패배', left: '종료' }[outcome]
-  addLog(game, 'battle', trainer.name + ' 연습 ' + label + ' · 입장 전 파티로 돌아왔습니다.', outcome)
+  addLog(game, 'battle', trainer.name + ' 연습 ' + label, outcome)
 }
 
 function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): void {
@@ -2381,7 +2408,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
     return
   }
 
-  if (battle.practice) return endPractice(game, trainer, battle.practice, 'win')
+  if (battle.practice) return endPractice(game, trainer, 'win')
   game.wins++
   clearChallenge(game)
   let result = trainer.name + ' 격파'
@@ -2422,7 +2449,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
 
   const earned = awardPartyExperience(game, Math.round(experience * (1 + provisionBonus(game, 'experience'))), battle.arena.participants)
   game.coins += coins
-  restoreTrainerParty(game, battle.arena, true)
+  restoreTrainerParty(game, battle.arena)
   restAfterChallenge(game)
   const rewards = formatRewards(earned, coins)
   addLog(game, 'battle', rewards ? result + ' · ' + rewards : result)
@@ -2431,28 +2458,31 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
 
 function trainerDefeat(game: GameSave, trainer: KantoTrainer, surrendered = false): void {
   const { arena, practice } = game.campaign.battle!
-  if (practice) return endPractice(game, trainer, practice, surrendered ? 'left' : 'loss')
+  if (practice) return endPractice(game, trainer, surrendered ? 'left' : 'loss')
   game.losses++
   clearChallenge(game)
   if (trainer.role !== 'field') resetLeagueRun(game.campaign)
-  restoreTrainerParty(game, arena, true)
+  restoreTrainerParty(game, arena)
   restAfterChallenge(game)
   const result = trainer.name + (surrendered ? ' 도전 포기' : '에게 패배')
   addLog(game, 'battle', result)
   addEffect(game, 'travel', game.player.position, 1900, { text: result })
 }
 
+// Field rewards use playable IDs from the same catalog as the bag and shop.
+const dropPools = {
+  common: ['potion', 'pokeball', 'swiftBerry', 'trailStone'],
+  uncommon: ['superPotion', 'greatBall', 'muscleBand', 'guardCharm'],
+  rare: ['ultraBall', 'max-potion', 'quick-claw'],
+  epic: ['leftovers', 'choice-band'],
+} as const
+
 function rollDrop(game: GameSave): string | undefined {
   if (random(game) >= 0.74 + (equipped(game)?.drop ?? 0)) return undefined
   const roll = random(game)
   const rarity = roll < 0.7 ? 'common' : roll < 0.93 ? 'uncommon' : roll < 0.99 ? 'rare' : 'epic'
   const pool = dropPools[rarity]
-  const result = pool[Math.floor(random(game) * pool.length)].id
-  const supplies = fieldItems[game.locationId]
-  if (result === 'trailStone' && supplies?.length && random(game) < 0.5) {
-    return supplies[Math.floor(random(game) * supplies.length)]
-  }
-  return result
+  return pool[Math.floor(random(game) * pool.length)]
 }
 
 function defeat(game: GameSave, wild: Wild): void {
@@ -2581,7 +2611,6 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     }
     if (dealt && technique?.drain) target.currentHP = Math.min(target.maxHP,target.currentHP+Math.max(1,Math.floor(dealt*technique.drain)))
     if (dealt && technique?.recoil) target.currentHP = Math.max(0,target.currentHP-Math.max(1,Math.floor(dealt*technique.recoil)))
-    if (!playerTurn && damage > 0) recoverFromHeldItem(game)
     addEffect(game, 'attack', source.position, FIELD_COMMAND_MS, {
       target: { ...recipient.position }, moveId: selected.id, moveType: selected.type, text: selected.nameKo, actor, targetActor
     })
@@ -2597,7 +2626,10 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     }
   }
 
-  if (!playerTurn && player.currentHP === 0) autoUseBattleItem(game, target)
+  if (player.currentHP === 0) {
+    player.reviveInMs ??= REVIVAL_MS
+    autoUseBattleItem(game, target)
+  }
   const trainer = target.trainerId ? currentTrainer(game) : undefined
   if (player.currentHP > 0 && target.currentHP > 0 && technique?.pivot && trainer && ai && manual?.cast.result === 'hit' &&
       matchup(game,target,selected,false) > 0) {
@@ -2655,13 +2687,13 @@ function travel(game: GameSave, locationId: unknown): boolean {
 function travelTo(game: GameSave, location: KantoLocation): void {
   const trainer = currentTrainer(game)
   if (trainer && game.campaign.battle?.practice) {
-    endPractice(game, trainer, game.campaign.battle.practice, 'left')
+    endPractice(game, trainer, 'left')
   } else if (trainer) {
     const arena = game.campaign.battle!.arena
     game.losses++
     addLog(game, 'battle', trainer.name + ' 도전 중단')
     clearChallenge(game)
-    restoreTrainerParty(game, arena, false)
+    restoreTrainerParty(game, arena)
   }
   resetLeagueRun(game.campaign)
 
@@ -2680,8 +2712,8 @@ function travelTo(game: GameSave, location: KantoLocation): void {
   runtime.spawnIn = INITIAL_SPAWN_MS / game.settings.spawnRate
 
   if (game.player.currentHP === 0) {
-    runtime.pausedState = 'RECOVER'
-    transition(game, game.autoBattle ? 'RECOVER' : 'PAUSED', RECOVERY_MS)
+    runtime.pausedState = 'FAINT'
+    transition(game, game.autoBattle ? 'FAINT' : 'PAUSED')
   } else {
     runtime.pausedState = 'IDLE'
     transition(game, 'IDLE', 700)
@@ -2707,14 +2739,13 @@ function transferRegion(game: GameSave, regionId: RegionId): boolean {
   travelTo(game, destination.locationById[destination.startLocationId])
   game.regionProgress[prior] = { badges: [...badges], champion, ...(game.campaign.finaleWon && { finaleWon: true }),
     ...(fieldWins?.length && { fieldWins: [...fieldWins] }) }
+  const traveler = leadAsMember(game, true)
   game.regionId = regionId
   game.campaign = newCampaign(game.regionProgress[regionId])
   delete game.regionProgress[regionId]
   game.runtime.cooldowns = {}
-  game.player.currentHP = playerStats(game).hp
-  delete game.player.uncappedHP
-  game.runtime.pausedState = 'IDLE'
-  transition(game, 'IDLE', 700)
+  installLead(game, traveler)
+  restAfterChallenge(game)
   addLog(game, 'travel', destination.name + ' · 레벨 상한 Lv.' + levelCap(game))
   return true
 }
@@ -2736,6 +2767,11 @@ function nextRoamDestination({ x, y }: Position, bounds: Bounds, scale: number, 
 }
 
 function walkFollower(follower: PartyPokemon, elapsed: number, bounds: Bounds, scale: number): void {
+  if (follower.currentHP === 0) {
+    follower.state = 'IDLE'
+    follower.destination = null
+    return
+  }
   if (follower.restMs > 0) {
     follower.restMs = Math.max(0, follower.restMs - elapsed)
     return
@@ -2782,7 +2818,15 @@ function walk(game: GameSave, elapsed: number, bounds: Bounds): void {
 function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof planPartner): void {
   const player = game.player
   const runtime = game.runtime
-  if (game.campaign.battle?.arena.paused || game.campaign.battle?.arena.needsSwitch) return
+  const arena = game.campaign.battle?.arena
+  if (arena?.paused) return
+  if (arena?.needsSwitch) {
+    if (game.runtime.itemReadyAt && game.runtime.itemReadyAt > game.runtime.clock) {
+      game.runtime.itemReadyAt = Math.max(game.runtime.clock, game.runtime.itemReadyAt - elapsed)
+    }
+    autoUseBattleItem(game, findTarget(game))
+    return
+  }
   if (game.effects.length) {
     for (const effect of game.effects) effect.remainingMs -= elapsed
     game.effects = game.effects.filter((effect) => effect.remainingMs > 0)
@@ -2794,6 +2838,10 @@ function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof 
   }
   for (const follower of game.followers) {
     if (follower.active) walkFollower(follower, elapsed, bounds, game.settings.spriteScale)
+  }
+  if (player.currentHP === 0 && player.state !== 'PAUSED' && player.state !== 'FAINT') {
+    runtime.pausedState = 'FAINT'
+    transition(game, game.autoBattle ? 'FAINT' : 'PAUSED')
   }
   runtime.captureIn = Math.max(0, runtime.captureIn - elapsed)
   if (!game.autoBattle && player.state !== 'EVOLUTION' && !isRoaming(player.state)) return
@@ -2821,28 +2869,14 @@ function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof 
         transition(game, 'IDLE', 550)
       }
       break
-    case 'FAINT': {
-      const id = game.settings.autoUseItem
-      if (game.autoBattle && id && shopItemEffect(id).kind === 'revive' &&
-          useBattleItem(game, { type: 'useBattleItem', itemId: id, expectedOwned: game.inventory[id] })) break
-      if (runtime.stateIn <= 0) {
-        player.position = home(bounds, game.settings.spriteScale)
-        runtime.destination = null
-        transition(game, 'RECOVER', RECOVERY_MS)
-      }
+    case 'FAINT':
+      autoUseBattleItem(game)
       break
-    }
     case 'RECOVER':
-      if (runtime.stateIn > 0) break
-      if (player.currentHP >= playerStats(game).hp) transition(game, 'IDLE', 650)
-      else {
-        if (game.settings.autoHeal && player.currentHP > 0 && player.currentHP < playerStats(game).hp * 0.36) {
-          if (!consume(game, 'potion')) consume(game, 'superPotion')
-        }
-        heal(game, Math.ceil(playerStats(game).hp * 0.19 * (1 + (equipped(game)?.recovery ?? 0))))
-        runtime.stateIn = RECOVERY_MS
+      if (runtime.stateIn <= 0) {
+        transition(game, 'IDLE', 650)
+        if (game.settings.autoEvolve && canEvolve(game)) evolve(game)
       }
-      if (game.settings.autoEvolve && canEvolve(game)) evolve(game)
       break
     case 'LOOT':
       if (runtime.drop) {
@@ -2878,7 +2912,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof 
         transition(game, 'IDLE')
       } else if (runtime.stateIn <= 0) {
         const ball = game.settings.autoCaptureBall
-        if (!target.trainerId && ball && runtime.turn === 'player' && runtime.autoCaptureTargetId !== target.id &&
+        if (!target.trainerId && ball && game.inventory[ball] > 1 && runtime.turn === 'player' && runtime.autoCaptureTargetId !== target.id &&
             target.currentHP <= target.maxHP * AUTO_CAPTURE_HP &&
             (!game.settings.autoCaptureUncaughtOnly || !game.pokedexCaught.includes(target.speciesId)) && throwBall(game, ball)) {
           runtime.autoCaptureTargetId = target.id
@@ -2892,9 +2926,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof 
     }
     case 'IDLE':
     case 'WANDER':
-      if (game.autoBattle && player.currentHP < playerStats(game).hp * 0.45) {
-        transition(game, 'RECOVER', RECOVERY_MS)
-      } else if (!(game.autoBattle && game.settings.autoEvolve && evolve(game))) {
+      if (!(game.autoBattle && game.settings.autoEvolve && evolve(game))) {
         walk(game, elapsed, bounds)
       }
       break
@@ -2904,7 +2936,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof 
   }
 }
 
-export function tick(game: GameSave, elapsedMs: number, bounds: Bounds, decide = planPartner): void {
+export function tick(game: GameSave, elapsedMs: number, bounds: Bounds, decide = planPartner, revivalElapsedMs = elapsedMs): void {
   const scale = game.settings.spriteScale
   game.player.position = bounded(game.player.position, bounds, scale)
   for (const wild of game.wild) wild.position = bounded(wild.position, bounds, scale)
@@ -2932,6 +2964,7 @@ export function tick(game: GameSave, elapsedMs: number, bounds: Bounds, decide =
   if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return
 
   // Limit catch-up after a suspended process and keep the AI step bounded.
+  advanceRevival(game, revivalElapsedMs)
   let remaining = Math.min(1000, elapsedMs)
   while (remaining > 0) {
     const arena = game.campaign.battle?.arena
@@ -2952,7 +2985,7 @@ function hasKey(value: object, key: PropertyKey): boolean {
 }
 
 const booleanSettings = [
-  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve',
+  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoUseAllItems', 'autoEvolve',
   'effects', 'hud', 'startOnLogin', 'notifications',
 ] as const
 
@@ -2965,6 +2998,11 @@ function validatedSettings(value: Record<string, unknown>): Partial<Settings> {
   if (value.autoCaptureBall === null || isCaptureBallId(value.autoCaptureBall)) next.autoCaptureBall = value.autoCaptureBall
   if (value.autoUseItem === null || (typeof value.autoUseItem === 'string' && catalogById.has(value.autoUseItem))) {
     next.autoUseItem = value.autoUseItem
+    next.autoUseItems = value.autoUseItem ? [value.autoUseItem] : []
+  }
+  if (Array.isArray(value.autoUseItems)) {
+    next.autoUseItems = [...new Set(value.autoUseItems.filter((id): id is string => typeof id === 'string' && catalogById.has(id)))]
+    next.autoUseItem = next.autoUseItems[0] ?? null
   }
   if (value.fps === 15 || value.fps === 30) next.fps = value.fps
   if (typeof value.spriteScale === 'number' && Number.isFinite(value.spriteScale)) next.spriteScale = clamp(value.spriteScale, 0.75, 2)
@@ -3058,6 +3096,10 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     }
     case 'buyItem':
       return buyItem(game, action)
+    case 'sellItem':
+      return sellItem(game, action)
+    case 'revivePokemon':
+      return payForRevival(game, action.instanceId)
     case 'useBattleItem':
       return !game.campaign.battle && useBattleItem(game, action)
     case 'use-item':
@@ -3108,8 +3150,15 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
 
 export function applyOffline(game: GameSave, now = Date.now(), since = Date.parse(game.lastSavedAt)): OfflineReward {
   const reward: OfflineReward = { minutes: 0, exp: 0, coins: 0 }
+  since = Math.max(since, Date.parse(game.lastSavedAt))
   if (!Number.isFinite(since) || !Number.isFinite(now) || now <= since || now > 8640000000000000) return reward
   game.lastSavedAt = new Date(now).toISOString()
+  const leadWait = revivalRemaining(game.player)
+  const absent = now - since
+  const eligibleMinutes = (wait: number) => Math.floor(Math.min(MAX_OFFLINE_MS, Math.max(0, absent - Math.max(leadWait, wait))) / 60000)
+  const followerMinutes = new Map(game.followers.filter(member => member.currentHP === 0)
+    .map(member => [member.instanceId, eligibleMinutes(revivalRemaining(member))]))
+  advanceRevival(game, now - since)
   // A saved arena resumes on its own clock, including remaining technique cooldowns.
   if (game.campaign.battle) return reward
   game.runtime.clock = Math.max(game.runtime.clock, now)
@@ -3126,12 +3175,14 @@ export function applyOffline(game: GameSave, now = Date.now(), since = Date.pars
   })
   const totalWeight = possible.reduce((total, slot) => total + slot.weight, 0)
   if (totalWeight <= 0) return reward
-  reward.minutes = Math.floor(Math.min(now - since, MAX_OFFLINE_MS) / 60000)
+  reward.minutes = eligibleMinutes(0)
   if (reward.minutes === 0) return reward
 
   // Half of one typical encounter per minute, without simulating historical fights or drops.
   const enemyLevel = possible.reduce((total, slot) => total + slot.level * slot.weight, 0) / totalWeight
-  reward.exp = awardPartyExperience(game, Math.floor(reward.minutes * (13 + enemyLevel * 3) / 2))
+  const experienceFor = (minutes: number) => Math.floor(minutes * (13 + enemyLevel * 3) / 2)
+  const memberBases = new Map([...followerMinutes].map(([id, minutes]) => [id, experienceFor(minutes)]))
+  reward.exp = awardPartyExperience(game, experienceFor(reward.minutes), [game.player.instanceId], false, memberBases)
   reward.coins = Math.floor(reward.minutes * Math.round(2 + enemyLevel / 2) / 2)
   game.coins += reward.coins
   addLog(game, 'offline', '자리 비움 ' + reward.minutes + '분 · ' + formatRewards(reward.exp, reward.coins))
@@ -3266,6 +3317,7 @@ function readOwnedPokemon(value: Record<string, unknown>, leaderId: string, lead
     return {
       instanceId, speciesId, level, ...(formId && { formId }),
       currentHP: integer(entry.currentHP, maxHP, typeof value.schemaVersion === 'number' && value.schemaVersion >= 15 ? 0 : 1, maxHP),
+      ...(entry.currentHP === 0 && { reviveInMs: finite(entry.reviveInMs, REVIVAL_MS, 0, REVIVAL_MS) }),
       ...(entry.exp !== undefined && { exp: integer(entry.exp, 0, 0, Math.max(0, requiredExp(level) - 1)) }),
       ...(entry.moveIds !== undefined && { moveIds: equippedMoves(entry.moveIds, speciesId, level, formId) }),
       ...(entry.heldItemId !== undefined && { heldItemId }),
@@ -3344,16 +3396,22 @@ function readRuntime(value: unknown, now: number): Runtime {
   runtime.pausedState = readActivity(value.pausedState, 'IDLE')
   if (runtime.pausedState === 'PAUSED' || runtime.pausedState === 'EVOLUTION') runtime.pausedState = 'IDLE'
   runtime.boostUntil = finite(value.boostUntil, 0, 0, runtime.clock + 120000)
-  if (isRecord(value.battleItem) && typeof value.battleItem.itemId === 'string' && catalogById.has(value.battleItem.itemId)) {
-    const id = value.battleItem.itemId
-    const effect = shopItemEffect(id)
-    const until = finite(value.battleItem.until, 0, 0, runtime.clock + (effect.durationMs ?? 30000))
-    if (until > runtime.clock && effect.kind !== 'heal' && effect.kind !== 'revive') runtime.battleItem = { itemId: id, until }
+  const savedItems = Array.isArray(value.otherBattleItems) ? [...value.otherBattleItems, value.battleItem] : [value.battleItem]
+  const bySlot = new Map<string, BattleItemState>()
+  for (const item of savedItems) {
+    if (!isRecord(item) || typeof item.itemId !== 'string' || !catalogById.has(item.itemId)) continue
+    const effect = shopItemEffect(item.itemId)
+    const until = finite(item.until, 0, 0, runtime.clock + (effect.durationMs ?? 30000))
+    if (until <= runtime.clock || effect.kind === 'heal' || effect.kind === 'revive') continue
+    const slot = effectSlot(item.itemId)
+    bySlot.delete(slot)
+    bySlot.set(slot, { itemId: item.itemId, until })
   }
+  const active = [...bySlot.values()]
+  if (active.length) runtime.battleItem = active.pop()
+  if (active.length) runtime.otherBattleItems = active
   const ready = finite(value.itemReadyAt, 0, 0, runtime.clock + ITEM_USE_DELAY)
   if (ready > runtime.clock) runtime.itemReadyAt = ready
-  const heldReady = finite(value.heldHealReadyAt, 0, 0, runtime.clock + 8000)
-  if (heldReady > runtime.clock) runtime.heldHealReadyAt = heldReady
   runtime.evolutionFrom = typeof value.evolutionFrom === 'string' && hasKey(species, value.evolutionFrom) ? value.evolutionFrom : null
   if (isRecord(value.drop) && typeof value.drop.itemId === 'string' && hasKey(items, value.drop.itemId)) {
     const position = readPosition(value.drop.position)
@@ -3626,11 +3684,15 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
     inventory: snapshot.inventory ?? value.inventory,
     campaign: { ...value.campaign, battle: null },
     runtime: { ...value.runtime, clock: snapshot.clock ?? value.runtime.clock, targetId: null, cooldowns: snapshot.cooldowns,
-      boostUntil: snapshot.boostUntil, battleItem: snapshot.battleItem, itemReadyAt: snapshot.itemReadyAt, heldHealReadyAt: snapshot.heldHealReadyAt },
+      boostUntil: snapshot.boostUntil, battleItem: snapshot.battleItem, itemReadyAt: snapshot.itemReadyAt },
   }, expectedSlot)
   if (!opening) return null
   const live = readGame(value, expectedSlot, practiceParty(opening))
-  if (!live?.campaign.battle?.practice) return opening
+  if (!live) return opening
+  if (!live.campaign.battle?.practice) {
+    restoreTrainerParty(live, { partyOrder: [opening.player, ...opening.followers].map(member => member.instanceId) })
+    return live
+  }
   const identities = new Map([opening.player, ...opening.followers].map(member => [member.instanceId, member]))
   const fighters = [live.player, ...live.followers]
   if (fighters.length !== identities.size || fighters.some(member => {
@@ -3759,11 +3821,11 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const autoBattle = value.autoBattle !== false
   let state = trainerEnemy ? 'BATTLE' as const : readActivity(rawPlayer.state, 'IDLE')
   if (state === 'PAUSED') state = runtime.pausedState
-  if (!trainerEnemy && currentHP === 0 && state !== 'FAINT') state = 'RECOVER'
+  if (!trainerEnemy && currentHP === 0) state = 'FAINT'
   if (currentHP > 0 && state === 'FAINT') state = 'RECOVER'
   if (['SEARCH', 'CHASE', 'BATTLE'].includes(state) && !wild.some((entry) => entry.id === runtime.targetId)) state = 'IDLE'
   if (!['SEARCH', 'CHASE', 'BATTLE'].includes(state)) runtime.targetId = null
-  const settings = { ...defaultSettings, ...(isRecord(value.settings) ? validatedSettings(value.settings) : {}) }
+  const settings = { ...defaultSettings, autoUseItems: [], ...(isRecord(value.settings) ? validatedSettings(value.settings) : {}) }
   if (!trainerEnemy && (state === 'BATTLE' || (state === 'RECOVER' && runtime.captureIn > 0))) {
     const direction = target ? (target.position.x < position.x ? -1 : 1) : (rawPlayer.direction === -1 ? -1 : 1)
     runtime.fieldTrainerSpot ??= openingTrainerSpot(position, direction, settings.spriteScale)
@@ -3775,8 +3837,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   if (runtime.gimmick && runtime.gimmick.targetId !== runtime.targetId) delete runtime.gimmick
   const from = runtime.evolutionFrom
   const matchesEvolution = (rule: { speciesId: string; formId?: string } | undefined) => rule?.speciesId === speciesId && rule.formId === formId
-  if (state !== 'EVOLUTION' || !from || !(matchesEvolution(evolutionFor(from, runtime.evolutionFromForm)) ||
-      Object.keys(collectionItems).some(id => matchesEvolution(itemEvolution(id, from, runtime.evolutionFromForm))))) {
+  if (state !== 'EVOLUTION' || !from || !matchesEvolution(evolutionFor(from, runtime.evolutionFromForm))) {
     runtime.evolutionFrom = null
     delete runtime.evolutionFromForm
   }
@@ -3817,6 +3878,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
       level,
       exp: level === MAX_LEVEL ? 0 : clamp(Math.floor(rawPlayer.exp), 0, requiredExp(level) - 1),
       currentHP,
+      ...(!currentHP && { reviveInMs: finite(rawPlayer.reviveInMs, REVIVAL_MS, 0, REVIVAL_MS) }),
       moveIds,
       heldItemId,
       state,
@@ -3854,7 +3916,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
     const order: unknown = isRecord(arena) ? arena.partyOrder : undefined
     const members = [leaderId, ...followers.map(member => member.instanceId)]
     if (Array.isArray(order) && order.length === members.length && members.every(id => order.includes(id))) {
-      restoreTrainerParty(hydrated, { partyOrder: order, participants: [] }, false)
+      restoreTrainerParty(hydrated, { partyOrder: order })
     }
   }
   restorePlayableParty(hydrated)

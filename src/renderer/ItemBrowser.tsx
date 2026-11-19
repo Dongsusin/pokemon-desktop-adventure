@@ -5,10 +5,9 @@ import { items, shopOffer } from '../game/engine'
 
 export const catalogById = new Map(catalogItems.map(item => [item.id, item]))
 const normalize = (s: string) => s.normalize('NFKC').toLowerCase().replace(/[\s.’'·:_-]/g, '')
-  .replace(/(기술머신|비전머신|기술레코드|tm|hm|tr)0+(?=\d)/g, '$1')
 const searchNames = new Map(Object.values(items).map(item => {
   const entry = catalogById.get(item.id)
-  return [item.id, [item.nameKo, item.id, entry?.nameKo, entry?.nameEn, entry?.slug, entry?.moveId, entry?.moveId && entry.description].filter(Boolean).map(s => normalize(s!))]
+  return [item.id, [item.nameKo, item.id, entry?.nameKo, entry?.nameEn, entry?.slug].filter(Boolean).map(s => normalize(s!))]
 }))
 const names = new Intl.Collator('ko', { numeric: true })
 type Order = 'stock' | 'low' | 'high' | 'name'
@@ -16,7 +15,7 @@ const number = (n: number) => n.toLocaleString('ko-KR')
 
 export function matchItems(ids: readonly string[], query: string, category: ShopCategory | '', order: Order = 'stock') {
   const needle = normalize(query.trim())
-  const results = ids.filter(id => (!category || catalogById.get(id)?.category === category) &&
+  const results = ids.filter(id => catalogById.has(id) && (!category || catalogById.get(id)?.category === category) &&
     (!needle || searchNames.get(id)?.some(s => s.includes(needle))))
   if (order === 'name') results.sort((a,b) => names.compare(items[a].nameKo, items[b].nameKo))
   else if (order === 'low' || order === 'high') results.sort((a,b) => ((shopOffer(a)?.price ?? 0) - (shopOffer(b)?.price ?? 0)) * (order === 'low' ? 1 : -1))
@@ -44,7 +43,7 @@ export function ItemBrowser({ ids, title, shop = false, pageSize = 12, controls,
         onChange={e => { setQuery(e.target.value); setPage(0) }} /></label>
       <label>분류<select aria-label={title + ' 분류'} value={category} onChange={e => { setCategory(e.target.value as ShopCategory | ''); setPage(0) }}>
         <option value="">모든 분류</option>
-        {Object.entries(catalogCategoryLabels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}
+        {Object.entries(catalogCategoryLabels).filter(([id]) => ids.some(key => catalogById.get(key)?.category === id)).map(([id,label]) => <option key={id} value={id}>{label}</option>)}
       </select></label>
       {shop && <label>정렬<select aria-label="상품 정렬" value={order} onChange={e => { setOrder(e.target.value as Order); setPage(0) }}>
         <option value="stock">기본 순서</option><option value="low">낮은 가격순</option>

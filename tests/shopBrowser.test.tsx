@@ -13,8 +13,8 @@ describe('expanded shop and battle bag', () => {
     expect(matchItems(ids, '몬스 터볼', 'balls')).toContain('pokeball')
     expect(matchItems(ids, 'GREAT BALL', 'balls')).toContain('greatBall')
     expect(matchItems(ids, 'GREAT BALL', 'medicine')).toEqual([])
-    expect(matchItems(ids, '드래곤 클로', 'machines')).toContain('tm02')
-    expect(matchItems(ids, 'TM 2', 'machines')).toContain('tm02')
+    expect(matchItems(ids, '이상한 사탕', '')).toEqual([])
+    expect(matchItems(ids, 'TM 2', '')).toEqual([])
     const choices = ['ultraBall', 'pokeball', 'greatBall']
     expect(matchItems(choices, '', 'balls', 'low')).toEqual(['pokeball','greatBall','ultraBall'])
     expect(choices[0]).toBe('ultraBall')
@@ -22,7 +22,7 @@ describe('expanded shop and battle bag', () => {
 
   it('limits the initial list by page and retains navigation for the full catalog', () => {
     const ids = catalogItems.map(item => item.id)
-    expect(ids.length).toBeGreaterThan(1000)
+    expect(ids.length).toBe(445)
     const html = renderToStaticMarkup(<ItemBrowser ids={ids} title="상품" shop>
       {id => <li key={id} data-item-id={id}>{items[id].nameKo}</li>}
     </ItemBrowser>)
