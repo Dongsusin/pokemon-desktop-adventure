@@ -72,11 +72,16 @@ const techniques: Record<string, ArenaMoveProfile> = {
   recover: profile('self', 0, 85, 800, ticks(2), ticks(12)),
 }
 
-export function arenaMoveProfile(move: Pick<Move, 'id'>): ArenaMoveProfile {
-  return techniques[move.id] ?? techniques.tackle
+export function arenaMoveProfile(move: Pick<Move, 'id' | 'gimmick'>): ArenaMoveProfile {
+  const base = techniques[move.id] ?? techniques.tackle
+  if (!move.gimmick || base.kind === 'self') return base
+  const max = move.gimmick === 'dynamax'
+  return { ...base, range: base.range * (max ? 1.18 : 1.1), radius: base.radius * (max ? 1.6 : 1.35),
+    startupMs: base.startupMs + (max ? 200 : 125), halfAngleDeg: base.halfAngleDeg * (max ? 1.25 : 1.1) }
 }
 
 export interface ArenaCast {
+  gimmick?: 'z' | 'dynamax'
   id: number
   side: ArenaSide
   moveId: string
@@ -137,7 +142,7 @@ export function createArenaCast(id: number, side: ArenaSide, move: Move, origin:
   // a fired shot keeps flying down its initial heading to its full range.
   const reach = profile.kind === 'dash' ? Math.min(profile.range, Math.max(0, distance - profile.radius * .72)) : profile.range
   const end = { x: origin.x + direction.x * reach, y: origin.y + direction.y * reach / arenaHeightRatio }
-  return { id, side, moveId: move.id, moveName: move.nameKo, moveType: move.type, profile,
+  return { id, side, ...(move.gimmick && { gimmick: move.gimmick }), moveId: move.id, moveName: move.nameKo, moveType: move.type, profile,
     origin: { ...origin }, target: { ...mark }, end, elapsedMs: 0, resolved: false,
     ...(facing && { emitter: { feet: { ...feet }, targetFeet: { ...targetFeet }, facing } }),
     ...(victimOffset && { victimOffset }),

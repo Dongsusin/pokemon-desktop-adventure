@@ -1,7 +1,9 @@
 import { arenaCastFrame, arenaCastTouches } from '../src/game/arenaMoves'
-import { arenaSkills, dispatch, tick, type GameSave } from '../src/game/engine'
+import { arenaSkills, battleGimmickStatus, currentTrainer, dispatch, moves, tick, typeMultiplier, type GameSave } from '../src/game/engine'
+
+import { megaFormFor } from '../src/game/battleGimmicks'
 import { formStats } from '../src/game/forms'
-import { teraAttackMultiplier } from '../src/game/regions/paldeaTera'
+import { isMoveMotionSupported } from '../src/game/motionEligibility'
 
 const bounds = { width: 1280, height: 800 }
 const frame = 100
@@ -50,14 +52,13 @@ export function playFrame(game: GameSave, moveId?: string): boolean {
     }
   }
   dispatch(game, { type: 'arena-move', x: Math.abs(dx) < 0.03 ? 0 : Math.sign(dx), y: Math.abs(dy) < 0.03 ? 0 : Math.sign(dy) })
-  const target = game.wild[0]
-  const types = formStats(game.player.speciesId, game.player.formId).types
   const options = arenaSkills(game)
     .map((skill, slot) => ({ ...skill, slot }))
     .filter(skill => skill.unlocked && skill.inRange && skill.cooldownMs <= 0 &&
       (moveId ? skill.move.id === moveId : skill.move.category !== 'healing'))
-    .filter(skill => moveId || !target.teraType || teraAttackMultiplier(skill.move.type, types, types[0], target.teraType, target.abilityId) > 0)
-    .sort((a, b) => b.move.power - a.move.power)
+    .map(skill => ({ ...skill, score: skill.move.power * (typeof skill.effectiveness === 'number' ? skill.effectiveness : 0) }))
+    .filter(skill => moveId || skill.score > 0)
+    .sort((a, b) => b.score - a.score)
   const cast = Boolean(options[0] && dispatch(game, { type: 'arena-skill', slot: options[0].slot }))
   tick(game, frame, bounds)
   return cast
@@ -79,8 +80,26 @@ export function castSkill(game: GameSave, moveId?: string) {
   throw Error('Unable to cast ' + (moveId ?? 'a damaging skill') + ' against ' + game.campaign.battle?.trainerId)
 }
 
+function useRegionalPower(game: GameSave) {
+  const status = battleGimmickStatus(game)
+  if (status?.phase !== 'ready') return
+  if (status.kind === 'mega') {
+    const party = game.player
+    const form = megaFormFor(party.speciesId, party.formId)
+    const attacks = party.moveIds.filter(id => moves[id].category !== 'healing' && isMoveMotionSupported(party.speciesId, form, id))
+    const remaining = currentTrainer(game)!.team.slice(game.campaign.battle!.opponentIndex)
+    // A native Mega can lose its shooting animation; a lone fighter needs coverage for the whole team.
+    if (remaining.some(foe => attacks.every(id => !typeMultiplier(moves[id].type, formStats(foe.speciesId, foe.formId).types)))) return
+  }
+  dispatch(game, { type: 'arena-gimmick' })
+}
+
 export function finishChallenge(game: GameSave) {
-  for (let i = 0; i < 4000 && game.campaign.battle; i++) playFrame(game)
+  for (let i = 0; i < 4000 && game.campaign.battle; i++) {
+    resume(game)
+    useRegionalPower(game)
+    playFrame(game)
+  }
   if (game.campaign.battle) throw Error('Challenge did not finish against ' + game.campaign.battle.trainerId)
 }
 

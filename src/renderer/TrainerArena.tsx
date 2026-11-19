@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react'
-import { arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
+import { battleGimmickStatus, arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
 import { species } from '../game/catalog'
-import { battleForm, formStats } from '../game/forms'
+import { battleForm } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
 import { Pokemon, pokemonName, types } from './shared'
 import { ArenaEffects, moveColors } from './ArenaEffects'
@@ -12,6 +12,7 @@ import { ArenaTrainers } from './ArenaTrainers'
 import { useMoveSounds } from './useMoveSounds'
 import { arenaHeightRatio } from '../game/arenaMoves'
 import { battleGroundUrl } from './battleGround'
+import { GimmickControl } from './GimmickControl'
 import './trainer-arena.css'
 
 type Input = Extract<GameAction, { type: `arena-${string}` }>
@@ -69,6 +70,15 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const region = worldRegions[game.regionId]
   const player = game.player
   const skills = arenaSkills(game)
+  const playerGimmick = battleGimmickStatus(game)
+  const enemyGimmick = battleGimmickStatus(game, 'enemy')
+  const allyActive = playerGimmick?.phase === 'active' ? playerGimmick : undefined
+  const enemyActive = enemyGimmick?.phase === 'active' ? enemyGimmick : undefined
+  const playerForm = allyActive?.formId ?? player.formId
+  const [megaChoice, setMegaChoice] = useState<{ owner: string; formId: string } | null>(null)
+  const options = playerGimmick?.megaOptions
+  const chosenMega = megaChoice?.owner === player.instanceId && options?.includes(megaChoice.formId) ? megaChoice.formId : undefined
+  const selectedMega = chosenMega ?? options?.[0]
   const maxHP = playerStats(game).hp
   const members = new Map([player, ...game.followers].map(mon => [mon.instanceId, mon]))
   const roster = arena.partyOrder.map(id => members.get(id)).filter(mon => !!mon)
@@ -82,6 +92,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const world = useRef<HTMLDivElement>(null)
   const mounted = useRef(true)
   const isPlaying = !arena.paused && !arena.needsSwitch
+  const canActivate = isPlaying && !arena.casts.some(cast => cast.side === 'player')
   const feedback = arena.feedback
   useMoveSounds(arena.casts, game.settings.sound, isPlaying)
   useBattleSound(game.settings.sound && !feedback?.moveId, feedback?.id, feedback ? feedback.kind === 'heal' ? 560 : feedback.kind === 'hit' ? feedback.actor === 'enemy' ? 180 : 330 : 465 : 0, feedback?.actor === 'enemy' ? .82 : 1.28)
@@ -118,10 +129,16 @@ export function TrainerArena({ game }: { game: GameSave }) {
     const item = skills[slot]
     setRangeSlot(slot)
     if (!item || !item.unlocked) { setHint('이 자리에 사용할 수 있는 기술이 없습니다.'); return }
+    if (item.gimmickLocked) { setHint('다이맥스 중에는 공격 기술을 선택하세요.'); return }
     if (item.cooldownMs > 0 || arena.skillLockMs > 0) { setHint('기술을 준비하고 있습니다.'); return }
     if (item.move.category === 'healing' && player.currentHP >= maxHP) { setHint('이미 체력이 가득 찼습니다.'); return }
     setHint('')
     input({ type: 'arena-skill', slot })
+  }
+  function activateGimmick() {
+    if (!canActivate || playerGimmick?.phase !== 'ready') return
+    setHint('')
+    input({ type: 'arena-gimmick', ...(chosenMega && { formId: chosenMega }) })
   }
   function changeMember(index: number) {
     const next = roster[index]
@@ -141,6 +158,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
     down: (e) => {
       if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return
       const code = e.code
+      if (e.target instanceof HTMLSelectElement && code !== 'KeyF') return
       if (code === 'Escape') { e.preventDefault(); if (!e.repeat) pause(!arena.paused); return }
       if (Object.hasOwn(arrows, code)) {
         if (!isPlaying) return
@@ -151,6 +169,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
       if (e.repeat) return
       if (/^(Digit|Numpad)[1-6]$/.test(code)) { e.preventDefault(); changeMember(Number(code.at(-1)) - 1); return }
       if (!isPlaying) return
+      if (code === 'KeyF' && playerGimmick) { e.preventDefault(); activateGimmick(); return }
       const slot = letters.indexOf(code.replace('Key', ''))
       if (slot >= 0) { e.preventDefault(); skill(slot) }
       else if (code === 'Space' || code === 'ShiftLeft' || code === 'ShiftRight') {
@@ -220,20 +239,21 @@ export function TrainerArena({ game }: { game: GameSave }) {
     : trainer.role === 'gym' ? '체육관전' : trainer.role === 'champion' ? '챔피언전' : '사천왕전')
   const foeMember = trainer.team[battle.opponentIndex]
   const opponentId = foe?.speciesId ?? foeMember.speciesId
-  const opponentForm = foe ? battleForm(foe) : foeMember.formId
+  const opponentForm = enemyActive?.formId ?? (foe ? battleForm(foe) : foeMember.formId)
   const range = rangeSlot === null ? undefined : skills[rangeSlot]
-  const playerType = formStats(player.speciesId, player.formId).types[0]
+  const bursts = game.settings.effects ? game.effects.filter(e => e.gimmick && e.kind === 'travel') : []
+  const allyBurst = bursts.filter(e => e.actor === 'partner').at(-1)
+  const enemyBurst = bursts.filter(e => foe && e.actor === foe.id).at(-1)
   const terrain = trainer.type ?? (trainer.role === 'champion' ? 'champion' : 'normal')
   const preview = range?.unlocked && isPlaying ? range.preview : undefined
   const ground = battleGroundUrl(trainer.locationId, terrain, trainer.role !== 'gym')
   const location = region.locationById[trainer.locationId].name
-  const special = foe?.teraType ? types[foe.teraType] + ' 테라스탈'
-    : foe?.maxActionsLeft ? (foe.dynamax === 'gigantamax' ? '거다이맥스' : '다이맥스') + ' · 남은 ' + Math.ceil(foe.maxActionsLeft / 2) + '턴'
-    : trainer.totemAura ? '주인 포켓몬의 오라' : ''
-  return <section className="trainer-arena" aria-label="실시간 도전 배틀">
+  const special = [trainer.totemAura && '주인 포켓몬의 오라', enemyActive && ('상대 ' + enemyActive.label + ' · ' + enemyActive.detail),
+    foe?.abilityId && '특성 ' + (foe.abilityId === 'levitate' ? '부유' : '저수')].filter(Boolean).join(' · ')
+  return <section className="trainer-arena" data-has-gimmick={playerGimmick ? true : undefined} aria-label="실시간 도전 배틀">
     <div className="ring-frame">
       <header className="ring-scoreboard">
-        <Health id={player.speciesId} formId={player.formId} hp={player.currentHP} max={maxHP} level={effectiveLevel(game)}
+        <Health id={player.speciesId} formId={playerForm} hp={player.currentHP} max={maxHP} level={effectiveLevel(game)}
           remaining={roster.map(mon=>mon.currentHP>0)}/>
         <div className="ring-match"><span>{battle.practice ? '연습 재대결' : label}</span><h1>VS {trainer.name}</h1></div>
         <Health rival id={opponentId} formId={opponentForm} hp={foe?.currentHP ?? 0} max={foe?.maxHP ?? 1} level={foeMember.level}
@@ -245,14 +265,14 @@ export function TrainerArena({ game }: { game: GameSave }) {
         <div ref={world} className="ring-world" style={{transform:camera}} data-zoom={zoom}>
         <ArenaTrainers trainer={trainer}/>
         {goal && isPlaying && <i className="ring-goal" aria-hidden="true" style={point(goal)}/>}
-        <ArenaEffects casts={arena.casts} clash={arena.beamClash} lastClash={arena.lastClash} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
+        <ArenaEffects casts={arena.casts} clash={arena.beamClash} maxClash={arena.maxClash} lastClash={arena.lastClash} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
         <ArenaFighter side="enemy" pos={arena.enemy} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'enemy') : undefined} id={opponentId} formId={opponentForm}
           health={(foe?.currentHP ?? 0)/(foe?.maxHP ?? 1)} playing={isPlaying} feedback={feedback}
-          casting={arena.casts.find(cast=>cast.side==='enemy')} dynamax={!!foe?.maxActionsLeft} tera={foe?.teraType}/>
-        <ArenaFighter side="player" pos={arena.player} direction={arena.direction} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'player') : undefined} id={player.speciesId} formId={player.formId}
+          casting={arena.casts.find(cast=>cast.side==='enemy')} gimmick={enemyActive} effects={game.settings.effects} burst={enemyBurst}/>
+        <ArenaFighter side="player" pos={arena.player} direction={arena.direction} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'player') : undefined} id={player.speciesId} formId={playerForm}
           health={player.currentHP/maxHP} playing={isPlaying} feedback={feedback} casting={arena.casts.find(cast=>cast.side==='player')}
-          invincible={arena.dodgeMs > 0 || arena.invulnerableMs > 0} dynamax={!!foe?.maxActionsLeft} tera={foe?.teraType ? playerType : undefined}/>
-        {feedback && game.settings.effects && <Impact key={feedback.id} feedback={feedback} pos={feedback.actor==='enemy' ? arena.player : arena.enemy}/>}
+          invincible={arena.dodgeMs > 0 || arena.invulnerableMs > 0} gimmick={allyActive} effects={game.settings.effects} burst={allyBurst}/>
+        {feedback && game.settings.effects && !bursts.some(effect => effect.text === feedback.text) && <Impact key={feedback.id} feedback={feedback} pos={feedback.actor==='enemy' ? arena.player : arena.enemy}/>}
         </div>
         {(arena.paused || arena.needsSwitch) && <div className="ring-scrim" onPointerDown={e => e.stopPropagation()}>
           <div className="ring-pause-panel">
@@ -286,11 +306,11 @@ export function TrainerArena({ game }: { game: GameSave }) {
             const wait = entry ? Math.max(entry.cooldownMs, arena.skillLockMs) : 0
             const matchup = entry ? effectivenessLabel(entry.effectiveness) : ''
             const fullHP = entry?.move.category === 'healing' && player.currentHP >= maxHP
-            const sub = !entry ? '미등록' : !entry.unlocked ? 'Lv.' + entry.move.unlockLevel : wait > 0 ? duration(wait)
+            const sub = !entry ? '미등록' : !entry.unlocked ? 'Lv.' + entry.move.unlockLevel : entry.gimmickLocked ? '공격 기술 선택' : wait > 0 ? duration(wait)
               : fullHP ? '체력 가득' : !entry.inRange ? '상대가 사거리 밖' : entry.move.category === 'healing' ? '회복' : '사용 가능'
-            return <button key={key} type="button" data-skill-slot={i} className={'ring-skill' + (!entry ? ' empty' : '')}
-              aria-label={key + ' ' + (entry?.move.nameKo ?? '빈 기술 칸')} aria-description={[matchup, sub].filter(Boolean).join(' · ')} aria-disabled={!isPlaying || !entry?.unlocked || wait > 0 || fullHP}
-              disabled={!entry || !isPlaying || !entry.unlocked} style={{ '--move-color': moveColors[entry?.move.type ?? 'normal'] ?? moveColors.normal } as CSSProperties}
+            return <button key={key} type="button" data-skill-slot={i} data-gimmick={entry?.move.gimmick} className={'ring-skill' + (!entry ? ' empty' : '')}
+              aria-label={key + ' ' + (entry?.move.nameKo ?? '빈 기술 칸')} aria-description={[matchup, sub].filter(Boolean).join(' · ')} aria-disabled={!isPlaying || !entry?.unlocked || entry?.gimmickLocked || wait > 0 || fullHP}
+              disabled={!entry || !isPlaying || !entry.unlocked || entry.gimmickLocked} style={{ '--move-color': moveColors[entry?.move.type ?? 'normal'] ?? moveColors.normal } as CSSProperties}
               onPointerEnter={() => setRangeSlot(i)} onPointerLeave={() => setRangeSlot(null)}
               onFocus={() => setRangeSlot(i)} onBlur={() => setRangeSlot(null)} onClick={() => skill(i)}>
               <span className="ring-skill-type"><kbd>{key}</kbd>{entry && types[entry.move.type]}</span>
@@ -308,11 +328,13 @@ export function TrainerArena({ game }: { game: GameSave }) {
           <button className="ring-pause-button" onClick={() => pause(!arena.paused)}>{arena.paused ? '재개' : '일시정지'} <kbd>Esc</kbd></button>
         </div>
       </div>
+      {playerGimmick && <GimmickControl status={playerGimmick} playing={canActivate} activate={activateGimmick}
+        selectedMega={selectedMega} chooseMega={formId => setMegaChoice({ owner: player.instanceId, formId })}/>}
     </div>
     <div className="ring-announce" role="status"><i/>{hint || (arena.needsSwitch ? '선두가 쓰러졌습니다. 교체할 포켓몬을 고르세요.'
-      : arena.beamClash ? '광선 맞대결 중 · 방향을 틀거나 회피해 빠져나올 수 있습니다.'
+      : arena.maxClash ? '다이맥스기 맞대결 중' : arena.beamClash ? '광선 맞대결 중 · 방향을 틀거나 회피해 빠져나올 수 있습니다.'
       : feedback?.text || '방향키·Alt 클릭 이동 / Q W E R 기술 / 좌·우 클릭 Q·W / Shift·Space 회피')}</div>
-    {special && <p className="ring-special">{special}{foe?.abilityId && ' · 특성 ' + (foe.abilityId === 'levitate' ? '부유' : '저수')}</p>}
+    {special && <p className="ring-special">{special}</p>}
   </section>
 }
 

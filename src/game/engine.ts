@@ -1,4 +1,6 @@
 import { species, starterIds, wildIds } from './catalog'
+import { megaFormFor, megaFormsFor, regionGimmick, type BattleGimmick } from './battleGimmicks'
+import { boostedMove, gimmickLabels, MAX_GIMMICK_ACTIONS, preparedMove, type GimmickSide, type EncounterGimmicks, type UsedGimmick } from './gimmickCombat'
 import { collectionItems, fieldItems, itemEvolution } from './collectionItems'
 import { RESEARCH_VISIT_CHANCE } from './regions/collectionEncounters'
 import { isSpeciesMotionSupported, isMoveMotionSupported } from './motionEligibility'
@@ -10,7 +12,7 @@ import { arenaStepMs, beginArenaCast, clearArenaCasts, createArena, dodgeArena, 
   type ArenaFeedback, type TrainerArena } from './trainerArena'
 import { battleForm, formStats, locationForm, validForm, wildEncounterForm } from './forms'
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
-import { defensiveAbility, teraAttackMultiplier, typeMultiplier } from './regions/paldeaTera'
+import { defensiveAbility, teraStabBonus, typeMultiplier } from './regions/paldeaTera'
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
@@ -95,6 +97,7 @@ export const defaultSettings: Settings = {
 }
 
 export interface Move {
+  gimmick?: 'z' | 'dynamax'
   id: string
   nameKo: string
   type: string
@@ -242,6 +245,7 @@ export interface GameLog {
 }
 
 export interface Effect {
+  gimmick?: BattleGimmick
   moveId?: string
   formId?: string
   id: number
@@ -270,6 +274,7 @@ interface Drop {
 }
 
 interface Runtime {
+  gimmick?: EncounterGimmicks
   captureIn: number
   autoCaptureTargetId: number | null
   clock: number
@@ -315,7 +320,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 16
+const SAVE_SCHEMA_VERSION = 17
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -346,6 +351,7 @@ export interface GameSave {
 }
 
 export type ArenaAction =
+  | { type: 'arena-gimmick'; formId?: string }
   | { type: 'arena-move'; x: number; y: number }
   | { type: 'arena-skill'; slot: number }
   | { type: 'arena-switch'; instanceId: string }
@@ -453,7 +459,16 @@ function encounterStats(speciesId: string, level: number, formId?: string): Stat
 }
 
 function opponentStats(game: GameSave, wild: Wild): Stats {
+  const form = foeBattleForm(game, wild)
   const stats = encounterStats(wild.speciesId, wild.level, battleForm(wild))
+  if (activePower(game, 'enemy', wild)?.kind === 'mega') {
+    // Preserve campaign scaling and apply the actual relative boost of the Mega form.
+    const base = statsFor(wild.speciesId, wild.level, null, wild.formId)
+    const mega = statsFor(wild.speciesId, wild.level, null, form)
+    for (const stat of ['attack', 'defense', 'spAttack', 'spDefense', 'speed'] as const) {
+      stats[stat] = Math.round(stats[stat] * mega[stat] / base[stat])
+    }
+  }
   const aura = wild.trainerId && worldRegions[game.regionId].trainerById[wild.trainerId]?.totemAura
   if (aura) {
     for (const stat of ['attack', 'defense', 'spAttack', 'spDefense', 'speed'] as const) {
@@ -603,8 +618,8 @@ export function effectiveLevel(game: GameSave, level = game.player.level): numbe
 }
 
 export function playerStats(game: GameSave): Stats {
-  const stats = statsFor(game.player.speciesId, effectiveLevel(game), game.player.heldItemId, game.player.formId)
-  if (game.wild[0]?.maxActionsLeft) stats.hp = dynamaxHP(stats.hp)
+  const stats = statsFor(game.player.speciesId, effectiveLevel(game), game.player.heldItemId, playerBattleForm(game))
+  if (activePower(game, 'player')?.kind === 'dynamax') stats.hp = dynamaxHP(stats.hp)
   return stats
 }
 
@@ -907,7 +922,9 @@ function installLead(game: GameSave, member: PartyPokemon): void {
   const { instanceId, speciesId, formId, level, exp, moveIds, heldItemId, position, direction } = member
   const fullHP = statsFor(speciesId, level, heldItemId, formId).hp
   const cappedHP = statsFor(speciesId, effectiveLevel(game, level), heldItemId, formId).hp
-  const maxHP = game.wild[0]?.maxActionsLeft ? dynamaxHP(cappedHP) : cappedHP
+  const reserve = game.runtime.gimmick?.player
+  const maxHP = reserve?.active && reserve.owner === instanceId && reserve.kind === 'mega'
+    ? statsFor(speciesId, effectiveLevel(game, level), heldItemId, reserve.formId).hp : cappedHP
   const currentHP = resizeHP(member.currentHP, fullHP, maxHP)
   const state = currentHP > 0 ? 'IDLE' : 'RECOVER'
   game.player = {
@@ -1000,15 +1017,170 @@ function arenaNotice(game: GameSave, arena: TrainerArena, notice: Omit<ArenaFeed
   arena.feedback = { ...notice, id: game.runtime.nextId++ }
 }
 
-function spriteRefs(id: string, formId: string | undefined, foe: Wild): ArenaSpriteRefs {
+function activePower(game: GameSave, side: GimmickSide, foe = findTarget(game)) {
+  const encounter = game.runtime.gimmick
+  if (!encounter || !foe || encounter.targetId !== foe.id) return undefined
+  const used = encounter[side]
+  const owner = side === 'player' ? game.player.instanceId : String(foe.id)
+  return used?.active && used.owner === owner ? used : undefined
+}
+
+function playerBattleForm(game: GameSave) {
+  return activePower(game, 'player')?.formId ?? game.player.formId
+}
+
+function foeBattleForm(game: GameSave, foe: Wild) {
+  return activePower(game, 'enemy', foe)?.formId ?? battleForm(foe)
+}
+
+function availableMegaForms(game: GameSave, foe: Wild, side: GimmickSide): readonly string[] {
+  const actor = side === 'player' ? game.player : foe
+  const attacks = side === 'player'
+    ? game.player.moveIds.map(id => moves[id]).filter(move => move && move.unlockLevel <= effectiveLevel(game))
+    : trainerTechniques(foe)
+  // In the field, avoid stranding the auto-battler with only immune attacks after transforming.
+  const wildTypes = foe.trainerId ? undefined : formStats(foe.speciesId, foe.formId).types
+  return megaFormsFor(actor.speciesId, actor.formId).filter(formId => attacks.some(move =>
+    move.category !== 'healing' && isMoveMotionSupported(actor.speciesId, formId, move.id) &&
+    (!wildTypes || typeMultiplier(move.type, wildTypes) > 0)))
+}
+
+function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleGimmick, selectedForm?: string): UsedGimmick | undefined {
+  if (selectedForm !== undefined && kind !== 'mega') return
+  const ally = side === 'player'
+  const actor = ally ? game.player : foe
+  const owner = ally ? game.player.instanceId : String(foe.id)
+  const common = { kind, owner, active: true }
+  const native = ally
+    ? game.player.moveIds.map(id => moves[id]).filter(move => move && move.unlockLevel <= effectiveLevel(game))
+    : trainerTechniques(foe)
+  switch (kind) {
+    case 'mega': {
+      const options = availableMegaForms(game, foe, side)
+      const formId = selectedForm === undefined ? options[0] : selectedForm
+      return formId && options.includes(formId) ? { ...common, formId } : undefined
+    }
+    case 'dynamax': {
+      if (['zacian', 'zamazenta', 'eternatus'].includes(actor.speciesId)) return
+      const gmax = actor.speciesId + '-gmax'
+      const formId = !actor.formId && isSpeciesMotionSupported(actor.speciesId, gmax) &&
+        (ally || foe.dynamax === 'gigantamax') ? gmax : undefined
+      return { ...common, remaining: MAX_GIMMICK_ACTIONS, ...(formId && { formId }) }
+    }
+    case 'tera':
+      return { ...common, teraType: (!ally && foe.teraType) || formStats(actor.speciesId, actor.formId).types[0] }
+    case 'z': {
+      const attacks = native.filter(m => m.category !== 'healing' && isMoveMotionSupported(actor.speciesId, actor.formId, m.id))
+      const nativeTypes = formStats(actor.speciesId, actor.formId).types
+      const matching = nativeTypes.find(type => attacks.some(m => m.type === type)) ?? attacks[0]?.type
+      return matching ? { ...common, teraType: matching } : undefined
+    }
+  }
+}
+
+interface BattleGimmickStatus {
+  kind: BattleGimmick
+  phase: 'ready' | 'unavailable' | 'active' | 'spent'
+  label: string
+  detail: string
+  megaOptions?: readonly string[]
+  formId?: string
+  teraType?: string
+  remaining?: number
+}
+
+export function battleGimmickStatus(game: GameSave, side: GimmickSide = 'player'): BattleGimmickStatus | null {
+  const kind = regionGimmick(game.regionId)
+  if (!kind) return null
+  const label = gimmickLabels[kind]
+  const foe = findTarget(game)
+  const encounter = game.runtime.gimmick
+  const previous = encounter?.targetId === foe?.id ? encounter?.[side] : undefined
+  const used = activePower(game, side, foe)
+  if (used) {
+    const detail = kind === 'dynamax' ? used.remaining ? '남은 기술 ' + used.remaining + '회' : '다이맥스기 시전 중'
+      : kind === 'z' ? '같은 타입의 공격 기술을 선택하세요' : '발동 중'
+    return { ...used, kind, label, detail, phase: 'active' as const }
+  }
+  if (previous) return { kind, label, detail: '이번 배틀에서 사용함', phase: 'spent' as const,
+    formId: undefined, teraType: undefined, remaining: undefined }
+  const arena = game.campaign.battle?.arena
+  const casting = arena?.casts.some(cast => cast.side === side)
+  const available = foe && !casting && makeGimmick(game, foe, side, kind)
+  const phase = available ? 'ready' as const : 'unavailable' as const
+  const detail = phase === 'ready' ? '배틀당 한 번' : casting ? '사용 중인 기술이 끝나면 발동 가능' : !foe ? '교전 중 사용 가능' : '현재 포켓몬으로 사용할 수 없음'
+  return { kind, label, detail, phase, teraType: available ? available.teraType : undefined,
+    ...(available && foe && kind === 'mega' && { megaOptions: availableMegaForms(game, foe, side) }) }
+}
+
+function activateGimmick(game: GameSave, foe: Wild, side: GimmickSide, selectedForm?: string): boolean {
+  const kind = regionGimmick(game.regionId)
+  if (!kind || !foe.currentHP || !game.player.currentHP || game.runtime.targetId !== foe.id) return false
+  const arena = game.campaign.battle?.arena
+  if (arena && (arena.paused || arena.needsSwitch || arena.casts.some(cast => cast.side === side))) return false
+  const encounter = game.runtime.gimmick ?? { targetId: foe.id }
+  if (encounter.targetId !== foe.id || encounter[side]) return false
+  const used = makeGimmick(game, foe, side, kind, selectedForm)
+  if (!used) return false
+  const ally = side === 'player'
+  const actor = ally ? game.player : foe
+  const previousMax = playerStats(game).hp
+  encounter[side] = used
+  game.runtime.gimmick = encounter
+  if (ally && (kind === 'dynamax' || kind === 'mega')) game.player.currentHP = resizeHP(game.player.currentHP, previousMax, playerStats(game).hp)
+  const text = species[actor.speciesId].nameKo + ' · ' + gimmickLabels[kind] + (kind === 'z' ? ' 준비!' : '!')
+  const duration = kind === 'z' ? 1700 : kind === 'mega' ? 1000 : 1200
+  addEffect(game, 'travel', actor.position, duration, { text, gimmick: kind, actor: ally ? 'partner' : foe.id, moveType: used.teraType })
+  addLog(game, 'battle', text)
+  if (arena) arenaNotice(game, arena, { actor: side, kind: 'switch', text, moveType: used.teraType })
+  return true
+}
+
+function endPower(game: GameSave, foe: Wild, side: GimmickSide) {
+  const used = activePower(game, side, foe)
+  if (!used) return
+  const previousMax = playerStats(game).hp
+  used.active = false
+  if (used.kind === 'dynamax' && side === 'enemy') {
+    const baseHP = Math.max(8, Math.round(encounterMaxHP(foe.speciesId, foe.level, foe.formId) * TRAINER_HEALTH_MULTIPLIER))
+    foe.currentHP = resizeHP(foe.currentHP, foe.maxHP, baseHP)
+    foe.maxHP = baseHP
+    foe.maxActionsLeft = 0
+  }
+  if (side === 'player' && (used.kind === 'dynamax' || used.kind === 'mega')) {
+    game.player.currentHP = undoBattleHP(game.player.currentHP, previousMax, playerStats(game).hp)
+  }
+}
+
+function undoBattleHP(current: number, fromMax: number, toMax: number) {
+  return current <= 0 ? 0 : Math.max(1, Math.min(toMax, Math.floor(current * toMax / fromMax)))
+}
+
+function clearGimmicks(game: GameSave) {
+  const target = findTarget(game)
+  if (target) endPower(game, target, 'player')
+  delete game.runtime.gimmick
+}
+
+function commitPoweredMove(game: GameSave, target: Wild, side: GimmickSide, move: Move) {
+  const used = activePower(game, side, target)
+  if (!used) return
+  if (used.kind === 'z' && move.gimmick === 'z') used.active = false
+  if (used.kind === 'dynamax' && move.gimmick === 'dynamax' && used.remaining) {
+    used.remaining--
+    if (side === 'enemy') target.maxActionsLeft = Math.max(1, used.remaining)
+  }
+}
+
+function spriteRefs(id: string, formId: string | undefined, foe: Wild, playerMax = false, enemyFormId = battleForm(foe)): ArenaSpriteRefs {
   return {
-    player: { dex: species[id].pokedexNumber, formId, dynamax: Boolean(foe.maxActionsLeft) },
-    enemy: { dex: species[foe.speciesId].pokedexNumber, formId: battleForm(foe), dynamax: Boolean(foe.maxActionsLeft) },
+    player: { dex: species[id].pokedexNumber, formId, dynamax: playerMax },
+    enemy: { dex: species[foe.speciesId].pokedexNumber, formId: enemyFormId, dynamax: Boolean(foe.maxActionsLeft) },
   }
 }
 
 export function arenaSpriteRefs(game: GameSave, foe = findTarget(game)): ArenaSpriteRefs {
-  return foe ? spriteRefs(game.player.speciesId, game.player.formId, foe) : {}
+  return foe ? spriteRefs(game.player.speciesId, playerBattleForm(game), foe, activePower(game, 'player')?.kind === 'dynamax', foeBattleForm(game, foe)) : {}
 }
 
 export function arenaSkills(game: GameSave) {
@@ -1017,14 +1189,16 @@ export function arenaSkills(game: GameSave) {
   if (!arena || !target) return []
   const casting = arena.casts.find(cast => cast.side === 'player')
   const refs = arenaSpriteRefs(game, target)
-  const defenderTypes = target.teraType ? [target.teraType] : formStats(target.speciesId, battleForm(target)).types
-  return game.player.moveIds.filter(id => isMoveMotionSupported(game.player.speciesId, game.player.formId, id)).map(id => {
-    const move = moves[id]
+  const defenderTypes = target.teraType ? [target.teraType] : formStats(target.speciesId, foeBattleForm(game, target)).types
+  const power = activePower(game, 'player', target)
+  return game.player.moveIds.filter(id => isMoveMotionSupported(game.player.speciesId, playerBattleForm(game), id)).map(id => {
+    const move = preparedMove(moves[id], power)
     const profile = arenaMoveProfile(move)
     const range = profile.range
     const preview = createArenaCast(0, 'player', move, arena.player, arena.enemy, refs)
     return {
       move, range, profile, preview,
+      gimmickLocked: power?.kind === 'dynamax' && move.category === 'healing',
       effectiveness: move.category === 'healing' ? null : defensiveAbility(move.type, target.abilityId) === 'absorb'
         ? 'absorb' as const : typeMultiplier(move.type, defenderTypes, target.abilityId),
       cooldownMs: Math.max(arena.skillLockMs, casting ? castDuration(casting) - casting.elapsedMs : 0, (game.runtime.cooldowns[id] ?? 0) - game.runtime.clock, 0),
@@ -1041,6 +1215,7 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   const incoming = game.followers[index]
   if (!isSpeciesMotionSupported(incoming.speciesId, incoming.formId)) return false
   const position = { ...game.player.position }
+  if (activePower(game, 'player')?.kind === 'dynamax') endPower(game, target, 'player')
   game.followers[index] = leadAsMember(game, true)
   installLead(game, incoming)
   game.player.position = position
@@ -1093,7 +1268,10 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
   const arena = game.campaign.battle?.arena
   const target = findTarget(game)
   if (!arena || !target?.trainerId) return false
+  if (arena.maxClash && action.type !== 'arena-pause' && action.type !== 'arena-surrender') return false
   switch (action.type) {
+    case 'arena-gimmick':
+      return activateGimmick(game, target, 'player', action.formId)
     case 'arena-pause':
       if (typeof action.paused !== 'boolean') return false
       arena.paused = action.paused
@@ -1116,9 +1294,10 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
     case 'arena-skill': {
       if (arena.paused || arena.needsSwitch || arena.dodgeMs > 0 || !Number.isInteger(action.slot)) return false
       const skill = arenaSkills(game)[action.slot]
-      if (!skill?.unlocked || skill.cooldownMs > 0) return false
+      if (!skill?.unlocked || skill.gimmickLocked || skill.cooldownMs > 0) return false
       if (skill.move.category === 'healing' && game.player.currentHP >= playerStats(game).hp) return false
       const cast = beginArenaCast(arena, 'player', skill.move, arenaSpriteRefs(game, target))
+      commitPoweredMove(game, target, 'player', skill.move)
       arena.skillLockMs = castDuration(cast)
       game.runtime.cooldowns[skill.move.id] = game.runtime.clock + Math.max(620, skill.move.cooldownMs)
       return true
@@ -1131,48 +1310,59 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   const opponent = findTarget(game)
   if (!opponent || arena.paused || arena.needsSwitch) return
   game.runtime.clock += elapsed
-  const skills = trainerTechniques(opponent)
+  const skills = trainerTechniques(opponent, foeBattleForm(game, opponent))
   // A committed cast keeps its own technique through movement, switches and beam clashes.
-  const castMove = (cast: ArenaCast) => cast.side === 'enemy'
-    ? skills.find(move => move.id === cast.moveId) ?? moves[cast.moveId] : moves[cast.moveId]
+  const castMove = (cast: ArenaCast) => boostedMove(cast.side === 'enemy'
+    ? skills.find(move => move.id === cast.moveId) ?? moves[cast.moveId] : moves[cast.moveId], cast.gimmick)
   const committed = arena.casts.find(cast => cast.side === 'enemy')
-  const selected = committed ? castMove(committed) : chooseTrainerMove(game, opponent, arena, skills)
+  const selected = committed ? castMove(committed) : preparedMove(chooseTrainerMove(game, opponent, arena, skills), activePower(game, 'enemy', opponent))
   const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
   const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
   const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
   const refs = arenaSpriteRefs(game, opponent)
   const outcome = arena.lastClash
-  const wasDynamaxed = Boolean(opponent.maxActionsLeft)
+  const nextCast = arena.nextCastId
   const impacts = stepArena(arena, elapsed, playerSpeed, enemySpeed, selected, refs, (a, b) => {
     const strength = (cast: ArenaCast, other: ArenaCast) => {
       const player = cast.side === 'player'
       const move = castMove(cast)
       const stats = player ? playerStats(game) : opponentStats(game, opponent)
       const level = player ? effectiveLevel(game) : opponent.level
-      const types = player ? formStats(game.player.speciesId, game.player.formId).types : formStats(opponent.speciesId, battleForm(opponent)).types
+      const types = player ? formStats(game.player.speciesId, playerBattleForm(game)).types : formStats(opponent.speciesId, foeBattleForm(game, opponent)).types
       const offense = move.category === 'physical' ? stats.attack : stats.spAttack
       return beamClashPower(level, offense, move.power, types.includes(move.type), move.type, other.moveType)
     }
     return strength(a, b) / strength(b, a)
   })
+  if (arena.casts.some(cast => cast.side === 'enemy' && cast.id >= nextCast)) {
+    commitPoweredMove(game, opponent, 'enemy', selected)
+  }
   if (arena.lastClash && arena.lastClash !== outcome) {
     const end = arena.lastClash
+    const maxDuel = arena.casts.filter(c => c.gimmick === 'dynamax').length === 2
     arenaNotice(game, arena, { actor: end.winner ?? 'system',
       kind: end.outcome === 'draw' ? 'clash-draw' : end.outcome === 'escape' ? 'clash-break' : 'clash-win',
-      text: end.outcome === 'draw' ? '두 빔이 상쇄됐다!' : end.outcome === 'escape' ? '힘겨루기가 풀렸다!' : end.winner === 'player' ? '밀어냈다!' : '밀렸다!',
+      text: maxDuel ? (end.winner === 'player' ? '다이맥스기 맞대결 승리!' : end.winner === 'enemy' ? '상대가 다이맥스기 맞대결에서 승리!' : '다이맥스기 맞대결 무승부!')
+          : end.outcome === 'draw' ? '두 빔이 상쇄됐다!' : end.outcome === 'escape' ? '힘겨루기가 풀렸다!' : end.winner === 'player' ? '밀어냈다!' : '밀렸다!',
       position: end.point })
   }
   for (const { cast, hit, position, beamShare, silent } of impacts) {
     if (game.campaign.battle?.arena !== arena || arena.needsSwitch || findTarget(game) !== opponent) break
-    if (wasDynamaxed && !opponent.maxActionsLeft) break
     const playerTurn = cast.side === 'player'
     if (hit) attack(game, opponent, { playerTurn, move: castMove(cast), cast, position, beamShare })
     else {
-      if (!cast.beam?.spent) spendMaxAction(game, opponent)
       if (cast.beam) cast.beam.spent = true
       if (silent) continue
       arenaNotice(game, arena, { actor: cast.side, kind: 'miss', text: cast.moveName + ' · 빗나감',
         moveType: cast.moveType, castId: cast.id, moveId: cast.moveId, position })
+    }
+  }
+  if (findTarget(game) === opponent) {
+    for (const side of ['player', 'enemy'] as const) {
+      const power = activePower(game, side, opponent)
+      if (power?.kind === 'dynamax' && power.remaining === 0 && !arena.casts.some(c => c.side === side && c.gimmick === 'dynamax')) {
+        endPower(game, opponent, side)
+      }
     }
   }
 }
@@ -1207,6 +1397,7 @@ function throwBall(game: GameSave, itemId: CaptureBallId): boolean {
   let caughtInstanceId: string | undefined
   let text = speciesName + ' 포획 실패'
   if (captured) {
+    clearGimmicks(game)
     const formId = wild.formId === 'wishiwashi-school' ? undefined : wild.formId
     const received = receivePokemon(game, wild.speciesId, formId, wild.level, wild.position, wild.direction)
     caughtInstanceId = received.instanceId
@@ -1310,7 +1501,7 @@ function canHunt(game: GameSave, speciesId: string, formId?: string): boolean {
   return game.player.moveIds.some(id => {
     const move = moves[id]
     return move && move.category !== 'healing' && move.unlockLevel <= level &&
-      isMoveMotionSupported(game.player.speciesId, game.player.formId, id) && typeMultiplier(move.type, defenderTypes) > 0
+      isMoveMotionSupported(game.player.speciesId, playerBattleForm(game), id) && typeMultiplier(move.type, defenderTypes) > 0
   })
 }
 
@@ -1333,12 +1524,15 @@ function chooseTarget(game: GameSave): Wild | undefined {
 }
 
 function matchup(game: GameSave, wild: Wild, move: Move, playerTurn: boolean) {
-  const playerTypes = formStats(game.player.speciesId, game.player.formId).types
-  const enemyTypes = formStats(wild.speciesId, battleForm(wild)).types
-  if (!wild.teraType) return typeMultiplier(move.type, playerTurn ? enemyTypes : playerTypes, playerTurn ? wild.abilityId : undefined)
-  const partnerTera = playerTypes[0]
-  return playerTurn ? teraAttackMultiplier(move.type, playerTypes, partnerTera, wild.teraType, wild.abilityId)
-    : teraAttackMultiplier(move.type, enemyTypes, wild.teraType, partnerTera)
+  const playerTypes = formStats(game.player.speciesId, playerBattleForm(game)).types
+  const enemyTypes = formStats(wild.speciesId, foeBattleForm(game, wild)).types
+  const partner = activePower(game, 'player', wild)
+  const partnerTera = partner?.kind === 'tera' ? partner.teraType : undefined
+  const attackerTera = playerTurn ? partnerTera : wild.teraType
+  const defenderTera = playerTurn ? wild.teraType : partnerTera
+  const defenderTypes = defenderTera ? [defenderTera] : playerTurn ? enemyTypes : playerTypes
+  const factor = typeMultiplier(move.type, defenderTypes, playerTurn ? wild.abilityId : undefined)
+  return attackerTera ? factor * teraStabBonus(move.type, playerTurn ? playerTypes : enemyTypes, attackerTera) : factor
 }
 
 function chooseMove(game: GameSave, wild: Wild): Move {
@@ -1348,14 +1542,15 @@ function chooseMove(game: GameSave, wild: Wild): Move {
   let best = moves.tackle
   let bestScore = -1
   for (const id of game.player.moveIds) {
-    if (!isMoveMotionSupported(game.player.speciesId, game.player.formId, id) || (game.runtime.cooldowns[id] ?? 0) > game.runtime.clock) continue
+    if (!isMoveMotionSupported(game.player.speciesId, playerBattleForm(game), id) || (game.runtime.cooldowns[id] ?? 0) > game.runtime.clock) continue
     const candidate = moves[id]
     if (candidate.unlockLevel > level) continue
     if (candidate.category === 'healing') {
-      if (!wild.maxActionsLeft && game.player.currentHP < attacker.hp * 0.4) return candidate
+      if (activePower(game, 'player')?.kind !== 'dynamax' && game.player.currentHP < attacker.hp * 0.4) return candidate
       continue
     }
-    const score = damageWithMultiplier(candidate, attacker, defender, level, matchup(game, wild, candidate, true))
+    const empowered = preparedMove(candidate, activePower(game, 'player', wild))
+    const score = damageWithMultiplier(empowered, attacker, defender, level, matchup(game, wild, candidate, true))
     if (score > bestScore) {
       best = candidate
       bestScore = score
@@ -1393,8 +1588,7 @@ for (const technique of Object.values(wildTechniques)) {
   moves[technique.id] ??= technique
 }
 
-function wildMove(wild: Wild): Move {
-  const formId = battleForm(wild)
+function wildMove(wild: Wild, formId = battleForm(wild)): Move {
   const types = formStats(wild.speciesId, formId).types
   const candidates = [...(wild.teraType ? [wild.teraType] : []), ...types].map(type => wildTechniques[type])
   candidates.push(moves.scratch, moves.tackle)
@@ -1404,13 +1598,12 @@ function wildMove(wild: Wild): Move {
 
 const trainerSkills = new WeakMap<Wild, { formId?: string; moves: Move[] }>()
 
-function trainerTechniques(foe: Wild): Move[] {
-  const formId = battleForm(foe)
+function trainerTechniques(foe: Wild, formId = battleForm(foe)): Move[] {
   const cached = trainerSkills.get(foe)
   if (cached && cached.formId === formId) return cached.moves
   const { types } = formStats(foe.speciesId, formId)
   // Keep the old signature first so saves with legacy warnings can resume it.
-  const candidates = [wildMove(foe), ...types.map(type => wildTechniques[type]), ...movesFor(foe.speciesId, foe.level, formId)]
+  const candidates = [wildMove(foe, formId), ...types.map(type => wildTechniques[type]), ...movesFor(foe.speciesId, foe.level, formId)]
   const skills: Move[] = []
   for (const move of candidates) {
     if (move && move.id !== 'tackle' && move.category !== 'healing' && !skills.some(entry => entry.id === move.id) &&
@@ -1433,7 +1626,8 @@ function chooseTrainerMove(game: GameSave, foe: Wild, arena: TrainerArena, skill
     const reach = distance <= p.range + p.radius ? 1 : .15
     const variety = move.id === arena.lastEnemyMoveId ? .55 : 1
     const signature = move === skills[0] ? 1.15 : 1
-    const score = matchup(game, foe, move, false) * reach * distanceFit * variety * signature
+    const power = preparedMove(move, activePower(game, 'enemy', foe))
+    const score = matchup(game, foe, move, false) * reach * distanceFit * variety * signature * power.power / move.power
     if (score > bestScore) {
       best = move
       bestScore = score
@@ -1552,7 +1746,7 @@ function resizeHP(current: number, previousMax: number, newMax: number) {
   return Math.min(newMax, Math.ceil(current * newMax / previousMax))
 }
 
-function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentIndex: number, id: number, position: Position, direction: Direction, remainingActions = 6): Wild {
+function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentIndex: number, id: number, position: Position, direction: Direction, remainingActions = MAX_GIMMICK_ACTIONS): Wild {
   const member = trainer.team[opponentIndex]
   const { speciesId, level } = member
   const formId = member.formId ?? locationForm(regionId, trainer.locationId, speciesId)
@@ -1566,19 +1760,21 @@ function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Po
   const battle = game.campaign.battle!
   delete battle.arena.lastEnemyMoveId
   const target = trainerOpponent(game.regionId, trainer, battle.opponentIndex, game.runtime.nextId++, position, -1)
-  const previousHP = playerStats(game).hp
   game.wild = [target]
-  if (target.maxActionsLeft) {
-    game.player.currentHP = resizeHP(game.player.currentHP, previousHP, playerStats(game).hp)
-    const label = target.dynamax === 'gigantamax' ? '거다이맥스' : '다이맥스'
-    addEffect(game, 'travel', position, 1600, { text: species[target.speciesId].nameKo + ' ' + label + '!' })
-    addLog(game, 'battle', species[target.speciesId].nameKo + ' ' + label + ' · 파트너 다이맥스')
-  }
-  if (target.teraType) {
-    addEffect(game, 'travel', position, 1800, { text: species[target.speciesId].nameKo + ' 테라스탈!' })
-    addLog(game, 'battle', species[target.speciesId].nameKo + ' · 파트너와 함께 테라스탈')
-  }
   game.runtime.targetId = target.id
+  const powers = game.runtime.gimmick
+  if (powers) {
+    powers.targetId = target.id
+    if (powers.enemy) powers.enemy.active = false
+  }
+  const kind = regionGimmick(game.regionId)
+  const isAce = battle.opponentIndex === trainer.team.length - 1
+  // Kalos trainers reserve Mega Evolution for their last compatible team member.
+  const megaAce = kind === 'mega' && megaFormFor(target.speciesId, target.formId) &&
+    !trainer.team.slice(battle.opponentIndex + 1).some(mon => megaFormFor(mon.speciesId, mon.formId))
+  if (target.maxActionsLeft || target.teraType || megaAce || (kind === 'z' && isAce && trainer.trialKind !== 'totem')) {
+    activateGimmick(game, target, 'enemy')
+  }
   faceTarget(game, target)
   game.runtime.turn = playerStats(game).speed >= opponentStats(game, target).speed ? 'player' : 'wild'
   if (!battle.practice) addUnique(game.pokedexSeen, target.speciesId)
@@ -1590,6 +1786,7 @@ function practiceParty(game: GameSave): PracticeParty {
 }
 
 function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: PracticeParty): boolean {
+  clearGimmicks(game)
   if (game.runtime.drop) collect(game, game.runtime.drop)
   game.effects = []
   game.runtime.destination = null
@@ -1607,28 +1804,8 @@ function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: Practi
   return true
 }
 
-function endDynamax(game: GameSave, target: Wild) {
-  const playerMax = playerStats(game).hp
-  target.maxActionsLeft = 0
-  const baseHP = Math.max(8, Math.round(encounterMaxHP(target.speciesId, target.level, target.formId) * TRAINER_HEALTH_MULTIPLIER))
-  target.currentHP = resizeHP(target.currentHP, target.maxHP, baseHP)
-  target.maxHP = baseHP
-  game.player.currentHP = resizeHP(game.player.currentHP, playerMax, playerStats(game).hp)
-  const arena = game.campaign.battle?.arena
-  if (arena) {
-    // Both sides return to their standard moves at the transformation boundary.
-    clearArenaCasts(arena)
-    arena.enemyInMs = 650
-  }
-}
-
-function spendMaxAction(game: GameSave, target: Wild) {
-  if (target.maxActionsLeft === 1) endDynamax(game, target)
-  else if (target.maxActionsLeft) target.maxActionsLeft--
-}
-
 function clearChallenge(game: GameSave): void {
-  if (game.wild[0]?.maxActionsLeft) endDynamax(game, game.wild[0])
+  clearGimmicks(game)
   game.campaign.battle = null
   game.wild = []
   game.runtime.targetId = null
@@ -1657,7 +1834,7 @@ function endPractice(game: GameSave, trainer: KantoTrainer, party: PracticeParty
 function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): void {
   const battle = game.campaign.battle!
   if (battle.opponentIndex + 1 < trainer.team.length) {
-    if (opponent.maxActionsLeft) endDynamax(game, opponent)
+    if (activePower(game, 'player')?.remaining === 0) endPower(game, opponent, 'player')
     battle.opponentIndex++
     clearArenaCasts(battle.arena)
     battle.arena.enemyInMs = 950
@@ -1733,6 +1910,7 @@ function rollDrop(game: GameSave): string | undefined {
 }
 
 function defeat(game: GameSave, wild: Wild): void {
+  clearGimmicks(game)
   game.losses++
   game.wild = game.wild.filter((entry) => entry.id !== wild.id)
   game.runtime.targetId = null
@@ -1748,6 +1926,7 @@ function formatRewards(experience: number, coins: number): string {
 }
 
 function victory(game: GameSave, wild: Wild): void {
+  clearGimmicks(game)
   game.wins++
   game.wild = game.wild.filter((entry) => entry.id !== wild.id)
   game.runtime.targetId = null
@@ -1772,7 +1951,23 @@ function victory(game: GameSave, wild: Wild): void {
 function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn: boolean; cast: ArenaCast; position: Position; beamShare?: number }): void {
   const player = game.player
   const playerTurn = manual?.playerTurn ?? (game.runtime.turn === 'player')
-  const selected = manual?.move ?? (playerTurn ? chooseMove(game, target) : wildMove(target))
+  if (!manual && playerTurn && !game.runtime.gimmick?.player && regionGimmick(game.regionId)) {
+    const regular = chooseMove(game, target)
+    const estimate = damageWithMultiplier(regular, playerStats(game), opponentStats(game, target), effectiveLevel(game),
+      matchup(game, target, regular, true))
+    const closeMatch = target.level + 2 >= effectiveLevel(game) || player.currentHP <= playerStats(game).hp * .55
+    if (closeMatch && regular.category !== 'healing' && estimate > 0 && target.currentHP > estimate * 1.1) {
+      if (activateGimmick(game, target, 'player')) {
+        // Let the field show the transformation before the first powered attack.
+        game.runtime.stateIn = 1000
+        return
+      }
+    }
+  }
+  if (!manual && activePower(game, 'player')?.remaining === 0) endPower(game, target, 'player')
+  const selected = manual?.move ?? (playerTurn
+    ? preparedMove(chooseMove(game, target), activePower(game, 'player', target)) : wildMove(target))
+  if (!manual && playerTurn) commitPoweredMove(game, target, 'player', selected)
   const arena = game.campaign.battle?.arena
   const stats = playerStats(game)
   const enemyStats = opponentStats(game, target)
@@ -1837,7 +2032,6 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     else victory(game, target)
   } else if (player.currentHP === 0) {
     if (trainer && arena && game.followers.some(member => member.currentHP > 0 && isSpeciesMotionSupported(member.speciesId, member.formId))) {
-      if (firstBeamContact) spendMaxAction(game, target)
       arena.needsSwitch = true
       clearArenaCasts(arena)
       arena.direction = { x: 0, y: 0 }
@@ -1846,7 +2040,6 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     } else if (trainer) trainerDefeat(game, trainer)
     else defeat(game, target)
   } else {
-    if (firstBeamContact) spendMaxAction(game, target)
     game.runtime.turn = playerTurn ? 'wild' : 'player'
     game.runtime.stateIn = TURN_MS
   }
@@ -1889,6 +2082,7 @@ function travelTo(game: GameSave, location: KantoLocation): void {
 
   const runtime = game.runtime
   if (runtime.drop) collect(game, runtime.drop)
+  clearGimmicks(game)
   game.wild = []
   game.effects = []
   game.locationId = location.id
@@ -2088,6 +2282,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
     case 'BATTLE': {
       const target = findTarget(game)
       if (!target || !canHunt(game, target.speciesId, battleForm(target))) {
+        clearGimmicks(game)
         runtime.targetId = null
         transition(game, 'IDLE')
       } else if (runtime.stateIn <= 0) {
@@ -2200,6 +2395,7 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     case 'arena-skill':
     case 'arena-switch':
     case 'arena-pause':
+    case 'arena-gimmick':
     case 'arena-surrender':
       return handleArenaAction(game, action)
     case 'travel':
@@ -2611,7 +2807,59 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   return campaign
 }
 
-function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Campaign, speciesId: string, targetId: number | null): Wild | undefined {
+interface GimmickOwner { instanceId: string; speciesId: string; formId?: string }
+
+function readUsedGimmick(raw: unknown, kind: BattleGimmick, owner: GimmickOwner | undefined, onField: boolean): UsedGimmick | undefined {
+  if (!isRecord(raw) || raw.kind !== kind || typeof raw.owner !== 'string' || !raw.owner || raw.owner.length > 128) return
+  const used: UsedGimmick = { kind, owner: raw.owner, active: raw.active === true && !!owner }
+  if (!owner) return used
+  if (kind === 'mega') {
+    if (typeof raw.formId === 'string' && megaFormsFor(owner.speciesId, owner.formId).includes(raw.formId)) used.formId = raw.formId
+    else used.active = false
+  } else if (kind === 'dynamax') {
+    used.remaining = integer(raw.remaining, 0, 0, 3)
+    used.active &&= onField
+    if (!used.active) used.remaining = 0
+    const gmax = owner.speciesId + '-gmax'
+    if (raw.formId === gmax && isSpeciesMotionSupported(owner.speciesId, gmax)) used.formId = gmax
+  } else {
+    if (typeof raw.teraType === 'string' && Object.values(moves).some(move => move.type === raw.teraType)) used.teraType = raw.teraType
+    else used.active = false
+  }
+  return used
+}
+
+function readEncounterGimmicks(raw: unknown, version: number, region: RegionId, foe: Wild | undefined, party: GimmickOwner[]): EncounterGimmicks | undefined {
+  const kind = regionGimmick(region)
+  if (!kind || !foe) return
+  const lead = party[0]
+  const enemy = { instanceId: String(foe.id), speciesId: foe.speciesId, formId: foe.formId }
+  if (version < 17) {
+    if (!foe.trainerId) return
+    // Old stadium saves shared one counter between both Pokémon. Keep the
+    // remaining exchanges in progress without granting a new activation.
+    if (kind === 'dynamax' && foe.maxActionsLeft !== undefined) {
+      const remaining = foe.maxActionsLeft
+      return { targetId: foe.id,
+        player: { kind, owner: lead.instanceId, active: remaining > 0, remaining },
+        enemy: { kind, owner: enemy.instanceId, active: remaining > 0, remaining } }
+    }
+    if (kind === 'tera' && foe.teraType) return { targetId: foe.id,
+      player: { kind, owner: lead.instanceId, active: true, teraType: formStats(lead.speciesId, lead.formId).types[0] },
+      enemy: { kind, owner: enemy.instanceId, active: true, teraType: foe.teraType } }
+    return
+  }
+  if (!isRecord(raw) || raw.targetId !== foe.id) return
+  const playerUse = raw.player
+  const owner = isRecord(playerUse) ? party.find(member => member.instanceId === playerUse.owner) : undefined
+  const player = owner ? readUsedGimmick(playerUse, kind, owner, lead === owner) : undefined
+  const enemyUse = raw.enemy
+  const currentEnemy = isRecord(enemyUse) && enemyUse.owner === enemy.instanceId
+  const opponent = foe.trainerId ? readUsedGimmick(enemyUse, kind, currentEnemy ? enemy : undefined, currentEnemy) : undefined
+  if (player || opponent) return { targetId: foe.id, ...(player && { player }), ...(opponent && { enemy: opponent }) }
+}
+
+function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Campaign, speciesId: string, targetId: number | null, version: number): Wild | undefined {
   const battle = campaign.battle
   if (!battle || !Array.isArray(value) || !targetId) return
   const definition = region.trainerById[battle.trainerId]
@@ -2624,7 +2872,8 @@ function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Camp
         entry.level !== slot.level || typeof entry.currentHP !== 'number' || entry.currentHP <= 0 || !Number.isFinite(entry.currentHP)) continue
     const position = readPosition(entry.position)
     if (!position) continue
-    const opponent = trainerOpponent(region.id, trainer, battle.opponentIndex, targetId, position, entry.direction === -1 ? -1 : 1, integer(entry.maxActionsLeft, 6, 0, 6))
+    const remaining = version < 17 ? Math.ceil(integer(entry.maxActionsLeft, 6, 0, 6) / 2) : integer(entry.maxActionsLeft, 0, 0, 3)
+    const opponent = trainerOpponent(region.id, trainer, battle.opponentIndex, targetId, position, entry.direction === -1 ? -1 : 1, remaining)
     opponent.currentHP = integer(entry.currentHP, opponent.maxHP, 1, opponent.maxHP)
     return opponent
   }
@@ -2754,9 +3003,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const effective = Math.min(level, region.levelCaps[campaign.badges.length])
   const baseHP = statsFor(speciesId, effective, heldItemId, formId).hp
   let trainerEnemy = campaign.battle
-    ? readTrainerOpponent(region, value.wild, campaign, starterSpeciesId, runtime.targetId) : undefined
-  const maxHP = trainerEnemy?.maxActionsLeft ? dynamaxHP(baseHP) : baseHP
-  const currentHP = clamp(Math.floor(rawPlayer.currentHP), 0, maxHP)
+    ? readTrainerOpponent(region, value.wild, campaign, starterSpeciesId, runtime.targetId, value.schemaVersion) : undefined
   if (campaign.battle && !trainerEnemy) {
     campaign.battle = null
     resetLeagueRun(campaign)
@@ -2771,6 +3018,17 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   if (!wild.some((entry) => entry.id === runtime.autoCaptureTargetId)) runtime.autoCaptureTargetId = null
   const leaderId = rawPlayer.instanceId.slice(0, 128)
   const { followers, boxes } = readOwnedPokemon(value, leaderId, position, runtime, inventory, heldItemId)
+  const lead = { instanceId: leaderId, speciesId, formId }
+  const target = wild.find(mon => mon.id === runtime.targetId)
+  const gimmicks = readEncounterGimmicks(isRecord(value.runtime) ? value.runtime.gimmick : undefined,
+    value.schemaVersion, regionId, target, [lead, ...followers])
+  if (gimmicks) runtime.gimmick = gimmicks
+  const activePlayer = gimmicks?.player?.active && gimmicks.player.owner === leaderId ? gimmicks.player : undefined
+  const activeEnemy = gimmicks?.enemy?.active && gimmicks.enemy.owner === String(target?.id) ? gimmicks.enemy : undefined
+  const playerMaxed = activePlayer?.kind === 'dynamax'
+  const activeForm = activePlayer?.formId ?? formId
+  const maxHP = playerMaxed ? dynamaxHP(baseHP) : statsFor(speciesId, effective, heldItemId, activeForm).hp
+  const currentHP = clamp(Math.floor(rawPlayer.currentHP), 0, maxHP)
   if (campaign.battle && trainerEnemy) {
     const rawArena = isRecord(savedCampaign) && isRecord(savedCampaign.battle) ? savedCampaign.battle.arena : undefined
     const playableFollowers = followers.filter(member => isSpeciesMotionSupported(member.speciesId, member.formId))
@@ -2785,7 +3043,8 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
         ? { ...rawArena, casts: [], beamClash: undefined } : rawArena
       if (isSpeciesMotionSupported(speciesId, formId)) {
         campaign.battle.arena = restoreArena(clearedMaxCasts, [leaderId, ...playableFollowers.map(member => member.instanceId)],
-          currentHP === 0, trainerTechniques(foe), id => moveIds.includes(id) ? moves[id] : undefined, spriteRefs(speciesId, formId, foe))
+          currentHP === 0, trainerTechniques(foe, activeEnemy?.formId), id => moveIds.includes(id) ? moves[id] : undefined,
+          spriteRefs(speciesId, activeForm, foe, playerMaxed, activeEnemy?.formId))
       }
     }
   }
@@ -2798,6 +3057,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   if (!['SEARCH', 'CHASE', 'BATTLE'].includes(state)) runtime.targetId = null
   if (state === 'LOOT' && !runtime.drop) state = 'RECOVER'
   if (state !== 'LOOT') runtime.drop = null
+  if (runtime.gimmick && runtime.gimmick.targetId !== runtime.targetId) delete runtime.gimmick
   const from = runtime.evolutionFrom
   const matchesEvolution = (rule: { speciesId: string; formId?: string } | undefined) => rule?.speciesId === speciesId && rule.formId === formId
   if (state !== 'EVOLUTION' || !from || !(matchesEvolution(evolutionFor(from, runtime.evolutionFromForm)) ||

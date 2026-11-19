@@ -1,4 +1,5 @@
 import type { Move, Position } from './engine'
+import { boostedMove } from './gimmickCombat'
 import { arenaCastFrame, arenaCastTouches, beamPulseMs, beamRounds, arenaDistance, arenaHeightRatio, arenaMoveProfile, castDuration, createArenaCast,
   type ArenaCast, type ArenaSide, type ArenaSpriteRefs } from './arenaMoves'
 
@@ -36,6 +37,7 @@ export interface TrainerArena {
   paused: boolean
   needsSwitch: boolean
   casts: ArenaCast[]
+  maxClash?: { playerCastId: number; enemyCastId: number; elapsedMs: number; ratio: number; point: Position }
   beamClash: BeamClash | null
   lastClash?: BeamClashResult
   nextCastId: number
@@ -129,7 +131,8 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
       const emitter = object(saved.emitter) ? saved.emitter : undefined
       const lockedAim = emitter && object(saved.target) ? { x: number(saved.target.x, arena.player.x, -.5, 1.5),
         y: number(saved.target.y, arena.player.y, -.5, 1.5) } : undefined
-      const cast = createArenaCast(id, saved.side, move, point(emitter?.feet ?? saved.origin, arena[saved.side]),
+      const kind = saved.gimmick === 'z' || saved.gimmick === 'dynamax' ? saved.gimmick : undefined
+      const cast = createArenaCast(id, saved.side, boostedMove(move, kind), point(emitter?.feet ?? saved.origin, arena[saved.side]),
         point(emitter?.targetFeet ?? saved.target, arena[saved.side === 'player' ? 'enemy' : 'player']), emitter ? sprites : undefined, lockedAim)
       if (saved.legacyWarning && saved.side === 'enemy' && object(saved.profile)) {
         setLegacyProfile(cast, saved.profile.startupMs, saved.profile.radius)
@@ -178,6 +181,14 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
       arena.casts.push(cast)
     }
   }
+  const duel = value.maxClash
+  if (object(duel)) {
+    const pair = maxPair(arena)
+    if (pair && pair[0].id === duel.playerCastId && pair[1].id === duel.enemyCastId) {
+      arena.maxClash = { playerCastId: pair[0].id, enemyCastId: pair[1].id, point: point(duel.point, arena.player),
+        ratio: number(duel.ratio, 1, .00001, 100_000), elapsedMs: number(duel.elapsedMs, 0, 0, maxDuelMs) }
+    }
+  }
   const held = value.beamClash
   if (object(held)) {
     const source = arena.casts.find(c => c.side === 'player' && c.id === held.playerCastId && c.beam && !c.resolved)
@@ -221,6 +232,7 @@ export function beginArenaCast(arena: TrainerArena, side: ArenaSide, move: Move,
 export function clearArenaCasts(arena: TrainerArena) {
   arena.casts = []
   arena.beamClash = null
+  delete arena.maxClash
   arena.telegraph = null
   arena.skillLockMs = 0
 }
@@ -283,8 +295,48 @@ function moveFighter(arena: TrainerArena, side: ArenaSide, elapsed: number, dire
   translate(arena[side], direction, distance)
 }
 
+const maxDuelMs = 800
+
+function maxPair(arena: TrainerArena): [ArenaCast, ArenaCast] | undefined {
+  if (arena.casts.length < 2) return
+  const eligible = (c: ArenaCast) => c.gimmick === 'dynamax' && !c.resolved && !c.beam?.spent
+  const player = arena.casts.find(c => c.side === 'player' && eligible(c))
+  const enemy = arena.casts.find(c => c.side === 'enemy' && eligible(c))
+  if (player && enemy) return [player, enemy]
+}
+
+function stepMaxDuel(arena: TrainerArena, elapsed: number, strength: (a: ArenaCast, b: ArenaCast) => number): ArenaImpact[] | undefined {
+  const pair = maxPair(arena)
+  if (!pair) { delete arena.maxClash; return }
+  const [player, enemy] = pair
+  if (!arena.maxClash) {
+    if (!arenaCastTouches(player, 0, castDuration(player), arena.enemy, arena.enemy) ||
+        !arenaCastTouches(enemy, 0, castDuration(enemy), arena.player, arena.player)) return
+    arena.maxClash = { playerCastId: player.id, enemyCastId: enemy.id, elapsedMs: 0, ratio: strength(player, enemy),
+      point: { x:(arena.player.x + arena.enemy.x) / 2, y:(arena.player.y + arena.enemy.y) / 2 } }
+  }
+  const clash = arena.maxClash
+  clash.elapsedMs += elapsed
+  if (clash.elapsedMs < maxDuelMs) return []
+  const winner = clash.ratio > 1.02 ? player : clash.ratio < 1 / 1.02 ? enemy : undefined
+  arena.lastClash = { id: Math.max(player.id, enemy.id), point: clash.point, winner: winner?.side ?? null,
+    outcome: winner ? 'break' : 'draw' }
+  delete arena.maxClash
+  for (const cast of pair) {
+    cast.elapsedMs = cast.profile.startupMs + cast.profile.activeMs
+    cast.resolved = true
+    cast.result = cast === winner ? 'hit' : 'miss'
+  }
+  if (!winner) return []
+  winner.clashBreakthrough = true
+  return [{cast: winner, hit:true, position:{ ...arena[winner.side === 'player' ? 'enemy' : 'player'] },
+    ...(winner.beam && {beamShare:1})}]
+}
+
 export function stepArena(arena: TrainerArena, elapsed: number, playerSpeed: number, enemySpeed: number, selected: Move,
   sprites?: ArenaSpriteRefs, strengthRatio: (a: ArenaCast, b: ArenaCast) => number = () => 1): ArenaImpact[] {
+  const duel = stepMaxDuel(arena, elapsed, strengthRatio)
+  if (duel) return duel
   const seconds = elapsed / 1000
   const from = { player: { ...arena.player }, enemy: { ...arena.enemy } }
   const rolling = arena.dodgeMs > .00001

@@ -49,9 +49,9 @@ function Capsule({ origin, end, r }: { origin: Position; end: Position; r: numbe
     + ' L ' + pt(origin, -1) + ' A ' + r + ' ' + r + ' 0 0 0 ' + pt(origin, 1) + ' Z'} />
 }
 
-export function ArenaEffects({ casts, preview, effects, playing, clash, lastClash }: {
+export function ArenaEffects({ casts, preview, effects, playing, clash, lastClash, maxClash }: {
   casts: ArenaCast[]; preview?: ArenaCast; effects: boolean; playing: boolean
-  clash: TrainerArena['beamClash']; lastClash?: TrainerArena['lastClash']
+  clash: TrainerArena['beamClash']; lastClash?: TrainerArena['lastClash']; maxClash?: TrainerArena['maxClash']
 }) {
   // Interpolate only until the next 50 ms simulation snapshot. Pausing displays the saved frame exactly.
   const [sample, setSample] = useState<{ casts: ArenaCast[]; delta: number } | null>(null)
@@ -89,6 +89,13 @@ export function ArenaEffects({ casts, preview, effects, playing, clash, lastClas
     })}
     {clash && <ClashCore clash={clash} delta={delta} effects={effects}
       playerColor={clashColor(clash.playerCastId)} enemyColor={clashColor(clash.enemyCastId)}/>}
+    {maxClash && <g transform={'translate(' + maxClash.point.x * 1200 + ' ' + maxClash.point.y * 760 + ')'} data-max-clash="true">
+      {effects && <g className="ring-max-contact" fill="none" strokeWidth="4">
+        <circle r="33" stroke="#ff8caf"/><circle r="22" stroke="#ffc87f"/>
+        <path d="m-15 -10 10 3 4 -12 3 11 12 -5 -6 12 9 7 -13 0 -4 12 -4 -12 -13 -2 10 -5z" fill="#fff5dc" stroke="#dd4979"/>
+      </g>}
+      <text y="-42" className="ring-clash-label">다이맥스기 맞대결</text>
+    </g>}
     <ClashFinish outcome={lastClash} effects={effects}/>
   </svg>
 }

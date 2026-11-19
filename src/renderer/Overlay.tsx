@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Application, Container, Graphics, ImageSource, Rectangle, Sprite, Texture } from 'pixi.js'
 import 'pixi.js/unsafe-eval'
-import { formStats } from '../game/forms'
+import { GimmickFlare } from './GimmickControl'
 import { species } from '../game/catalog'
 import { worldLocationById, worldRegions } from '../game/regions/world'
-import { DYNAMAX_OPPONENT_SCALE, DYNAMAX_PARTNER_SCALE, activityLabels, effectiveLevel, items, levelCap, playerStats, requiredExp } from '../game/engine'
+import { battleGimmickStatus, DYNAMAX_OPPONENT_SCALE, DYNAMAX_PARTNER_SCALE, activityLabels, effectiveLevel, items, levelCap, playerStats, requiredExp } from '../game/engine'
 import type { Effect, GameSave, Position } from '../game/engine'
 import { ItemSprite, TeraIcon, useAdventure } from './shared'
 import { BALL_LAND, BALL_REVEAL, fieldFrame, figures, latestEffect, phase, poseFor, type Figure } from './desktopSprites'
@@ -164,7 +164,7 @@ function FallbackFigure({ figure, effects, showEffects, evolution, capture }: { 
   useLayoutEffect(() => { row.current = frame?.row }, [frame?.row])
   if (!frame) return null
   const size = SPRITE_HEIGHT * figure.scale * pose.stretch / frame.extent
-  const aura = !showEffects ? '' : figure.teraType ? ' tera-glow' : figure.dynamax ? ' dynamax-glow' : figure.totem ? ' totem-glow' : ''
+  const aura = !showEffects ? '' : figure.gimmick ? ' ' + figure.gimmick + '-glow' : figure.totem ? ' totem-glow' : ''
   return <div className={'fallback-figure' + aura} style={{ left: figure.at.x + pose.x, top: figure.at.y + pose.y - 4,
     opacity: pose.alpha, zIndex: Math.round(figure.at.y), width: frame.width, height: frame.height,
     transform: 'scale(' + size + ') translate(' + -frame.anchorX + 'px,' + -frame.anchorY + 'px)',
@@ -179,6 +179,7 @@ function Stage({ game }: { game: GameSave | null }) {
   if (current.current.game !== game) current.current = { game, at: performance.now() }
   useEffect(() => {
     const mount = host.current!
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
     const canvas = document.createElement('canvas')
     // Keep the transparent desktop surface in a software-backed 2D canvas.
     if (!canvas.getContext('2d', { alpha: true, willReadFrequently: true })) {
@@ -334,24 +335,39 @@ function Stage({ game }: { game: GameSave | null }) {
           sprite.alpha = pose.alpha
           shape.clear().ellipse(pose.x * 0.6, -1, 20 * figure.scale, 4 * figure.scale)
             .fill({ color: '#112b21', alpha: 0.3 * pose.alpha })
+          const auraTime = reduceMotion.matches ? 360 : ticker.lastTime
           if (figure.teraType && state.settings.effects) {
             const color = effectColors[figure.teraType] ?? '#b2f6ff'
             const top = pose.y - Math.abs(sprite.height) - 4
             const radius = 5 * figure.scale
             diamond(shape, pose.x, top - radius, radius, color, 0.95)
             for (let i = 0; i < 4; i++) {
-              const shimmer = (ticker.lastTime / 1100 + i / 4) % 1
+              const shimmer = (auraTime / 1100 + i / 4) % 1
               diamond(shape, pose.x + Math.cos(i * 2.4) * 19 * figure.scale,
                 pose.y - (9 + 43 * shimmer) * figure.scale, radius * (1 - shimmer), color, 1 - shimmer)
             }
           }
-          if ((figure.totem || figure.dynamax) && state.settings.effects) {
-            const pulse = (1 + Math.sin(ticker.lastTime / 240)) / 2
+          if (state.settings.effects && (figure.gimmick === 'mega' || figure.gimmick === 'z')) {
+            const radius = figure.scale * 20
+            const orbit = auraTime / 560
+            if (figure.gimmick === 'mega') {
+              for (let i = 0; i < 6; i++) {
+                const angle = orbit + i * Math.PI / 3
+                diamond(shape, Math.cos(angle) * radius, -(9 + i * 6) * figure.scale,
+                  2.8 * figure.scale, i % 2 ? '#80efd3' : '#cb9dff', .86)
+              }
+            } else {
+              shape.poly([0,-13,7,-21,3,-21,9,-32,-3,-19,1,-19].map(v => v * figure.scale))
+                .fill({ color:'#ffe671', alpha:.95 })
+            }
+          }
+          if ((figure.totem || figure.gimmick === 'dynamax') && state.settings.effects) {
+            const pulse = (1 + Math.sin(auraTime / 240)) / 2
             const radius = (22 + 4 * pulse) * figure.scale
-            shape.ellipse(0, -3, radius, radius * 0.28).stroke({ color: figure.dynamax ? '#fd4c92' : '#ffc64c', width: 2, alpha: 0.65 + 0.3 * pulse })
+            shape.ellipse(0, -3, radius, radius * 0.28).stroke({ color: figure.gimmick === 'dynamax' ? '#fd4c92' : '#ffc64c', width: 2, alpha: 0.65 + 0.3 * pulse })
             for (let i = 0; i < 6; i++) {
-              const rise = (ticker.lastTime / 900 + i / 6) % 1
-              diamond(shape, Math.cos(i * 2.4) * radius, -(6 + rise * 48) * figure.scale, (3 - rise) * figure.scale, figure.dynamax ? '#ff94cd' : '#ffe282', 1 - rise)
+              const rise = (auraTime / 900 + i / 6) % 1
+              diamond(shape, Math.cos(i * 2.4) * radius, -(6 + rise * 48) * figure.scale, (3 - rise) * figure.scale, figure.gimmick === 'dynamax' ? '#ff94cd' : '#ffe282', 1 - rise)
             }
           }
           if (sprite.texture === Texture.EMPTY) {
@@ -408,14 +424,19 @@ function BattleMeters({ game }: { game: GameSave }) {
   const player = game.player
   const totem = Boolean(enemy.trainerId && worldRegions[game.regionId].trainerById[enemy.trainerId]?.totemAura)
   const max = playerStats(game).hp
+  const actors = [battleGimmickStatus(game), battleGimmickStatus(game, 'enemy')]
   return <div data-cue="battle" className="battle-meters">
     {[{ ...player, level: effectiveLevel(game), maxHP: max }, enemy].map((mon, index) => {
+      const status = actors[index]
+      const active = status?.phase === 'active' ? status : null
+      const scale = active?.kind === 'dynamax' ? (index ? DYNAMAX_OPPONENT_SCALE : DYNAMAX_PARTNER_SCALE) : index && totem ? 1.18 : 1
       const relative = index === 0 ? player.position.x - enemy.position.x : enemy.position.x - player.position.x
       const side = (relative || (index ? 1 : -1)) >= 0 ? 1 : -1
       return <div key={index} className={'battle-meter ' + (index ? 'enemy-meter' : 'partner-meter')}
         style={{ left: anchor(mon.position.x + side * Math.max(22, (118 - Math.abs(relative)) / 2), 58),
-          top: Math.max(34, mon.position.y - SPRITE_HEIGHT * game.settings.spriteScale * (enemy.maxActionsLeft ? (index ? DYNAMAX_OPPONENT_SCALE : DYNAMAX_PARTNER_SCALE) : index && totem ? 1.18 : 1) - 10) }}>
-        <span>{enemy.teraType && <TeraIcon type={index ? enemy.teraType : formStats(player.speciesId, player.formId).types[0]} />}<strong>{enemy.maxActionsLeft ? index && enemy.dynamax === 'gigantamax' ? '거다이 ' : '다이 ' : index === 1 && totem ? '주인 ' : ''}{species[mon.speciesId].nameKo}</strong><small>Lv.{mon.level}</small></span>
+          top: Math.max(34, mon.position.y - SPRITE_HEIGHT * game.settings.spriteScale * scale - 10) }}>
+        <span>{active?.kind === 'tera' && active.teraType && <TeraIcon type={active.teraType}/>}<strong>{index === 1 && totem ? '주인 ' : ''}{species[mon.speciesId].nameKo}</strong><small>Lv.{mon.level}</small></span>
+        {active && <small className="meter-gimmick" data-gimmick={active.kind}>{active.label}{active.kind === 'dynamax' && active.remaining !== undefined && ' · 잔여 ' + active.remaining + '회'}</small>}
         <progress aria-label="HP" value={mon.currentHP} max={mon.maxHP} />
       </div>
     })}
@@ -493,6 +514,9 @@ function CaptureCue({ effect, height }: { effect: Effect; height: number }) {
 
 function EventLabel({ effect, height, inBattle }: { effect: Effect; height: number; inBattle: boolean }) {
   const t = phase(effect)
+  if (effect.kind === 'travel' && effect.gimmick) return <div data-cue="gimmick" className="field-gimmick-cue" data-gimmick={effect.gimmick}
+    style={{ left: anchor(effect.position.x, 46), top: Math.max(height, effect.position.y), width: height, height }}>
+    <GimmickFlare kind={effect.gimmick}/><strong>{effect.text}</strong></div>
   if (effect.kind === 'pickup') return <Pickup effect={effect} height={height} />
   if (effect.kind === 'evolution') return <EvolutionCue effect={effect} height={height} />
   if (effect.kind === 'capture') return <CaptureCue effect={effect} height={height} />

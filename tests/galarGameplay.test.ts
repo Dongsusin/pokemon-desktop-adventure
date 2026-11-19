@@ -32,29 +32,29 @@ function faceKabu() {
 }
 
 describe('Galar stadiums and encounter eligibility', () => {
-  it('restores both Dynamax HP bars and supported moves, then reverts after three exchanges', () => {
-    let game = faceKabu()
+  it('lets the ace and partner activate independently, each reverting after its own Max attack', () => {
+    const game = faceKabu()
     const base = statsFor(game.player.speciesId, effectiveLevel(game)).hp
     const target = game.wild[0]
-    expect(target.maxActionsLeft).toBe(6)
-    expect(playerStats(game).hp).toBe(Math.floor(base * 1.5))
+    expect(target.maxActionsLeft).toBe(1)
+    expect(playerStats(game).hp).toBe(base)
     expect(target.dynamax).toBe('dynamax')
     expect(battleForm(target)).toBeUndefined()
-    for (let remaining = 5; remaining >= 0; remaining--) {
-      game.wild[0].currentHP = game.wild[0].maxHP
-      game.player.currentHP = playerStats(game).hp
-      if (remaining % 2 === 1) idleUntilHit(game)
-      else castSkill(game)
-      expect(game.wild[0].maxActionsLeft).toBe(remaining)
-      if (remaining === 5) expect(game.effects.some(effect => effect.text === '불꽃세례')).toBe(true)
-      const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
-      expect(saved.wild).toEqual(game.wild)
-      expect(saved.player.currentHP).toBe(game.player.currentHP)
-      game = saved
-    }
-    expect(playerStats(game).hp).toBe(base)
-    expect(battleForm(game.wild[0])).toBeUndefined()
-    expect(game.wild[0].maxHP).toBeLessThan(target.maxHP)
+    const before = target.maxHP
+    const a = game.campaign.battle!.arena
+    a.player = {x:.34, y:.5}; a.enemy = {x:.48, y:.5}; a.enemyInMs = 0
+    game.player.currentHP = base
+    idleUntilHit(game)
+    expect(game.effects.some(effect => effect.kind === 'attack' && effect.text?.startsWith('다이'))).toBe(true)
+    for (let i=0; i<35 && target.maxActionsLeft; i++) tick(game,100,bounds)
+    expect(target.maxActionsLeft).toBe(0)
+    expect(target.maxHP).toBeLessThan(before)
+    expect(dispatch(game,{type:'arena-gimmick'})).toBe(true)
+    expect(playerStats(game).hp).toBe(Math.floor(base * 1.5))
+    const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
+    expect(saved.wild).toEqual(game.wild)
+    expect(saved.player.currentHP).toBe(game.player.currentHP)
+    expect(playerStats(saved).hp).toBe(playerStats(game).hp)
   })
 
   it('keeps Dynamax combatants within the arena even at the largest desktop sprite scale', () => {
@@ -74,11 +74,12 @@ describe('Galar stadiums and encounter eligibility', () => {
 
   it('returns the partner to normal HP on leaving a stadium during Dynamax', () => {
     const game = faceKabu()
+    expect(dispatch(game,{type:'arena-gimmick'})).toBe(true)
     const max = playerStats(game).hp
     game.player.currentHP = max - 20
     expect(dispatch(game, { type: 'travel', locationId: 'postwick' })).toBe(true)
     expect(game.campaign.battle).toBeNull()
-    expect(game.player.currentHP).toBe(Math.ceil((max - 20) * playerStats(game).hp / max))
+    expect(game.player.currentHP).toBe(Math.floor((max - 20) * playerStats(game).hp / max))
     expect(hydrateSave(game, 1)?.player.currentHP).toBe(game.player.currentHP)
   })
 

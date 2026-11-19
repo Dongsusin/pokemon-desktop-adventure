@@ -37,8 +37,11 @@ export function typeMultiplier(moveType: string, defenderTypes: readonly string[
 }
 
 export function teraAttackMultiplier(moveType: string, originalTypes: readonly string[], attackerTera: string, defenderTera: string, defenderAbility?: KantoTrainerMember['abilityId']): number {
+  return teraStabBonus(moveType, originalTypes, attackerTera) * typeMultiplier(moveType, [defenderTera], defenderAbility)
+}
+
+export function teraStabBonus(moveType: string, originalTypes: readonly string[], attackerTera: string): number {
   const originalStab = originalTypes.includes(moveType)
   const teraStab = moveType === attackerTera
-  const stab = originalStab && teraStab ? 2 : originalStab || teraStab ? 1.5 : 1
-  return stab * typeMultiplier(moveType, [defenderTera], defenderAbility)
+  return originalStab && teraStab ? 2 : originalStab || teraStab ? 1.5 : 1
 }

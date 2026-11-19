@@ -239,7 +239,7 @@ function startDesktop(): void {
     const accepted = dispatch(current, action)
     if (accepted) {
       const after = current.campaign.battle
-      if (before !== after?.opponentIndex || action.type === 'arena-pause' || action.type === 'arena-switch') saveCurrent()
+      if (before !== after?.opponentIndex || action.type === 'arena-pause' || action.type === 'arena-switch' || action.type === 'arena-gimmick') saveCurrent()
       if (!after) updatePresentation()
       if (action.type !== 'arena-move') publish(true)
     }

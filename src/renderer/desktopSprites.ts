@@ -1,8 +1,9 @@
 import { arenaMoveProfile } from '../game/arenaMoves'
 import { battleDirectionRow } from '../game/arenaMuzzle'
 import { species } from '../game/catalog'
-import { DYNAMAX_OPPONENT_SCALE, DYNAMAX_PARTNER_SCALE, LOOT_RANGE, type Effect, type GameSave, type Position } from '../game/engine'
-import { battleForm, formStats } from '../game/forms'
+import { battleGimmickStatus, DYNAMAX_OPPONENT_SCALE, DYNAMAX_PARTNER_SCALE, LOOT_RANGE, type Effect, type GameSave, type Position } from '../game/engine'
+import type { BattleGimmick } from '../game/battleGimmicks'
+import { battleForm } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
 import { spriteAtlas, spriteAtlasKey, spriteExtent, spriteFrameIndex } from './spriteAtlas'
 
@@ -13,7 +14,7 @@ type FieldMotion = 'idle' | 'walk' | 'attack' | 'shoot' | 'hurt'
 export type Figure = {
   formId?: string
   totem?: boolean
-  dynamax?: boolean
+  gimmick?: BattleGimmick
   teraType?: string
   id: string
   speciesId: string
@@ -38,16 +39,21 @@ const followerId = (instanceId: string) => 'follower:' + instanceId
 export function figures(game: GameSave, evolution?: Effect, capture?: Effect, ahead = 0): Figure[] {
   const player = game.player
   const target = game.wild.find(mon => mon.id === game.runtime.targetId)
+  const ally = game.runtime.gimmick?.player?.active ? battleGimmickStatus(game) : null
+  const rival = game.runtime.gimmick?.enemy?.active ? battleGimmickStatus(game, 'enemy') : null
+  const allyActive = ally?.phase === 'active' ? ally : undefined
+  const enemyActive = rival?.phase === 'active' ? rival : undefined
   const observing = ['SEARCH', 'CHASE', 'BATTLE'].includes(player.state)
   const destination = player.state === 'LOOT' ? game.runtime.drop?.position
     : observing ? target?.position : player.state === 'WANDER' ? game.runtime.destination : undefined
   const nearby: Figure[] = game.wild.map(mon => {
+    const active = mon === target ? enemyActive : undefined
     const totem = Boolean(mon.trainerId && worldRegions[game.regionId].trainerById[mon.trainerId]?.totemAura)
     return {
-      id: String(mon.id), speciesId: mon.speciesId, formId: battleForm(mon), at: mon.position, direction: mon.direction,
+      id: String(mon.id), speciesId: mon.speciesId, formId: active?.formId ?? battleForm(mon), at: mon.position, direction: mon.direction,
       lookAt: observing && mon === target ? player.position : undefined, cycleOffset: mon.id % 97, moving: false,
-      totem, teraType: mon.teraType, dynamax: Boolean(mon.maxActionsLeft),
-      scale: game.settings.spriteScale * (mon.maxActionsLeft ? DYNAMAX_OPPONENT_SCALE : totem ? 1.18 : 0.84)
+      totem, teraType: active?.kind === 'tera' ? active.teraType : undefined, gimmick: active?.kind,
+      scale: game.settings.spriteScale * (active?.kind === 'dynamax' ? DYNAMAX_OPPONENT_SCALE : totem ? 1.18 : 0.84)
     }
   })
   if (capture?.captured && capture.speciesId && capture.target && typeof capture.targetActor === 'number'
@@ -76,12 +82,12 @@ export function figures(game: GameSave, evolution?: Effect, capture?: Effect, ah
     })
   }
   return [{
-    id: PARTNER, speciesId: partnerId, formId: partnerId === player.speciesId ? player.formId : evolution?.fromFormId, at: player.position, direction: player.direction,
+    id: PARTNER, speciesId: partnerId, formId: partnerId === player.speciesId ? allyActive?.formId ?? player.formId : evolution?.fromFormId, at: player.position, direction: player.direction,
     lookAt: destination ?? undefined, cycleOffset: (player.roamSeed ?? 0) % 97,
     moving: !!destination && (player.state === 'WANDER' || player.state === 'CHASE' ||
       (player.state === 'LOOT' && Math.hypot(destination.x - player.position.x, destination.y - player.position.y) > LOOT_RANGE + .01)),
-    teraType: game.wild[0]?.teraType ? formStats(player.speciesId, player.formId).types[0] : undefined,
-    dynamax: Boolean(game.wild[0]?.maxActionsLeft), scale: game.settings.spriteScale * (game.wild[0]?.maxActionsLeft ? DYNAMAX_PARTNER_SCALE : 1)
+    teraType: allyActive?.kind === 'tera' ? allyActive.teraType : undefined, gimmick: allyActive?.kind,
+    scale: game.settings.spriteScale * (allyActive?.kind === 'dynamax' ? DYNAMAX_PARTNER_SCALE : 1)
   }, ...followers, ...nearby, ...defeated]
 }
 

@@ -1,9 +1,11 @@
 import {
-  canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
+  canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, battleGimmickStatus, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
   type GameSave
 } from '../game/engine'
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
-import { battleForm, formStats, locationForm } from '../game/forms'
+import { battleForm, locationForm } from '../game/forms'
+import { megaFormFor, regionGimmick } from '../game/battleGimmicks'
+import { gimmickLabels } from '../game/gimmickCombat'
 import { worldRegions, type RegionId } from '../game/regions/world'
 import { species } from '../game/catalog'
 import { Pokemon, TeraIcon, statNames, types } from './shared'
@@ -94,15 +96,16 @@ export function TrainerBattleCard({ game }: { game: GameSave }) {
   if (!battle || !trainer) return null
 
   const opponent = game.wild.find(mon => mon.id === game.runtime.targetId && mon.trainerId === trainer.id)
-  const leadType = formStats(game.player.speciesId, game.player.formId).types[0]
+  const myPower = battleGimmickStatus(game)
+  const theirPower = battleGimmickStatus(game, 'enemy')
   const leagueFinal = game.regionId === 'alola' ? '초대 챔피언 결정전' : '챔피언전'
   const label = trainer.cupRound ?? (trainer.trialKind ? challengeName(trainer) : { gym: '체육관전', elite: '사천왕전', champion: leagueFinal }[trainer.role])
   return <section className="card campaign-battle" aria-label="진행 중인 트레이너 배틀">
     <div className="campaign-heading"><h2>{label} · {trainer.name}</h2>
       <span>{battle.opponentIndex + 1}/{trainer.team.length}마리째</span></div>
-    {opponent?.teraType && <p className="campaign-subtitle tera-match"><span><TeraIcon type={leadType} /> 선두 · {types[leadType]}</span>
-      <span><TeraIcon type={opponent.teraType} /> 상대 · {types[opponent.teraType]}</span>테라스탈{opponent.abilityId && <span>특성 · {opponent.abilityId === 'levitate' ? '부유' : '저수'}</span>}</p>}
-    {opponent && Boolean(opponent.maxActionsLeft) && <p className="campaign-subtitle">선두 다이맥스 · 상대 {opponent.dynamax === 'gigantamax' ? '거다이맥스' : '다이맥스'} · 남은 {Math.ceil(opponent.maxActionsLeft! / 2)}턴</p>}
+    {([{ side: '선두', power: myPower }, { side: '상대', power: theirPower }]).map(({ side, power }) =>
+      power?.phase === 'active' && <p key={side} className="campaign-subtitle">{side} · {power.label}
+        {power.teraType ? ' · ' + types[power.teraType] : ''} · {power.detail}</p>)}
     {trainer.totemAura && <p className="campaign-subtitle">주인 오라 · {trainer.totemAura.stat === 'all' ? '모든 능력' : statNames[trainer.totemAura.stat]} {trainer.totemAura.stages}랭크 상승</p>}
     <TrainerTeam trainer={trainer} regionId={game.regionId} active={battle.opponentIndex} activeForm={opponent && battleForm(opponent)} />
     {opponent && <div className="campaign-hp">
@@ -120,6 +123,7 @@ export function Campaign({ game, busy, begin, locate }: {
 }) {
   const region = worldRegions[game.regionId]
   const regionName = region.name.replace(/지방$/, '')
+  const power = regionGimmick(region.id)
   const leagueTitle = regionName + (region.id === 'paldea' ? ' 챔피언 테스트' : region.id === 'galar' ? ' 챔피언컵' : ' 리그')
   const progressTitle = regionName + (region.id === 'alola' ? ' 섬 순례' : ' 배지')
   const badgeSheet = new URL('maps/' + region.id + '/gym-badges.png', document.baseURI).href
@@ -160,6 +164,15 @@ export function Campaign({ game, busy, begin, locate }: {
 
     <div className="campaign-stack">
       <TrainerBattleCard game={game} />
+      {power && !inBattle && <section className="card" aria-label="지방 배틀 기믹">
+        <h2>{gimmickLabels[power]}</h2>
+        <p className="campaign-subtitle">야생전은 자동 발동 · 트레이너전은 <kbd>F</kbd> 또는 기믹 버튼으로 배틀당 한 번 발동</p>
+        <p className="campaign-subtitle">{power === 'mega'
+          ? (megaFormFor(game.player.speciesId, game.player.formId) ? species[game.player.speciesId].nameKo + '의 메가진화 모습으로 배틀합니다.' : '메가진화 전용 동작이 있는 포켓몬을 출전시키세요.')
+          : power === 'z' ? '준비 후 표시된 타입의 공격 기술을 쓰면 Z기술이 됩니다.'
+          : power === 'dynamax' ? '몸집과 최대 HP가 증가하고 공격 기술이 다이맥스 기술로 바뀝니다.'
+          : '출전 포켓몬의 첫 번째 타입으로 테라스탈합니다. 기술 상성 표시에 바뀐 방어 타입이 반영됩니다.'}</p>
+      </section>}
       {gym && !inBattle && <section className="card campaign-gym">
         <div className="campaign-heading"><h2>{gymHeading(region.locationById[gym.locationId].name, gym)}</h2>
           <span>{gym.type ? types[gym.type] : ''}</span></div>

@@ -3,14 +3,16 @@ import type { CSSProperties } from 'react'
 import type { ArenaCast } from '../game/arenaMoves'
 import { arenaCastFrame, arenaHeightRatio, arenaMoveProfile } from '../game/arenaMoves'
 import { species } from '../game/catalog'
-import type { Position } from '../game/engine'
+import type { Effect, Position } from '../game/engine'
 import type { ArenaFeedback } from '../game/trainerArena'
 import { BattleSprite, battleSpriteFootprint } from './BattleSprite'
 import { pokemonName, TeraIcon } from './shared'
+import { GimmickFlare, type GimmickStatus } from './GimmickControl'
 
-export function ArenaFighter({ side, id, formId, pos, direction, casting, bodyStyle, feedback, health, playing, invincible, dynamax, tera }: {
+export function ArenaFighter({ side, id, formId, pos, direction, casting, bodyStyle, feedback, health, playing, invincible, gimmick, effects, burst }: {
   side: 'player' | 'enemy'; id: string; formId?: string; pos: Position; direction?: Position; bodyStyle?: CSSProperties
-  casting?: ArenaCast; feedback: ArenaFeedback | null; health: number; playing: boolean; invincible?: boolean; dynamax?: boolean; tera?: string
+  casting?: ArenaCast; feedback: ArenaFeedback | null; health: number; playing: boolean; invincible?: boolean
+  gimmick?: GimmickStatus; effects: boolean; burst?: Effect
 }) {
   const previous = useRef(pos)
   const facing = useRef({ x: side === 'player' ? 1 : -1, y: 0 })
@@ -41,15 +43,16 @@ export function ArenaFighter({ side, id, formId, pos, direction, casting, bodySt
   const motion = !playing ? lastMotion.current : invincible ? 'dodge' : heldBeam ? 'shoot' : hurt ? 'hurt' : acting ? (ranged ? (frame.phase === 'windup' && !inFlight ? 'charge' : 'shoot') : 'attack') : walking ? 'walk' : 'idle'
   useLayoutEffect(() => { lastMotion.current = motion }, [motion])
   const name = pokemonName(id, formId)
-  const size = battleSpriteFootprint(species[id].pokedexNumber, formId, Boolean(dynamax))
+  const size = battleSpriteFootprint(species[id].pokedexNumber, formId, gimmick?.kind === 'dynamax')
   const style = { left: pos.x*100+'%', top: pos.y*100+'%', '--actor-size': size+'%', zIndex: 3 + Math.round(pos.y * 70) } as CSSProperties
-  return <div className={'ring-fighter ' + side + (dynamax ? ' dynamax' : '')} data-motion={motion}
+  return <div className={'ring-fighter ' + side} data-gimmick={gimmick?.kind} data-aura={effects ? gimmick?.kind : undefined} data-motion={motion}
     data-side={side} data-emitting={ranged && acting ? true : undefined} data-beam-hit={heldBeam && hurt ? true : undefined} data-x={pos.x} data-y={pos.y} data-species={id} style={style}>
     <i className="ring-fighter-shadow"/>
     <div className="ring-fighter-motion" style={bodyStyle}>
       <BattleSprite id={species[id].pokedexNumber} formId={formId} facing={aim} motion={motion} paused={!playing} heldBeam={casting?.profile.kind === 'beam'} castFrame={spriteFrame} className="ring-actor-image" alt={name}/>
     </div>
     <div className="ring-fighter-label"><b>{name}</b><i><span style={{width: Math.max(0,Math.min(1,health))*100+'%'}}/></i></div>
-    {tera && <span className="ring-tera"><TeraIcon type={tera}/></span>}
+    {gimmick?.kind === 'tera' && gimmick.teraType && <span className="ring-tera"><TeraIcon type={gimmick.teraType}/></span>}
+    {effects && burst?.gimmick && <GimmickFlare key={burst.id} kind={burst.gimmick}/>}
   </div>
 }

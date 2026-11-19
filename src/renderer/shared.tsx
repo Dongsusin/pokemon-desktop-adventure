@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { pokemonForms, formLabel } from '../game/forms'
 import { species } from '../game/catalog'
+import { megaForms } from '../game/battleGimmicks'
 import { items } from '../game/engine'
 import type { AdventureSnapshot } from '../preload/contracts'
 
@@ -16,6 +17,7 @@ export const statNames = {
 }
 
 export function spriteUrl(id: string) {
+  if (Object.hasOwn(megaForms, id)) return new URL('battle/gimmicks/portraits/' + id + '.png', document.baseURI).href
   if (Object.hasOwn(pokemonForms, id)) return new URL('sprites/forms/' + id + '.png', document.baseURI).href
   return new URL('sprites/pokemon/' + species[id]?.pokedexNumber + '.png', document.baseURI).href
 }

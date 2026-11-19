@@ -59,6 +59,9 @@ function parseArenaInput(value: unknown): ArenaInput | null {
       return memberId(value.instanceId) ? { type: value.type, instanceId: value.instanceId } : null
     case 'arena-pause':
       return typeof value.paused === 'boolean' ? { type: value.type, paused: value.paused } : null
+    case 'arena-gimmick':
+      if (value.formId === undefined) return { type: value.type }
+      return knownId(value.formId) ? { type: value.type, formId: value.formId } : null
     case 'arena-dodge':
     case 'arena-surrender':
       return { type: value.type }
