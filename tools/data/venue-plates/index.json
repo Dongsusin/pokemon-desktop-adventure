@@ -1,0 +1,770 @@
+[
+  [
+    {
+      "region": "kanto",
+      "id": "brock",
+      "name": "바위 표본 채석장",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "kanto",
+      "id": "misty",
+      "name": "블루시티 수영 레인",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "kanto",
+      "id": "lt-surge",
+      "name": "갈색항 전력 차단실",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "kanto",
+      "id": "erika",
+      "name": "무지개 온실",
+      "crop": [6, 347, 506, 676]
+    },
+    {
+      "region": "kanto",
+      "id": "koga",
+      "name": "연분홍 닌자 도장",
+      "crop": [518, 347, 1018, 676]
+    },
+    {
+      "region": "kanto",
+      "id": "sabrina",
+      "name": "노랑시티 워프 회랑",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "kanto",
+      "id": "blaine",
+      "name": "홍련섬 퀴즈 연구실",
+      "crop": [6, 688, 506, 1018]
+    },
+    {
+      "region": "kanto",
+      "id": "giovanni",
+      "name": "상록시티 회전 타일실",
+      "crop": [518, 688, 1018, 1018]
+    },
+    {
+      "region": "kanto",
+      "id": "lorelei",
+      "name": "칸나의 유빙 호수",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "kanto",
+      "id": "bruno",
+      "name": "시바의 바위 수련장",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "kanto",
+      "id": "agatha",
+      "name": "국화의 영혼 정원",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "kanto",
+      "id": "lance",
+      "name": "목호의 용기둥 회랑",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "kanto",
+      "id": "blue",
+      "name": "석영고원 챔피언홀",
+      "crop": [6, 347, 506, 677]
+    },
+    {
+      "region": "johto",
+      "id": "johto-falkner",
+      "name": "도라지시티 고가 보도",
+      "crop": [518, 347, 1018, 677]
+    },
+    {
+      "region": "johto",
+      "id": "johto-bugsy",
+      "name": "고동마을 나무숲",
+      "crop": [1030, 347, 1530, 677]
+    },
+    {
+      "region": "johto",
+      "id": "johto-whitney",
+      "name": "금빛시티 꽃길 코트",
+      "crop": [6, 689, 506, 1018]
+    },
+    {
+      "region": "johto",
+      "id": "johto-morty",
+      "name": "인주시티 등불 길",
+      "crop": [518, 689, 1018, 1018]
+    },
+    {
+      "region": "johto",
+      "id": "johto-chuck",
+      "name": "진청시티 폭포 도장",
+      "crop": [1030, 689, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "johto",
+      "id": "johto-jasmine",
+      "name": "담청항 철골 선착장",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "johto",
+      "id": "johto-pryce",
+      "name": "황토마을 빙판 미로",
+      "crop": [518, 6, 1018, 335],
+      "standalone": true
+    },
+    {
+      "region": "johto",
+      "id": "johto-clair",
+      "name": "검은먹시티 용암 다리",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "johto",
+      "id": "johto-will",
+      "name": "일목의 가면 무대",
+      "crop": [6, 347, 506, 676]
+    },
+    {
+      "region": "johto",
+      "id": "johto-koga",
+      "name": "독수의 은신 수련장",
+      "crop": [518, 347, 1018, 676]
+    },
+    {
+      "region": "johto",
+      "id": "johto-bruno",
+      "name": "시바의 용암 단련장",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "johto",
+      "id": "johto-karen",
+      "name": "카렌의 밤빛 회랑",
+      "crop": [6, 688, 506, 1018]
+    },
+    {
+      "region": "johto",
+      "id": "johto-lance",
+      "name": "석영고원 용의 전당",
+      "crop": [518, 688, 1018, 1018]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-roxanne",
+      "name": "금탄시티 화석 전시실",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "hoenn",
+      "id": "hoenn-brawly",
+      "name": "무로섬 파도 도장",
+      "crop": [6, 6, 506, 334]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-wattson",
+      "name": "보라시티 전류 관문",
+      "crop": [518, 6, 1019, 334]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-flannery",
+      "name": "용암마을 온천 분기공",
+      "crop": [1031, 6, 1530, 334]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-norman",
+      "name": "등화시티 수련 회랑",
+      "crop": [6, 346, 506, 677]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-winona",
+      "name": "검방울시티 나무 위 회전문",
+      "crop": [518, 346, 1019, 677]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-tate-liza",
+      "name": "이끼시티 해와 달의 천문대",
+      "crop": [1031, 346, 1530, 677]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-juan",
+      "name": "루네시티 얼음 호수",
+      "crop": [6, 689, 506, 1018]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-sidney",
+      "name": "혁진의 암영 무대",
+      "crop": [518, 689, 1019, 1018]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-phoebe",
+      "name": "회연의 등불 제단",
+      "crop": [1031, 689, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "hoenn",
+      "id": "hoenn-glacia",
+      "name": "미혜의 서리 열주",
+      "crop": [6, 6, 505, 335]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-drake",
+      "name": "권수의 범선 갑판",
+      "crop": [517, 6, 1018, 335]
+    },
+    {
+      "region": "hoenn",
+      "id": "hoenn-wallace",
+      "name": "윤진의 폭포 무대",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-roark",
+      "name": "무쇠시티 탄광 선로",
+      "crop": [6, 347, 505, 677]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-gardenia",
+      "name": "영원시티 꽃시계 정원",
+      "crop": [517, 347, 1018, 677],
+      "standalone": true
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-fantina",
+      "name": "연고시티 유령 극장",
+      "crop": [1030, 347, 1530, 677]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-maylene",
+      "name": "장막시티 격투 링",
+      "crop": [6, 689, 505, 1018]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-wake",
+      "name": "들판시티 수문 경기장",
+      "crop": [517, 689, 1018, 1018]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-byron",
+      "name": "운하시티 승강 작업장",
+      "crop": [1030, 689, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-candice",
+      "name": "선단시티 눈덩이 빙판",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-volkner",
+      "name": "물가시티 톱니 발전실",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-aaron",
+      "name": "충호의 숲속 대련장",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-bertha",
+      "name": "들국화의 모래 단층",
+      "crop": [6, 347, 506, 676]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-flint",
+      "name": "대엽의 화염 코트",
+      "crop": [518, 347, 1018, 676]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-lucian",
+      "name": "오엽의 서고",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "sinnoh",
+      "id": "sinnoh-cynthia",
+      "name": "난천의 유적 전당",
+      "crop": [6, 688, 506, 1018]
+    },
+    {
+      "region": "unova",
+      "id": "unova-cheren",
+      "name": "트레이너스쿨 운동장",
+      "crop": [518, 688, 1018, 1018]
+    },
+    {
+      "region": "unova",
+      "id": "unova-roxie",
+      "name": "지하 라이브 클럽",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "unova",
+      "id": "unova-burgh",
+      "name": "고치 실크 화랑",
+      "crop": [6, 6, 507, 335]
+    },
+    {
+      "region": "unova",
+      "id": "unova-elesa",
+      "name": "네온 패션 런웨이",
+      "crop": [519, 6, 1019, 335]
+    },
+    {
+      "region": "unova",
+      "id": "unova-clay",
+      "name": "지하 광산 승강장",
+      "crop": [1031, 6, 1530, 335]
+    },
+    {
+      "region": "unova",
+      "id": "unova-skyla",
+      "name": "바람 터널 격납고",
+      "crop": [6, 347, 507, 676]
+    },
+    {
+      "region": "unova",
+      "id": "unova-drayden",
+      "name": "쌍룡 조각상",
+      "crop": [519, 347, 1019, 676]
+    },
+    {
+      "region": "unova",
+      "id": "unova-marlon",
+      "name": "수련잎 부두",
+      "crop": [1031, 347, 1530, 676]
+    },
+    {
+      "region": "unova",
+      "id": "unova-shauntal",
+      "name": "나선 서고",
+      "crop": [6, 688, 507, 1018]
+    },
+    {
+      "region": "unova",
+      "id": "unova-grimsley",
+      "name": "밤의 대연회장",
+      "crop": [519, 688, 1019, 1018]
+    },
+    {
+      "region": "unova",
+      "id": "unova-caitlin",
+      "name": "꿈결의 침전",
+      "crop": [1031, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "unova",
+      "id": "unova-marshal",
+      "name": "철망 격투 링",
+      "crop": [6, 6, 507, 335]
+    },
+    {
+      "region": "unova",
+      "id": "unova-iris",
+      "name": "별하늘의 용좌",
+      "crop": [519, 6, 1018, 335]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-viola",
+      "name": "이슬 맺힌 거미줄",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-grant",
+      "name": "클라이밍 암벽",
+      "crop": [6, 347, 507, 676]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-korrina",
+      "name": "롤러스케이트 링크",
+      "crop": [519, 347, 1018, 676]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-ramos",
+      "name": "거목의 덩굴 발판",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-clemont",
+      "name": "프리즘타워 퀴즈 층",
+      "crop": [6, 688, 507, 1018]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-valerie",
+      "name": "인형의 집",
+      "crop": [519, 688, 1018, 1018]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-olympia",
+      "name": "별자리 천구",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "kalos",
+      "id": "kalos-wulfric",
+      "name": "회전 빙벽",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-malva",
+      "name": "화염의 방",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-siebold",
+      "name": "수문의 방",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-drasna",
+      "name": "쌍룡의 방",
+      "crop": [6, 347, 506, 677]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-wikstrom",
+      "name": "강철의 방",
+      "crop": [518, 347, 1018, 677]
+    },
+    {
+      "region": "kalos",
+      "id": "kalos-diantha",
+      "name": "빛의 대성당",
+      "crop": [1030, 347, 1530, 677]
+    },
+    {
+      "region": "alola",
+      "id": "alola-gumshoos",
+      "name": "우거진 동굴의 바위굴",
+      "crop": [6, 689, 506, 1018]
+    },
+    {
+      "region": "alola",
+      "id": "alola-hala",
+      "name": "릴리마을 의식 마루",
+      "crop": [518, 689, 1018, 1018]
+    },
+    {
+      "region": "alola",
+      "id": "alola-wishiwashi",
+      "name": "잔잔한물가언덕 수면",
+      "crop": [1030, 689, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "alola",
+      "id": "alola-salazzle",
+      "name": "벨라화산 분화구",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "alola",
+      "id": "alola-lurantis",
+      "name": "셰이드정글 꽃밭",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "alola",
+      "id": "alola-olivia",
+      "name": "생명의 유적 제단",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "alola",
+      "id": "alola-vikavolt",
+      "name": "호쿠라니천문대 관측실",
+      "crop": [6, 347, 506, 676]
+    },
+    {
+      "region": "alola",
+      "id": "alola-mimikyu",
+      "name": "슈퍼·메가싸네 철거지",
+      "crop": [518, 347, 1018, 676]
+    },
+    {
+      "region": "alola",
+      "id": "alola-nanu",
+      "name": "말리에시티 야간 선착장",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "alola",
+      "id": "alola-hapu",
+      "name": "포니대협곡 돌문",
+      "crop": [6, 688, 506, 1018]
+    },
+    {
+      "region": "alola",
+      "id": "alola-kommo-o",
+      "name": "포니대협곡 시련의 굴",
+      "crop": [518, 688, 1018, 1018]
+    },
+    {
+      "region": "alola",
+      "id": "alola-hala-elite",
+      "name": "라나키라마운틴 격투실",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "alola",
+      "id": "alola-olivia-elite",
+      "name": "라나키라마운틴 암석실",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "alola",
+      "id": "alola-acerola",
+      "name": "라나키라마운틴 영혼의 방",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "alola",
+      "id": "alola-kahili",
+      "name": "라나키라마운틴 바람의 방",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "alola",
+      "id": "alola-kukui",
+      "name": "라나키라 정상의 챔피언석",
+      "crop": [6, 347, 506, 676]
+    },
+    {
+      "region": "galar",
+      "id": "galar-milo",
+      "name": "터프스타디움 목초 필드",
+      "crop": [518, 347, 1018, 676]
+    },
+    {
+      "region": "galar",
+      "id": "galar-nessa",
+      "name": "바우스타디움 수로 필드",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "galar",
+      "id": "galar-kabu",
+      "name": "엔진스타디움 용광로 필드",
+      "crop": [6, 688, 506, 1018]
+    },
+    {
+      "region": "galar",
+      "id": "galar-bea",
+      "name": "래터럴스타디움 격투 매트",
+      "crop": [518, 688, 1018, 1018]
+    },
+    {
+      "region": "galar",
+      "id": "galar-opal",
+      "name": "아라베스크스타디움 극장",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "galar",
+      "id": "galar-gordie",
+      "name": "키르쿠스스타디움 암반 필드",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "galar",
+      "id": "galar-piers",
+      "name": "스파이크마을 뒷골목 무대",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "galar",
+      "id": "galar-raihan",
+      "name": "너클스타디움 성벽 필드",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "galar",
+      "id": "galar-marnie",
+      "name": "슛스타디움 세미파이널 개막전",
+      "crop": [6, 347, 506, 676]
+    },
+    {
+      "region": "galar",
+      "id": "galar-hop",
+      "name": "슛스타디움 세미파이널 결승",
+      "crop": [518, 347, 1018, 676]
+    },
+    {
+      "region": "galar",
+      "id": "galar-bede",
+      "name": "슛스타디움 비트의 도전",
+      "crop": [1030, 347, 1530, 676]
+    },
+    {
+      "region": "galar",
+      "id": "galar-nessa-cup",
+      "name": "슛스타디움 파이널 첫 경기",
+      "crop": [6, 688, 506, 1018]
+    },
+    {
+      "region": "galar",
+      "id": "galar-bea-cup",
+      "name": "슛스타디움 파이널 준결승",
+      "crop": [518, 688, 1018, 1018]
+    },
+    {
+      "region": "galar",
+      "id": "galar-raihan-cup",
+      "name": "슛스타디움 파이널 결승",
+      "crop": [1030, 688, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "galar",
+      "id": "galar-leon",
+      "name": "슛스타디움 챔피언매치",
+      "crop": [6, 6, 506, 335]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-katy",
+      "name": "세르클마을 올리브 과수원",
+      "crop": [518, 6, 1018, 335]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-brassius",
+      "name": "보울마을 풍차 조각광장",
+      "crop": [1030, 6, 1530, 335]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-iono",
+      "name": "누룩스시티 해상 방송 무대",
+      "crop": [6, 347, 506, 677]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-kofu",
+      "name": "카라프시티 폭포 광장",
+      "crop": [518, 347, 1018, 677]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-larry",
+      "name": "참푸르마을 보물식당",
+      "crop": [1030, 347, 1530, 677]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-ryme",
+      "name": "프리지마을 설야 라이브 무대",
+      "crop": [6, 689, 506, 1018]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-tulip",
+      "name": "베이크마을 모자이크 무대",
+      "crop": [518, 689, 1018, 1018]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-grusha",
+      "name": "나페산 눈밭 코트",
+      "crop": [1030, 689, 1530, 1018]
+    }
+  ],
+  [
+    {
+      "region": "paldea",
+      "id": "paldea-rika",
+      "name": "사천왕 시험장 · 칠리",
+      "crop": [6, 6, 506, 334]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-poppy",
+      "name": "사천왕 시험장 · 뽀삐",
+      "crop": [518, 6, 1018, 334]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-larry-elite",
+      "name": "사천왕 시험장 · 청목",
+      "crop": [1030, 6, 1530, 334]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-hassel",
+      "name": "사천왕 시험장 · 팔자크",
+      "crop": [6, 346, 506, 676]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-geeta",
+      "name": "포켓몬리그 옥상 코트",
+      "crop": [518, 346, 1018, 676]
+    },
+    {
+      "region": "paldea",
+      "id": "paldea-nemona",
+      "name": "테이블시티 중앙광장",
+      "crop": [1030, 346, 1530, 676]
+    }
+  ]
+]
