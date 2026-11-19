@@ -45,13 +45,11 @@ export function WildTrainer({ game, viewportWidth }: { game: GameSave; viewportW
   if (game.player.state !== 'BATTLE' && !(capturing && game.player.state === 'RECOVER')) return null
   const foe = game.wild.find(mon => mon.id === game.runtime.targetId && !mon.trainerId)
   if (!foe && !capturing) return null
-  const { x, y } = game.player.position
-  const direction = foe ? (foe.position.x < x ? -1 : 1) : game.player.direction
+  const spot = game.runtime.fieldTrainerSpot
+  if (!spot) return null
   const size = Math.round(62 * game.settings.spriteScale)
-  const wanted = x - direction * size * 1.25
-  const left = Math.max(size / 2, Math.min(viewportWidth - size / 2, wanted))
-  const crowded = Math.abs(left - x) < size * .75
+  const left = Math.max(size / 2, Math.min(viewportWidth - size / 2, spot.x))
   const commanding = capturing || (foe && wildTrainerCommanding(game, foe))
   return <PlayerTrainerSprite avatar={game.trainerAvatar} pose={commanding ? 'command' : 'idle'} className="field-trainer"
-    style={{ left, width: size, top: Math.max(size, y - (crowded ? size * .85 : -4)), transform: 'translate(-50%, -92%) scaleX(' + direction + ')' }} />
+    style={{ left, width: size, top: spot.y, transform: 'translate(-50%, -92%) scaleX(' + spot.direction + ')' }} />
 }

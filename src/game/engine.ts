@@ -296,7 +296,10 @@ interface Drop {
 
 interface BattleItemState { itemId: string; until: number }
 
+type FieldTrainerSpot = Position & { direction: Direction }
+
 interface Runtime {
+  fieldTrainerSpot?: FieldTrainerSpot
   battleItem?: BattleItemState
   itemReadyAt?: number
   heldHealReadyAt?: number
@@ -623,7 +626,15 @@ export function createGame(speciesId: string, slot: number, bounds: Bounds, now 
   }
 }
 
+function openingTrainerSpot(position: Position, direction: Direction, spriteScale: number, width = Infinity): FieldTrainerSpot {
+  const size = Math.round(62 * spriteScale)
+  const x = clamp(position.x - direction * size * 1.25, size / 2, width - size / 2)
+  const crowded = Math.abs(x - position.x) < size * .75
+  return { x, y: Math.max(size, position.y + (crowded ? -size * .85 : 4)), direction }
+}
+
 function transition(game: GameSave, state: Activity, stateIn = 0): void {
+  if (state !== 'BATTLE' && !(state === 'RECOVER' && game.runtime.captureIn > 0)) delete game.runtime.fieldTrainerSpot
   game.player.state = state
   game.runtime.stateIn = stateIn
 }
@@ -2486,6 +2497,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
       if (moveToward(game, target.position, 53, elapsed, BATTLE_RANGE)) {
         faceTarget(game, target)
         runtime.turn = playerStats(game).speed >= opponentStats(game, target).speed ? 'player' : 'wild'
+        runtime.fieldTrainerSpot = openingTrainerSpot(player.position, player.direction, game.settings.spriteScale, bounds.width)
         transition(game, 'BATTLE', 430)
       }
       break
@@ -2947,6 +2959,11 @@ function readRuntime(value: unknown, now: number): Runtime {
   runtime.spawnIn = finite(value.spawnIn, INITIAL_SPAWN_MS, 0, 120000)
   runtime.stateIn = finite(value.stateIn, 0, -1000, EVOLUTION_MS)
   runtime.targetId = integer(value.targetId, 0, 0, maxStoredNumber - 1000) || null
+  const spot = value.fieldTrainerSpot
+  if (isRecord(spot) && (spot.direction === -1 || spot.direction === 1)) {
+    const position = readPosition(spot)
+    if (position) runtime.fieldTrainerSpot = { ...position, direction: spot.direction }
+  }
   runtime.destination = readPosition(value.destination)
   runtime.turn = value.turn === 'wild' ? 'wild' : 'player'
   runtime.pausedState = readActivity(value.pausedState, 'IDLE')
@@ -3292,6 +3309,13 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   if (currentHP > 0 && state === 'FAINT') state = 'RECOVER'
   if (['SEARCH', 'CHASE', 'BATTLE'].includes(state) && !wild.some((entry) => entry.id === runtime.targetId)) state = 'IDLE'
   if (!['SEARCH', 'CHASE', 'BATTLE'].includes(state)) runtime.targetId = null
+  const settings = { ...defaultSettings, ...(isRecord(value.settings) ? validatedSettings(value.settings) : {}) }
+  if (!trainerEnemy && (state === 'BATTLE' || (state === 'RECOVER' && runtime.captureIn > 0))) {
+    const direction = target ? (target.position.x < position.x ? -1 : 1) : (rawPlayer.direction === -1 ? -1 : 1)
+    runtime.fieldTrainerSpot ??= openingTrainerSpot(position, direction, settings.spriteScale)
+  } else {
+    delete runtime.fieldTrainerSpot
+  }
   if (state === 'LOOT' && !runtime.drop) state = 'RECOVER'
   if (state !== 'LOOT') runtime.drop = null
   if (runtime.gimmick && runtime.gimmick.targetId !== runtime.targetId) delete runtime.gimmick
@@ -3318,7 +3342,6 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
       addUnique(pokedexCaught, pokemon.speciesId)
     }
   }
-  const settings = { ...defaultSettings, ...(isRecord(value.settings) ? validatedSettings(value.settings) : {}) }
   // Older saves used a different topmost default. Apply the desktop-companion
   // preference once, then retain the user's choice in the new schema.
   if (value.schemaVersion === 1) settings.alwaysOnTop = true

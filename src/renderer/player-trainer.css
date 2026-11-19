@@ -13,5 +13,5 @@
 .trainer-choice:has(input:focus-visible) { outline: 2px solid #a87124; outline-offset: 2px; }
 .trainer-migration { width: min(100%, 540px); margin: 32px auto; }
 .trainer-migration > .primary { margin-top: 5px; }
-.ring-player-trainer { position: absolute; z-index: 1; height: auto; transform: translate(-50%, -92%); }
+.ring-player-trainer { position: absolute; z-index: 1; left: 6%; top: 52%; width: 6.7%; height: auto; transform: translate(-50%, -92%); }
 .field-trainer { position: absolute; height: auto; }

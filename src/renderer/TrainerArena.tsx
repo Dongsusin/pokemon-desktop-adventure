@@ -282,7 +282,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
         ref={surface} tabIndex={0} role="group" aria-label="배틀 경기장 · 방향키 또는 Alt와 바닥 클릭으로 이동" onPointerDown={pointAndWalk} onContextMenu={event => event.preventDefault()}>
         <div className="ring-location">{venueLabel}</div>
         <div ref={world} className="ring-world" style={{transform:camera}} data-zoom={zoom}>
-        <ArenaTrainers trainer={trainer} avatar={game.trainerAvatar} commanding={arena.casts.some(cast => cast.side === 'player')} cameraLeft={cx} zoom={zoom} />
+        <ArenaTrainers trainer={trainer} avatar={game.trainerAvatar} commanding={arena.casts.some(cast => cast.side === 'player')} />
         {goal && isPlaying && <i className="ring-goal" aria-hidden="true" style={point(goal)}/>}
         <ArenaEffects casts={arena.casts} clash={arena.beamClash} maxClash={arena.maxClash} lastClash={arena.lastClash} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
         <ArenaFighter side="enemy" pos={arena.enemy} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'enemy') : undefined} id={opponentId} formId={opponentForm}

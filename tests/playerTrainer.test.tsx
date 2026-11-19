@@ -6,6 +6,7 @@ import { createGame, dispatch, hydrateSave, tick } from '../src/game/engine'
 import { worldRegions } from '../src/game/regions/world'
 import { trainerAvatars } from '../src/game/trainerAvatar'
 import { parseCommand } from '../src/main/commands'
+import { TrainerArena } from '../src/renderer/TrainerArena'
 import { ArenaTrainers } from '../src/renderer/ArenaTrainers'
 import { TrainerChoices, WildTrainer } from '../src/renderer/PlayerTrainer'
 
@@ -64,7 +65,7 @@ it('uses six distinct transparent portraits and poses for selection and the batt
       drawings.add(createHash('sha256').update(png).digest('hex'))
       if (pose === 'front') continue
       const arena = renderToStaticMarkup(<ArenaTrainers trainer={worldRegions.kanto.gymTrainers[0]}
-        avatar={avatar} commanding={pose === 'command'} cameraLeft={0.15} zoom={1.5} />)
+        avatar={avatar} commanding={pose === 'command'} />)
       expect(arena).toContain(path)
       expect(arena).toContain('data-trainer-sprite="brock"')
     }
@@ -75,17 +76,31 @@ it('uses six distinct transparent portraits and poses for selection and the batt
 it('places the selected trainer behind the partner during wild encounters and changes pose on allied actions', () => {
   const game = fresh()
   dispatch(game, { type: 'choose-trainer', avatar: 'female' })
+  expect(dispatch(game, { type: 'travel', locationId: 'route-1' })).toBe(true)
+  game.effects = []
   game.settings.effects = false
   game.player.position = { x: 150, y: 200 }
   const field = () => renderToStaticMarkup(<WildTrainer game={game} viewportWidth={800} />)
   expect(field()).toBe('')
-  game.player.state = 'BATTLE'
-  game.wild = [{ id: 9, speciesId: 'pidgey', level: 3, currentHP: 100, maxHP: 100, direction: 1, position: { x: 370, y: 200 } }]
+  game.player.state = 'CHASE'
+  game.wild = [{ id: 9, speciesId: 'pidgey', level: 3, currentHP: 100, maxHP: 100, direction: 1, position: { x: 170, y: 200 } }]
   game.runtime.targetId = 9
+  tick(game, 100, { width: 800, height: 600 })
+  expect(game.player.state).toBe('BATTLE')
+  const opening = structuredClone(game.runtime.fieldTrainerSpot!)
+  expect(opening.x).toBeLessThan(game.player.position.x)
+  const position = () => field().match(/style="([^"]+)"/)?.[1]
+  const initialStyle = position()
+  expect(initialStyle).toBeTruthy()
   expect(field()).toContain('female/idle.png')
   expect(field()).toContain('scaleX(1)')
   game.wild[0].position.x = 50
-  expect(field()).toContain('scaleX(-1)')
+  game.player.position = { x: 440, y: 400 }
+  expect(position()).toBe(initialStyle)
+  expect(hydrateSave(game, 1)?.runtime.fieldTrainerSpot).toEqual(opening)
+  const legacy = structuredClone(game)
+  delete legacy.runtime.fieldTrainerSpot
+  expect(hydrateSave(legacy, 1)?.runtime.fieldTrainerSpot).toMatchObject({ direction: -1 })
   game.runtime.turn = 'player'
   game.runtime.stateIn = 0
   tick(game, 100, { width: 800, height: 600 })
@@ -97,7 +112,29 @@ it('places the selected trainer behind the partner during wild encounters and ch
   game.runtime.targetId = null
   game.wild = []
   game.player.state = 'RECOVER'
+  expect(position()).toBe(initialStyle)
   expect(field()).toContain('female/command.png')
   game.settings.overlayVisible = false
   expect(field()).toBe('')
+})
+
+it('keeps the arena trainer attached to the same floor position when camera and combatants move', () => {
+  vi.stubGlobal('document', { baseURI: 'http://localhost/' })
+  const game = fresh()
+  dispatch(game, { type: 'choose-trainer', avatar: 'male' })
+  dispatch(game, { type: 'travel', locationId: worldRegions.kanto.gymTrainers[0].locationId })
+  expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
+  const arena = game.campaign.battle!.arena
+  const snapshot = () => {
+    const html = renderToStaticMarkup(<TrainerArena game={game} />)
+    const world = html.slice(html.indexOf('class="ring-world"'))
+    return { camera: world.match(/transform:([^"]+)/)?.[1], trainer: world.match(/<img[^>]+class="player-trainer-sprite ring-player-trainer"[^>]+>/)?.[0] }
+  }
+  const start = snapshot()
+  expect(start.trainer).toBeTruthy()
+  arena.player.x = .82
+  arena.enemy.x = .9
+  const moved = snapshot()
+  expect(moved.camera).not.toBe(start.camera)
+  expect(moved.trainer).toEqual(start.trainer)
 })
