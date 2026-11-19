@@ -11,14 +11,15 @@ export function GimmickControl({ status, playing, activate, selectedMega, choose
   const element = status.teraType && types[status.teraType]
   let detail = status.detail
   if (status.kind === 'z' && element) {
-    detail = ready ? element + ' 타입 공격 강화 · ' + status.detail : element + ' 타입 공격 기술을 선택하세요.'
+    detail = ready ? element + ' 타입 공격 강화 · ' + status.detail : element + ' 타입의 다음 공격을 강화합니다.'
   }
   if (status.kind === 'tera' && element) detail = '방어 타입 · ' + element
-  const mega = status.formId ?? selectedMega
+  const mega = ready ? selectedMega : status.formId
   if (status.kind === 'mega' && mega && megaForms[mega]) {
     detail = '변신 타입 · ' + megaForms[mega].types.map(type => types[type]).join(' / ')
   }
-  const caption = ready ? '발동' : status.phase === 'spent' ? '사용 완료' : status.phase === 'active' ? '발동 중' : '조건 미충족'
+  const caption = ready ? '발동' : status.phase === 'queued' ? '예약됨' : status.phase === 'spent' ? '사용 완료' : status.phase === 'active' ? '발동 중' : '조건 미충족'
+  if (status.phase === 'queued') detail = status.detail
   return <div className="ring-gimmick-control" data-gimmick={status.kind} data-phase={status.phase}>
     <button type="button" aria-keyshortcuts="F" aria-label={status.label + ' 발동'} aria-describedby="ring-gimmick-detail"
       disabled={!playing || !ready} onClick={activate}><kbd>F</kbd><strong>{status.label}</strong><span>{caption}</span></button>

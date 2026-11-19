@@ -27,7 +27,7 @@
 .ring-match { display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:clamp(58px,8vw,108px); padding:3px 6px; background:#282235; border-block:2px solid #665b6c; }
 .ring-match span { font-size:clamp(8px,.93vw,10px); color:#c7bacc; }
 .ring-match h1 { font-size:clamp(12px,1.3vw,17px); color:#fff4c6; letter-spacing:-.04em; }
-.ring-floor { position:relative; width:100%; aspect-ratio:1200/760; overflow:hidden; isolation:isolate; touch-action:none; cursor:crosshair; user-select:none; outline-offset:-3px;
+.ring-floor { position:relative; width:100%; aspect-ratio:1200/760; overflow:hidden; isolation:isolate; cursor:default; user-select:none; outline-offset:-3px;
   background-color:#b49872; background-size:100% 100%; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; }
 .ring-world { position:absolute; inset:0; isolation:isolate; transform-origin:0 0; transition:transform 80ms linear; background:inherit; }
 .ring-location { max-width:90%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; position:absolute; z-index:77; top:0; left:50%; transform:translateX(-50%); background:#201c28ec; color:#fbf3d7; font-size:clamp(8px,1.1vw,12px); font-weight:800; padding:1px 10px 3px; border:1px solid #827080; border-top:0; pointer-events:none; }
@@ -78,9 +78,9 @@
 .ring-party-member { padding:0; min-width:0; height:clamp(21px,2.85vw,34px); display:grid; place-items:center; position:relative; background:#35434c; border:1px solid #8c8694; color:#f8efce; }
 .ring-party-member .pokemon-sprite { height:100%; width:100%; object-fit:contain; }
 .ring-party-member kbd { position:absolute; z-index:1; bottom:0; left:1px; font-size:8px; color:#fff9c5; text-shadow:1px 1px #000; }
-.ring-party-member.active:disabled { opacity:1; border:2px solid #f8d777; background:#5b5c4a; }
+.ring-party-member.active { opacity:1; border:2px solid #f8d777; background:#5b5c4a; }
 .ring-party-member.down { filter:grayscale(1); }
-.ring-skills { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:3px; }
+.ring-skills { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:3px; }
 .ring-skill { min-width:0; display:grid; align-content:stretch; grid-template-rows:auto 1fr auto; border:1px solid #a3989e; border-bottom:2px solid #0f0c16; padding:0; background:#322b40; color:#fff; text-align:left; font-weight:650; }
 .ring-skill-type { display:flex; align-items:center; justify-content:space-between; gap:3px; padding:1px 5px; background:color-mix(in srgb,var(--move-color) 33%,#2b222f); color:#fffaec; font-size:clamp(8px,.94vw,11px); line-height:1.25; }
 .ring-skill-type kbd { color:#fff19f; font-size:clamp(9px,1.05vw,13px); }
@@ -89,8 +89,8 @@
 .ring-matchup[data-effectiveness="2"],.ring-matchup[data-effectiveness="4"] { color:#c1f199; }
 .ring-matchup[data-effectiveness="0"],.ring-matchup[data-effectiveness="absorb"] { color:#ffb0a5; }
 .ring-skill>small { padding:1px 5px; color:#d8d1dc; border-top:1px solid #63596d; background:#272333; font-size:clamp(8px,.94vw,11px); }
-.ring-skill[aria-disabled=false] { border-color:var(--move-color); }
-.ring-skill[aria-disabled=false]>small { color:#b5e6a7; }
+.ring-skill[data-casting=true] { border-color:var(--move-color); }
+.ring-skill[data-casting=true]>small { color:#b5e6a7; }
 .ring-skill:disabled,.ring-dodge:disabled,.ring-party-member:disabled { cursor:default; }
 .ring-skill.empty { opacity:.5; }
 .ring-utilities { display:grid; grid-template-rows:1fr auto; gap:2px; }
@@ -168,3 +168,5 @@
   border-radius:3px; font:inherit; font-size:clamp(10px,1.12vw,13px); }
 
 .ring-field-opponent { position: absolute; left: 94%; top: 52%; width: 7.5%; height: auto; z-index: 1; transform: translate(-50%, -90%); object-fit: contain; image-rendering: pixelated; pointer-events: none; }
+
+.ring-auto-label { display:grid; place-items:center; color:#eee2bd; font-size:clamp(10px,1.2vw,14px); }

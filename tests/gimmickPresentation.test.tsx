@@ -31,7 +31,7 @@ it('shows the F shortcut and armed Z slot, keeping the fighter separate from a t
   const armed = html()
   expect(armed).toContain('data-skill-slot="1" data-gimmick="z"')
   expect(armed).toContain('data-aura="z"')
-  expect(armed).toContain('물 타입 공격 기술')
+  expect(armed).toContain('물 타입의 다음 공격')
   expect(armed).not.toContain('class="ring-tera"')
   expect(figures(game)[0]).toMatchObject({ gimmick: 'z', teraType: undefined })
   game.settings.effects = false

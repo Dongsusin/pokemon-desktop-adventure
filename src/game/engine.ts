@@ -1,3 +1,4 @@
+import { planPartner } from './partnerArenaAi'
 import { evaluateMatchup, shouldWithdraw, powerMerit, type TrainerBattleAI, type Matchup, type TacticalSide, type Tactics } from './championsAi'
 import campaignSets from './regions/campaign-sets.json'
 import { damageWithMultiplier } from './battleDamage'
@@ -77,6 +78,7 @@ export interface Settings {
   autoUseItem: string | null
   sound: boolean
   fps: 15 | 30
+  showPartyOnDesktop: boolean
   overlayVisible: boolean
   alwaysOnTop: boolean
   autoHeal: boolean
@@ -95,6 +97,7 @@ export const defaultSettings: Settings = {
   autoUseItem: null,
   sound: false,
   fps: 30,
+  showPartyOnDesktop: true,
   overlayVisible: true,
   alwaysOnTop: true,
   autoHeal: true,
@@ -400,12 +403,14 @@ export interface GameSave {
 
 export type ArenaAction =
   | { type: 'arena-gimmick'; formId?: string }
+  | { type: 'arena-pause'; paused: boolean }
+  | { type: 'arena-switch'; instanceId: string }
+  | { type: 'arena-surrender' }
+
+export type ArenaTactic =
   | { type: 'arena-move'; x: number; y: number }
   | { type: 'arena-skill'; slot: number }
-  | { type: 'arena-switch'; instanceId: string }
-  | { type: 'arena-pause'; paused: boolean }
   | { type: 'arena-dodge' }
-  | { type: 'arena-surrender' }
 
 export type ShopPurchase = {
   type: 'buyItem'
@@ -871,7 +876,7 @@ function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
       detail = learned.nameKo + ' 습득 · ' + detail
     }
     const foe = findTarget(game)
-    if (game.player.state === 'BATTLE' && foe && effect.gimmick && effect.gimmick === regionGimmick(game.regionId) &&
+    if (!arena && game.player.state === 'BATTLE' && foe && effect.gimmick && effect.gimmick === regionGimmick(game.regionId) &&
         (!effect.users || effect.users.includes(game.player.formId ?? game.player.speciesId) || effect.users.includes(game.player.speciesId))) {
       const form = effect.megaForms ? availableMegaForms(game, foe, 'player').find(id => effect.megaForms!.includes(id)) : effect.megaForm
       if (!effect.megaForms || form) activateGimmick(game, foe, 'player', form, { zType: effect.gimmick === 'z' ? effect.type : undefined })
@@ -887,13 +892,15 @@ function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
   return true
 }
 
-function autoUseBattleItem(game: GameSave, foe: Wild) {
+export function autoUseBattleItem(game: GameSave, foe: Wild) {
   const id = game.settings.autoUseItem
-  if (!id || game.campaign.battle || !game.autoBattle || !canUseBattleItem(game, id)) return false
+  if (game.campaign.battle?.arena.paused) return false
+  if (!id || (!game.campaign.battle && !game.autoBattle) || !canUseBattleItem(game, id)) return false
   const effect = shopItemEffect(id)
+  if (!game.campaign.battle && effect.kind === 'capture') return false
   if (effect.kind !== 'revive') {
     const lowHP = game.player.currentHP <= playerStats(game).hp * .5
-    if (effect.kind === 'heal' ? !lowHP : activeBattleItem(game) || (!lowHP && foe.level + 2 < effectiveLevel(game))) return false
+    if (effect.kind === 'heal' ? !lowHP : activeBattleItem(game) || (!game.campaign.battle && !lowHP && foe.level + 2 < effectiveLevel(game))) return false
   }
   return useBattleItem(game, { type: 'useBattleItem', itemId: id, expectedOwned: game.inventory[id] })
 }
@@ -917,34 +924,56 @@ function spendItem(game: GameSave, itemId: string): void {
   else game.inventory[itemId] = count - 1
 }
 
-function addExperience(game: GameSave, amount: number): number {
-  const player = game.player
+function addExperience(game: GameSave, amount: number, member: Player | PartyPokemon = game.player): number {
   const cap = levelCap(game)
-  if (amount <= 0 || player.level >= cap) return 0
+  if (amount <= 0 || member.level >= cap) return 0
 
-  const initialLevel = player.level
-  const previousHP = playerStats(game).hp
+  const initialLevel = member.level
+  const maxHP = () => member === game.player ? playerStats(game).hp
+    : statsFor(member.speciesId, member.level, member.heldItemId, member.formId).hp
+  const previousHP = maxHP()
+  member.exp ??= 0
   let remaining = amount
-  while (remaining > 0 && player.level < cap) {
-    const threshold = requiredExp(player.level)
-    const gained = Math.min(remaining, threshold - player.exp)
-    player.exp += gained
+  while (remaining > 0 && member.level < cap) {
+    const threshold = requiredExp(member.level)
+    const gained = Math.min(remaining, threshold - member.exp)
+    member.exp += gained
     remaining -= gained
-    if (player.exp === threshold) {
-      player.exp = 0
-      player.level++
+    if (member.exp === threshold) {
+      member.exp = 0
+      member.level++
     }
   }
 
-  if (player.level > initialLevel) {
-    const learnedBefore = new Set(movesFor(player.speciesId, initialLevel, player.formId).map((entry) => entry.id))
-    const learned = movesFor(player.speciesId, player.level, player.formId).filter((entry) => !learnedBefore.has(entry.id))
-    player.moveIds = [...player.moveIds, ...learned.map((entry) => entry.id)].slice(0, 4)
-    if (player.currentHP > 0) heal(game, playerStats(game).hp - previousHP)
-    addEffect(game, 'level', player.position, 1700, { text: 'Lv.' + player.level })
-    addLog(game, 'level', species[player.speciesId].nameKo + ' Lv.' + initialLevel + ' → Lv.' + player.level)
+  if (member.level > initialLevel) {
+    const before = movesFor(member.speciesId, initialLevel, member.formId)
+    const learned = movesFor(member.speciesId, member.level, member.formId)
+      .filter(move => !before.some(known => known.id === move.id))
+    member.moveIds = [...(member.moveIds ?? before.map(move => move.id)), ...learned.map(move => move.id)].slice(0, 4)
+    if (member.currentHP > 0) member.currentHP = Math.min(maxHP(), member.currentHP + maxHP() - previousHP)
+    if (member === game.player) addEffect(game, 'level', member.position, 1700, { text: 'Lv.' + member.level })
+    addLog(game, 'level', species[member.speciesId].nameKo + ' Lv.' + initialLevel + ' → Lv.' + member.level)
   }
   return amount - remaining
+}
+
+function awardPartyExperience(game: GameSave, base: number, participants = [game.player.instanceId], wild = false): number {
+  if (base <= 0) return 0
+  let leadExp = 0, sharedExp = 0, recipients = 0
+  for (const member of [game.player, ...game.followers]) {
+    if (member.currentHP <= 0) continue
+    const held = member.heldItemId ? items[member.heldItemId] : undefined
+    const total = wild ? Math.round(base * (1 + (held?.exp ?? 0) + provisionBonus(game, 'experience'))) : base
+    const gained = addExperience(game, participants.includes(member.instanceId) ? total : Math.floor(total / 2), member)
+    if (member === game.player) leadExp = gained
+    else if (gained > 0) { sharedExp += gained; recipients++ }
+  }
+  if (recipients) addLog(game, 'battle', '파티 동료 ' + recipients + '마리 · 합계 EXP +' + sharedExp)
+  return leadExp
+}
+
+function wildExperience(game: GameSave, wild: Wild): number {
+  return awardPartyExperience(game, 13 + wild.level * 3, [game.player.instanceId], true)
 }
 
 type Evolution = { speciesId: string; minLevel: number; formId?: string }
@@ -1310,7 +1339,7 @@ function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleG
 
 interface BattleGimmickStatus {
   kind: BattleGimmick
-  phase: 'ready' | 'unavailable' | 'active' | 'spent'
+  phase: 'ready' | 'queued' | 'unavailable' | 'active' | 'spent'
   label: string
   detail: string
   megaOptions?: readonly string[]
@@ -1332,18 +1361,29 @@ export function battleGimmickStatus(game: GameSave, side: GimmickSide = 'player'
   const used = activePower(game, side, foe)
   if (used) {
     const detail = kind === 'dynamax' ? used.remaining ? '남은 기술 ' + used.remaining + '회' : '다이맥스기 시전 중'
-      : kind === 'z' ? '같은 타입의 공격 기술을 선택하세요' : '발동 중'
+      : kind === 'z' ? '같은 타입의 다음 공격을 강화합니다' : '발동 중'
     return { ...used, kind, label, detail, phase: 'active' as const }
   }
   if (previous) return { kind, label, detail: '이번 배틀에서 사용함', phase: 'spent' as const,
     formId: undefined, teraType: undefined, remaining: undefined }
   const arena = game.campaign.battle?.arena
   const casting = arena?.casts.some(cast => cast.side === side)
-  const available = foe && !casting && makeGimmick(game, foe, side, kind, option?.formId, option?.type, option)
+  if (side === 'player' && arena?.pendingGimmick?.owner === game.player.instanceId)
+    return { kind, label, phase: 'queued', detail: '현재 기술이 끝나면 발동합니다', formId: arena.pendingGimmick.formId }
+  const available = foe && (!casting || side === 'player') && (arena && side === 'player' ? playerGimmick(game, foe, kind)
+    : makeGimmick(game, foe, side, kind, option?.formId, option?.type, option))
   const phase = available ? 'ready' as const : 'unavailable' as const
-  const detail = phase === 'ready' ? '배틀당 한 번' : casting ? '사용 중인 기술이 끝나면 발동 가능' : !foe ? '교전 중 사용 가능' : '현재 포켓몬으로 사용할 수 없음'
+  const detail = phase === 'ready' ? casting ? '현재 기술이 끝나면 발동' : '배틀당 한 번' : casting ? '사용 중인 기술이 끝나면 발동 가능' : !foe ? '교전 중 사용 가능' : '현재 포켓몬으로 사용할 수 없음'
   return { kind, label, detail, phase, teraType: available ? available.teraType : undefined,
-    ...(available && foe && kind === 'mega' && { megaOptions: availableMegaForms(game, foe, side) }) }
+    ...(available && foe && kind === 'mega' && { megaOptions: availableMegaForms(game, foe, side), formId: available.formId }) }
+}
+
+function playerGimmick(game: GameSave, foe: Wild, kind: BattleGimmick, formId?: string) {
+  const item = activeBattleItem(game)
+  const effect = item && shopItemEffect(item.itemId)
+  const compatible = effect?.gimmick === kind && (!effect.users || effect.users.includes(game.player.formId ?? game.player.speciesId) || effect.users.includes(game.player.speciesId))
+  const preferred = compatible ? makeGimmick(game, foe, 'player', kind, formId ?? effect.megaForm, effect.type) : undefined
+  return preferred ?? makeGimmick(game, foe, 'player', kind, formId)
 }
 
 function activateGimmick(game: GameSave, foe: Wild, side: GimmickSide, selectedForm?: string, bag?: { zType?: string }, option?: TrainerPower): boolean {
@@ -1353,7 +1393,8 @@ function activateGimmick(game: GameSave, foe: Wild, side: GimmickSide, selectedF
   if (arena && ((arena.paused && !bag) || arena.needsSwitch || arena.casts.some(cast => cast.side === side))) return false
   const encounter = game.runtime.gimmick ?? { targetId: foe.id }
   if (encounter.targetId !== foe.id || encounter[side]) return false
-  const used = makeGimmick(game, foe, side, kind, selectedForm, option?.type ?? bag?.zType, option)
+  const used = arena && side === 'player' ? playerGimmick(game, foe, kind, selectedForm)
+    : makeGimmick(game, foe, side, kind, selectedForm, option?.type ?? bag?.zType, option)
   if (!used) return false
   const ally = side === 'player'
   const actor = ally ? game.player : foe
@@ -1478,6 +1519,9 @@ function arenaSwitch(game: GameSave, arena: TrainerArena, target: Wild, id: stri
   arena.dodgeMs = arena.invulnerableMs = 0
   addUnique(arena.participants, id)
   arena.direction = { x: 0, y: 0 }
+  delete arena.pendingGimmick
+  arena.noProgressMs = 0
+  arena.lowestEnemyHP = target.currentHP / target.maxHP
   arena.switchCooldownMs = 1450
   arena.skillLockMs = 350
   if (arena.needsSwitch) arena.enemyInMs = 850
@@ -1511,10 +1555,17 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
   const arena = game.campaign.battle?.arena
   const target = findTarget(game)
   if (!arena || !target?.trainerId) return false
-  if (arena.maxClash && action.type !== 'arena-pause' && action.type !== 'arena-surrender') return false
   switch (action.type) {
-    case 'arena-gimmick':
-      return activateGimmick(game, target, 'player', action.formId)
+    case 'arena-gimmick': {
+      if (arena.paused || arena.needsSwitch || !game.player.currentHP || battleGimmickStatus(game)?.phase !== 'ready') return false
+      if (!arena.casts.some(cast => cast.side === 'player')) return activateGimmick(game, target, 'player', action.formId)
+      const kind = regionGimmick(game.regionId)
+      if (!kind || !makeGimmick(game, target, 'player', kind, action.formId)) return false
+      arena.pendingGimmick = { owner: game.player.instanceId, ...(action.formId && { formId: action.formId }) }
+      return true
+    }
+    case 'arena-switch':
+      return !arena.maxClash && arenaSwitch(game, arena, target, action.instanceId)
     case 'arena-pause':
       if (typeof action.paused !== 'boolean') return false
       arena.paused = action.paused
@@ -1526,10 +1577,15 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
       trainerDefeat(game, trainer, true)
       return true
     }
+  }
+}
+
+export function performArenaTactic(game: GameSave, action: ArenaTactic): boolean {
+  const arena = game.campaign.battle?.arena, target = findTarget(game)
+  if (!arena || !target?.trainerId || arena.maxClash) return false
+  switch (action.type) {
     case 'arena-move':
       return moveArena(arena, action.x, action.y)
-    case 'arena-switch':
-      return arenaSwitch(game, arena, target, action.instanceId)
     case 'arena-dodge':
       if (!dodgeArena(arena)) return false
       arenaNotice(game, arena, { actor: 'player', kind: 'dodge', text: '회피' })
@@ -1548,10 +1604,11 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
   }
 }
 
-function updateTrainerArena(game: GameSave, elapsed: number): void {
+function updateTrainerArena(game: GameSave, elapsed: number, decide: typeof planPartner): void {
   const arena = game.campaign.battle!.arena
   const opponent = findTarget(game)
   if (!opponent || arena.paused || arena.needsSwitch) return
+  arena.noProgressMs = Math.min(10000, arena.noProgressMs + elapsed)
   game.runtime.clock += elapsed
   const battle = game.campaign.battle!
   const ai = battle.fieldAI
@@ -1559,6 +1616,18 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
   if (ai && !committed && !arena.maxClash && !arena.beamClash && game.runtime.clock >= ai.decideAt) {
     planTrainerAction(game,currentTrainer(game)!,opponent)
     if (findTarget(game) !== opponent) return
+  }
+  const pending = arena.pendingGimmick
+  if (pending && !arena.casts.some(cast => cast.side === 'player')) {
+    delete arena.pendingGimmick
+    if (pending.owner === game.player.instanceId) activateGimmick(game, opponent, 'player', pending.formId)
+  }
+  arena.partnerThinkMs = Math.max(0, arena.partnerThinkMs - elapsed)
+  if (arena.partnerThinkMs <= 0) {
+    arena.partnerThinkMs = 140
+    autoUseBattleItem(game, opponent)
+    const tactics = decide(arena, () => arenaMatchupSides(game, opponent), () => arenaSkills(game))
+    for (const tactic of tactics) performArenaTactic(game, tactic)
   }
   const skills = trainerTechniques(opponent, foeBattleForm(game, opponent), currentSet(game,opponent))
   // A committed cast keeps its own technique through movement, switches and beam clashes.
@@ -1652,6 +1721,7 @@ function throwBall(game: GameSave, itemId: CaptureBallId): boolean {
   if (captured) {
     clearGimmicks(game)
     const formId = wild.formId === 'wishiwashi-school' ? undefined : wild.formId
+    wildExperience(game, wild)
     const received = receivePokemon(game, wild.speciesId, formId, wild.level, wild.position, wild.direction)
     caughtInstanceId = received.instanceId
     text = speciesName + ' 포획 성공 · ' + received.destination
@@ -1952,6 +2022,13 @@ function trainerTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmic
     moves:skills.filter(move => power?.kind !== 'dynamax' || damaging(move)).map(move => preparedMove(move,power)) }
 }
 
+function arenaMatchupSides(game: GameSave, foe: Wild) {
+  const battle = game.campaign.battle!
+  const member = currentTrainer(game)!.team[battle.opponentIndex]
+  const enemy = trainerTactics(foe, member, activePower(game, 'enemy', foe), battle.fieldAI?.stages)
+  return { ally: playerTactics(game, foe), enemy }
+}
+
 function trainerContext(game: GameSave, member: KantoTrainerMember): Tactics {
   const { arena, fieldAI } = game.campaign.battle!
   const cast = arena.casts.find(c => c.side === 'player' && !c.resolved &&
@@ -2198,6 +2275,8 @@ function trainerOpponent(regionId: RegionId, trainer: KantoTrainer, opponentInde
 
 function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Position, wait: number): void {
   const battle = game.campaign.battle!
+  battle.arena.noProgressMs = 0
+  battle.arena.lowestEnemyHP = 1
   delete battle.arena.lastEnemyMoveId
   const target = trainerOpponent(game.regionId, trainer, battle.opponentIndex, game.runtime.nextId++, position, -1)
   game.wild = [target]
@@ -2339,7 +2418,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
     game.campaign.leagueIndex = (game.campaign.leagueIndex ?? 0) + 1
   }
 
-  const earned = addExperience(game, Math.round(experience * (1 + provisionBonus(game, 'experience'))))
+  const earned = awardPartyExperience(game, Math.round(experience * (1 + provisionBonus(game, 'experience'))), battle.arena.participants)
   game.coins += coins
   restoreTrainerParty(game, battle.arena, true)
   restAfterChallenge(game)
@@ -2395,9 +2474,8 @@ function victory(game: GameSave, wild: Wild): void {
   game.wins++
   game.wild = game.wild.filter((entry) => entry.id !== wild.id)
   game.runtime.targetId = null
-  const amount = Math.round((13 + wild.level * 3) * (1 + (equipped(game)?.exp ?? 0) + provisionBonus(game, 'experience')))
   const coins = Math.max(1, Math.round(2 + wild.level / 2))
-  const earned = addExperience(game, amount)
+  const earned = wildExperience(game, wild)
   const rewards = formatRewards(earned, coins)
   game.coins += coins
   addLog(game, 'battle', species[wild.speciesId].nameKo + ' Lv.' + wild.level + ' 격파 · ' + rewards)
@@ -2495,6 +2573,10 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     }
     const dealt = Math.min(recipient.currentHP,damage)
     recipient.currentHP = Math.max(0, recipient.currentHP - damage)
+    if (arena && playerTurn && dealt && target.currentHP / target.maxHP < arena.lowestEnemyHP) {
+      arena.lowestEnemyHP = target.currentHP / target.maxHP
+      arena.noProgressMs = 0
+    }
     if (dealt && technique?.drain) target.currentHP = Math.min(target.maxHP,target.currentHP+Math.max(1,Math.floor(dealt*technique.drain)))
     if (dealt && technique?.recoil) target.currentHP = Math.max(0,target.currentHP-Math.max(1,Math.floor(dealt*technique.recoil)))
     if (!playerTurn && damage > 0) recoverFromHeldItem(game)
@@ -2513,7 +2595,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     }
   }
 
-  if (!playerTurn && player.currentHP === 0 && !target.trainerId) autoUseBattleItem(game, target)
+  if (!playerTurn && player.currentHP === 0) autoUseBattleItem(game, target)
   const trainer = target.trainerId ? currentTrainer(game) : undefined
   if (player.currentHP > 0 && target.currentHP > 0 && technique?.pivot && trainer && ai && manual?.cast.result === 'hit' &&
       matchup(game,target,selected,false) > 0) {
@@ -2539,10 +2621,11 @@ function trainerLeadFainted(game: GameSave, trainer: KantoTrainer) {
   const arena = game.campaign.battle!.arena
   if (!game.followers.some(m => m.currentHP > 0 && isSpeciesMotionSupported(m.speciesId,m.formId))) return trainerDefeat(game, trainer)
   arena.needsSwitch = true
+  delete arena.pendingGimmick
   clearArenaCasts(arena)
   arena.direction = { x:0, y:0 }
   arena.switchCooldownMs = 0
-  arenaNotice(game, arena, { actor:'system', kind:'switch', text:species[game.player.speciesId].nameKo + ' 기절 · 다음 포켓몬을 선택하세요.' })
+  arenaNotice(game, arena, { actor:'system', kind:'switch', text:species[game.player.speciesId].nameKo + ' 기절 · 교체할 포켓몬을 선택하세요.' })
 }
 
 function collect(game: GameSave, drop: Drop): void {
@@ -2694,7 +2777,7 @@ function walk(game: GameSave, elapsed: number, bounds: Bounds): void {
   }
 }
 
-function update(game: GameSave, elapsed: number, bounds: Bounds): void {
+function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof planPartner): void {
   const player = game.player
   const runtime = game.runtime
   if (game.campaign.battle?.arena.paused || game.campaign.battle?.arena.needsSwitch) return
@@ -2704,7 +2787,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
   }
 
   if (game.campaign.battle) {
-    updateTrainerArena(game, elapsed)
+    updateTrainerArena(game, elapsed, decide)
     return
   }
   for (const follower of game.followers) {
@@ -2818,7 +2901,7 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
   }
 }
 
-export function tick(game: GameSave, elapsedMs: number, bounds: Bounds): void {
+export function tick(game: GameSave, elapsedMs: number, bounds: Bounds, decide = planPartner): void {
   const scale = game.settings.spriteScale
   game.player.position = bounded(game.player.position, bounds, scale)
   for (const wild of game.wild) wild.position = bounded(wild.position, bounds, scale)
@@ -2850,7 +2933,7 @@ export function tick(game: GameSave, elapsedMs: number, bounds: Bounds): void {
   while (remaining > 0) {
     const arena = game.campaign.battle?.arena
     const step = arena && !arena.paused && !arena.needsSwitch ? arenaStepMs(arena, remaining) : Math.min(200, remaining)
-    update(game, step, bounds)
+    update(game, step, bounds, decide)
     // Present the trainer result before starting the next overworld update.
     if (arena && !game.campaign.battle) break
     remaining -= step
@@ -2866,7 +2949,7 @@ function hasKey(value: object, key: PropertyKey): boolean {
 }
 
 const booleanSettings = [
-  'sound', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve',
+  'sound', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve',
   'effects', 'hud', 'startOnLogin', 'notifications',
 ] as const
 
@@ -2877,7 +2960,7 @@ function validatedSettings(value: Record<string, unknown>): Partial<Settings> {
     if (typeof flag === 'boolean') next[key] = flag
   }
   if (value.autoCaptureBall === null || isCaptureBallId(value.autoCaptureBall)) next.autoCaptureBall = value.autoCaptureBall
-  if (value.autoUseItem === null || (typeof value.autoUseItem === 'string' && catalogById.has(value.autoUseItem) && !isCaptureBallId(value.autoUseItem))) {
+  if (value.autoUseItem === null || (typeof value.autoUseItem === 'string' && catalogById.has(value.autoUseItem))) {
     next.autoUseItem = value.autoUseItem
   }
   if (value.fps === 15 || value.fps === 30) next.fps = value.fps
@@ -2901,9 +2984,6 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
   if (!isRecord(action)) return false
   const player = game.player
   switch (action.type) {
-    case 'arena-move':
-    case 'arena-dodge':
-    case 'arena-skill':
     case 'arena-switch':
     case 'arena-pause':
     case 'arena-gimmick':
@@ -2976,7 +3056,7 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     case 'buyItem':
       return buyItem(game, action)
     case 'useBattleItem':
-      return useBattleItem(game, action)
+      return !game.campaign.battle && useBattleItem(game, action)
     case 'use-item':
       return !game.campaign.battle && typeof action.itemId === 'string' && hasKey(items, action.itemId) && consume(game, action.itemId)
     case 'take-box-item': {
@@ -3048,7 +3128,7 @@ export function applyOffline(game: GameSave, now = Date.now(), since = Date.pars
 
   // Half of one typical encounter per minute, without simulating historical fights or drops.
   const enemyLevel = possible.reduce((total, slot) => total + slot.level * slot.weight, 0) / totalWeight
-  reward.exp = addExperience(game, Math.floor(reward.minutes * (13 + enemyLevel * 3) / 2))
+  reward.exp = awardPartyExperience(game, Math.floor(reward.minutes * (13 + enemyLevel * 3) / 2))
   reward.coins = Math.floor(reward.minutes * Math.round(2 + enemyLevel / 2) / 2)
   game.coins += reward.coins
   addLog(game, 'offline', '자리 비움 ' + reward.minutes + '분 · ' + formatRewards(reward.exp, reward.coins))

@@ -1,5 +1,6 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
-import { battleGimmickStatus, createGame, currentTrainer, dispatch, fieldMemberMoves, hydrateSave, movesFor, playerStats, tick, type GameSave } from '../src/game/engine'
+import { performArenaTactic, battleGimmickStatus, createGame, currentTrainer, dispatch, fieldMemberMoves, hydrateSave, movesFor, playerStats, type GameSave } from '../src/game/engine'
 import { championsMoves, damaging } from '../src/game/championsMoves'
 import { isMoveMotionSupported } from '../src/game/motionEligibility'
 import { fieldTrainerById, fieldTrainersByRegion, fieldTeamVariant } from '../src/game/regions/fieldTrainers'
@@ -31,7 +32,7 @@ function enter(id: string, lead: string, level: number, slot = 0, teamNumber = 1
   arena.enemyInMs = 0
   return game
 }
-const advance = (game: GameSave, ms: number) => { for (let left=ms; left>0; left-=50) tick(game,Math.min(50,left),bounds) }
+const advance = (game: GameSave, ms: number) => { for (let left=ms; left>0; left-=50) advanceScripted(game,Math.min(50,left),bounds) }
 const enemyCast = (game: GameSave) => game.campaign.battle!.arena.casts.find(c=>c.side==='enemy')
 const reload = (game: GameSave) => hydrateSave(JSON.parse(JSON.stringify(game)),1)!
 
@@ -146,7 +147,7 @@ describe('Champions Arena field decisions', () => {
     const game = enter('field-kanto-d-238','blastoise',20,1)
     game.player.moveIds = ['waterGun']
     const hp = game.wild[0].currentHP
-    expect(dispatch(game,{type:'arena-skill',slot:0})).toBe(true)
+    expect(performArenaTactic(game, {type:'arena-skill',slot:0})).toBe(true)
     advance(game,50)
     expect(enemyCast(game)?.moveId).toBe('protect')
     advance(game,650)

@@ -1,6 +1,7 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
-import { activeBattleItem, canUseBattleItem, captureChance, createGame, dispatch, hydrateSave, items,
-  playerStats, requiredExp, tick, type BattleItemUse, type GameSave } from '../src/game/engine'
+import { autoUseBattleItem, performArenaTactic, activeBattleItem, canUseBattleItem, captureChance, createGame, dispatch, hydrateSave, items,
+  playerStats, requiredExp, type BattleItemUse, type GameSave } from '../src/game/engine'
 import { catalogItems } from '../src/game/shopCatalog'
 import { shopItemEffect, type ShopItemEffect } from '../src/game/shopItemEffects'
 import { parseCommand } from '../src/main/commands'
@@ -37,6 +38,12 @@ function supply(game: GameSave, id: string): BattleItemUse {
   game.inventory[id] = 2
   return { type: 'useBattleItem', itemId: id, expectedOwned: 2 }
 }
+function applySupply(game: GameSave, order: BattleItemUse) {
+  if (!game.campaign.battle) return dispatch(game, order)
+  dispatch(game, { type: 'update-settings', settings: { autoUseItem: order.itemId } })
+  return autoUseBattleItem(game, game.wild[0])
+}
+
 function byEffect(kind: ShopItemEffect['kind'], type?: string) {
   const entry = catalogItems.find(row => {
     const effect = shopItemEffect(row.id)
@@ -47,14 +54,14 @@ function byEffect(kind: ShopItemEffect['kind'], type?: string) {
 }
 
 describe('Friendly Shop battle items', () => {
-  it.each([false, true])('uses every listed item through the normal command with observable results (arena=%s)', manual => {
+  it.each([false, true])('uses every listed item through the bag or the configured automatic item with observable results (arena=%s)', manual => {
     const template = battle(manual)
     for (const row of catalogItems) {
       const g = structuredClone(template), effect = shopItemEffect(row.id)
       const action = supply(g, row.id)
       g.player.currentHP = effect.kind === 'revive' ? 0 : 1
       expect(parseCommand(action), row.id).toEqual(action)
-      expect(dispatch(g, action), row.id).toBe(true)
+      expect(applySupply(g, action), row.id).toBe(true)
       expect(g.inventory[row.id], row.id).toBe(effect.reusable ? 2 : 1)
       if (effect.kind === 'heal' || effect.kind === 'revive') expect(g.player.currentHP, row.id).toBeGreaterThan(1)
       else if (effect.kind === 'capture' && !manual) expect(g.runtime.captureIn, row.id).toBeGreaterThan(0)
@@ -67,15 +74,15 @@ describe('Friendly Shop battle items', () => {
     const original = battle(manual), defaultStats = playerStats(original)
     for (const [kind, stat] of [['attack', 'attack'], ['defense', 'defense'], ['speed', 'speed']] as const) {
       const g = structuredClone(original)
-      expect(dispatch(g, supply(g, byEffect(kind)))).toBe(true)
+      expect(applySupply(g, supply(g, byEffect(kind)))).toBe(true)
       expect(playerStats(g)[stat]).toBeGreaterThan(defaultStats[stat])
     }
     function hit(effect?: string) {
       const game = structuredClone(original), target = game.wild[0]
-      if (effect) expect(dispatch(game, supply(game, effect))).toBe(true)
+      if (effect) expect(applySupply(game, supply(game, effect))).toBe(true)
       game.player.moveIds = ['waterPulse', 'tackle']
       if (manual) castSkill(game, 'waterPulse')
-      else tick(game, 1, bounds)
+      else advanceScripted(game, 1, bounds)
       return { damage: 1000 - target.currentHP, cooldown: game.runtime.cooldowns.waterPulse }
     }
     const neutral = hit()
@@ -87,7 +94,7 @@ describe('Friendly Shop battle items', () => {
   it('keeps the practice bag, active supply and remaining duration intact after use, save and surrender', () => {
     const game = createGame('squirtle', 1, bounds)
     const speed = byEffect('speed')
-    expect(dispatch(game, supply(game, speed))).toBe(true)
+    expect(applySupply(game, supply(game, speed))).toBe(true)
     const expectedDuration = activeBattleItem(game)!.until - game.runtime.clock
     dispatch(game, { type: 'travel', locationId: 'pewter-city' })
     game.campaign.badges = ['brock']
@@ -95,7 +102,7 @@ describe('Friendly Shop battle items', () => {
     expect(dispatch(game, { type: 'practice-gym' })).toBe(true)
     game.runtime.clock += 3500
     game.player.currentHP = 1
-    expect(dispatch(game, { type: 'useBattleItem', itemId: 'potion', expectedOwned: 4 })).toBe(true)
+    expect(applySupply(game, { type: 'useBattleItem', itemId: 'potion', expectedOwned: 4 })).toBe(true)
     const resumed = hydrateSave(game, 1)!
     expect(resumed.inventory.potion).toBe(3)
     expect(dispatch(resumed, { type: 'arena-surrender' })).toBe(true)
@@ -116,8 +123,11 @@ describe('Friendly Shop battle items', () => {
     expect(dispatch(g, { type: 'use-item', itemId: 'potion' })).toBe(false)
     g.player.currentHP = 2
     dispatch(g, { type: 'arena-pause', paused: true })
-    expect(dispatch(g, supply(g, 'potion'))).toBe(true)
-    expect(g.campaign.battle!.arena.paused).toBe(true)
+    expect(dispatch(g, supply(g, 'potion'))).toBe(false)
+    expect(applySupply(g, supply(g, 'potion'))).toBe(false)
+    expect(g.player.currentHP).toBe(2)
+    dispatch(g, { type: 'arena-pause', paused: false })
+    advanceScripted(g, 100, bounds)
     expect(g.player.currentHP).toBeGreaterThan(2)
   })
 
@@ -133,7 +143,7 @@ describe('Friendly Shop battle items', () => {
       } else {
         g.runtime.turn = 'wild'
         g.runtime.stateIn = 0
-        tick(g, 1, bounds)
+        advanceScripted(g, 1, bounds)
       }
     }
     const plain = structuredClone(template)
@@ -142,7 +152,7 @@ describe('Friendly Shop battle items', () => {
     expect(hpDamage).toBeGreaterThan(0)
     const damageType = plain.effects.find(effect => effect.kind === 'damage')!.moveType!
     const guarded = structuredClone(template)
-    expect(dispatch(guarded, supply(guarded, byEffect('guardType', damageType)))).toBe(true)
+    expect(applySupply(guarded, supply(guarded, byEffect('guardType', damageType)))).toBe(true)
     hit(guarded)
     expect(guarded.player.currentHP).toBeGreaterThan(plain.player.currentHP)
     const medic = structuredClone(template)
@@ -153,11 +163,11 @@ describe('Friendly Shop battle items', () => {
     expect(medic.player.currentHP).toBeGreaterThan(plain.player.currentHP)
     function win(buff: boolean) {
       const g = structuredClone(template)
-      if (buff) expect(dispatch(g, supply(g, byEffect('experience')))).toBe(true)
+      if (buff) expect(applySupply(g, supply(g, byEffect('experience')))).toBe(true)
       if (manual) g.campaign.battle!.fieldAI!.benchHP[1] = 0
       g.wild[0].currentHP = 1
       if (manual) castSkill(g, 'tackle')
-      else tick(g, 1, bounds)
+      else advanceScripted(g, 1, bounds)
       let exp = g.player.exp
       for (let level = 1; level < g.player.level; level++) exp += requiredExp(level)
       expect(g.wins).toBe(1)
@@ -166,44 +176,44 @@ describe('Friendly Shop battle items', () => {
     expect(win(true)).toBeGreaterThan(win(false))
   })
 
-  it('spends only the designated item against challenging wild opponents and never during a manual fight', () => {
+  it('spends the designated item in challenging wild fights and in the automatic arena', () => {
     const g = battle(false)
     const settings = { autoUseItem: 'x-attack' }
     expect(parseCommand({ type: 'settings', settings })).toEqual({ type: 'settings', settings })
     expect(dispatch(g, { type: 'update-settings', settings })).toBe(true)
     g.inventory['x-attack'] = 2
-    tick(g, 1, bounds)
+    advanceScripted(g, 1, bounds)
     expect(g.inventory['x-attack']).toBe(2)
     g.runtime.stateIn = 0
     g.runtime.turn = 'player'
     g.wild[0].level = g.player.level
-    tick(g, 1, bounds)
+    advanceScripted(g, 1, bounds)
     expect(activeBattleItem(g)?.itemId).toBe('x-attack')
     expect(g.inventory['x-attack']).toBe(1)
     g.runtime.clock += 3100
     g.runtime.stateIn = 0
-    tick(g, 1, bounds)
+    advanceScripted(g, 1, bounds)
     expect(g.inventory['x-attack']).toBe(1)
     expect(hydrateSave(g, 1)?.settings.autoUseItem).toBe('x-attack')
 
     const manual = battle(true)
     manual.settings.autoUseItem = 'potion'
     manual.player.currentHP = 1
-    tick(manual, 100, bounds)
-    expect(manual.inventory.potion).toBe(5)
-    expect(manual.player.currentHP).toBe(1)
+    advanceScripted(manual, 100, bounds)
+    expect(manual.inventory.potion).toBe(4)
+    expect(manual.player.currentHP).toBeGreaterThan(1)
     const fainted = battle(false)
     fainted.settings.autoUseItem = 'revive'
     fainted.inventory.revive = 1
     fainted.runtime.turn = 'wild'
     fainted.player.currentHP = 1
-    tick(fainted, 1, bounds)
+    advanceScripted(fainted, 1, bounds)
     expect(fainted.inventory.revive).toBeUndefined()
     expect(fainted.player.currentHP).toBeGreaterThan(0)
     expect(fainted.losses).toBe(0)
   })
 
-  it('uses compatible Mega stones and typed Z crystals through the regular gimmick state, including a paused trainer battle', () => {
+  it('applies prepared Mega stones and typed Z crystals only on a trainer signal', () => {
     function localGym(region: RegionId, speciesId: string) {
       const g = createGame('squirtle', 1, bounds)
       g.regionId = region
@@ -212,19 +222,22 @@ describe('Friendly Shop battle items', () => {
       g.player.level = 20
       g.player.moveIds = ['tackle', 'waterGun']
       expect(dispatch(g, { type: 'challenge-gym' })).toBe(true)
-      dispatch(g, { type: 'arena-pause', paused: true })
       return g
     }
     const mega = localGym('kalos', 'charizard')
-    expect(dispatch(mega, supply(mega, 'charizardite-y'))).toBe(true)
+    expect(applySupply(mega, supply(mega, 'charizardite-y'))).toBe(true)
+    expect(mega.runtime.gimmick?.player).toBeUndefined()
+    expect(dispatch(mega, { type: 'arena-gimmick' })).toBe(true)
     expect(mega.runtime.gimmick?.player?.formId).toBe('charizard-mega-y')
     const wrong = localGym('kalos', 'blastoise')
-    expect(dispatch(wrong, supply(wrong, 'charizardite-y'))).toBe(true)
+    expect(applySupply(wrong, supply(wrong, 'charizardite-y'))).toBe(true)
     expect(wrong.runtime.gimmick).toBeUndefined()
     expect(activeBattleItem(wrong)?.itemId).toBe('charizardite-y')
     const z = localGym('alola', 'blastoise')
     const id = catalogItems.find(i => i.slug.startsWith('normalium-z'))!.id
-    expect(dispatch(z, supply(z, id))).toBe(true)
+    expect(applySupply(z, supply(z, id))).toBe(true)
+    expect(z.runtime.gimmick?.player).toBeUndefined()
+    expect(dispatch(z, { type: 'arena-gimmick' })).toBe(true)
     expect(z.runtime.gimmick?.player).toMatchObject({ kind: 'z', teraType: 'normal' })
   })
 
@@ -237,14 +250,14 @@ describe('Friendly Shop battle items', () => {
     g.pokedexCaught.push(target.speciesId)
     expect(captureChance(target, ball('repeat-ball'), g)).toBeGreaterThan(before)
     expect(captureChance(target, ball('quick-ball'), g)).toBeGreaterThan(captureChance({ ...target, battleActions: 5 }, ball('quick-ball'), g))
-    expect(dispatch(g, supply(g, ball('master-ball')))).toBe(true)
+    expect(applySupply(g, supply(g, ball('master-ball')))).toBe(true)
     expect(g.followers.some(poke => poke.speciesId === target.speciesId)).toBe(true)
     const arena = battle(true)
     const original = structuredClone(arena)
-    expect(dispatch(arena, supply(arena, ball('master-ball')))).toBe(true)
+    expect(applySupply(arena, supply(arena, ball('master-ball')))).toBe(true)
     expect(arena.wild[0].trainerId).toBeTruthy()
-    expect(dispatch(arena, { type: 'arena-skill', slot: 2 })).toBe(true)
-    expect(dispatch(original, { type: 'arena-skill', slot: 2 })).toBe(true)
+    expect(performArenaTactic(arena, { type: 'arena-skill', slot: 2 })).toBe(true)
+    expect(performArenaTactic(original, { type: 'arena-skill', slot: 2 })).toBe(true)
     expect(arena.runtime.cooldowns.waterPulse).toBeLessThan(original.runtime.cooldowns.waterPulse)
   })
 })

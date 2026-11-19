@@ -32,24 +32,6 @@
   font-size:clamp(9px,.98vw,12px); color:#ffedbb; background:#4c4140; border:1px solid #aa9585; }
 .ring-bag-button kbd { font-size:9px; color:#ffdd80; }
 .ring-bag-button:hover { border-color:#fff6b9; }
-.arena-bag-dialog { --muted:#cfbfd9; --border:#62556d; --ink:#fff5e7; color:var(--ink); background:#2d2737;
-  width:min(570px,calc(100vw - 28px)); max-height:calc(100dvh - 28px); padding:0; border:2px solid #ac9ba9;
-  box-shadow:0 8px 32px #120f1bbf; overflow:hidden; }
-.arena-bag-dialog[open] { display:flex; flex-direction:column; }
-.arena-bag-dialog::backdrop { background:#181420ac; }
-.arena-bag-dialog header { display:flex; align-items:center; justify-content:space-between; gap:8px; background:#3c3346;
-  border-bottom:1px solid var(--border); padding:10px 14px; }
-.arena-bag-dialog header h2 { font-size:18px; }
-.arena-bag-dialog header kbd { margin-left:3px; }
-.arena-bag-scroll { min-height:0; overflow:auto; overscroll-behavior:contain; padding:5px 14px 10px; }
-.arena-bag-dialog .current-battle-item { margin-top:5px; }
-.arena-bag-dialog .catalog-list li { padding:8px 0; }
-.arena-bag-dialog .small-button,.arena-bag-dialog input,.arena-bag-dialog select { background:#473d51; color:#fff5e7; border-color:#8c7794; }
-.arena-bag-dialog .small-button { border-radius:4px; }
-.arena-bag-dialog .item-icon { background:#514859; }
-.arena-bag-dialog .empty { color:var(--muted); }
-.arena-bag-dialog :focus-visible { outline-color:#ffe293; }
-.arena-bag-notice { padding:8px 14px; border-top:1px solid var(--border); color:#ffe19a; font-size:12px; }
 @media (max-width:520px) {
   .catalog-list li { grid-template-columns:30px minmax(0,1fr); column-gap:6px; row-gap:4px; }
   .catalog-list .item-icon { width:30px; height:30px; }

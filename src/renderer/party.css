@@ -70,3 +70,5 @@
 @media (max-width: 480px) {
   .box-slots { gap: 2px; padding: 3px; }
 }
+
+.party-display-setting { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: .75rem 0; }

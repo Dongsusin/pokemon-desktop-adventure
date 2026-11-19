@@ -1,6 +1,7 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
 import {
-  canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, hydrateSave, playerStats, tick,
+  canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, hydrateSave, playerStats,
 } from '../src/game/engine'
 import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
@@ -172,7 +173,7 @@ describe('regional field trainer battles', () => {
       expect(dispatch(game, { type: 'travel', locationId: first.locationId })).toBe(true)
     } else {
       game.player.currentHP = 1
-      for (let i = 0; i < 1600 && game.campaign.battle; i++) tick(game, 100, bounds)
+      for (let i = 0; i < 1600 && game.campaign.battle; i++) advanceScripted(game, 100, bounds)
     }
     expect(game.campaign).toMatchObject({ badges, champion: false, leagueIndex: null, battle: null })
     expect(game.campaign.fieldWins).toBeUndefined()

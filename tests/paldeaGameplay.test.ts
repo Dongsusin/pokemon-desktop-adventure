@@ -1,8 +1,9 @@
+import { advanceScripted } from './arenaSimulation'
 import { castSkill, idleUntilHit, resumeWithLastOpponent } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
 import {
   canChallengeFinale, createGame, currentTrainer, dispatch, effectiveLevel, hydrateSave, levelCap,
-  movesFor, playerStats, tick, type GameSave,
+  movesFor, playerStats, type GameSave,
 } from '../src/game/engine'
 import { teraAttackMultiplier } from '../src/game/regions/paldeaTera'
 import { worldRegions, regionOrder } from '../src/game/regions/world'
@@ -66,7 +67,7 @@ function activateTeraAce(game: GameSave, moves?: string[]) {
   arena.enemy = { x: .40, y: .50 }
   arena.enemyInMs = 0
   expect(game.wild[0].teraType).toBeUndefined()
-  for (let i = 0; i < 100 && !game.wild[0]?.teraType; i++) tick(game, 50, bounds)
+  for (let i = 0; i < 100 && !game.wild[0]?.teraType; i++) advanceScripted(game, 50, bounds)
   return game.wild[0]
 }
 
@@ -235,7 +236,7 @@ describe('Paldea campaign and Terastallization', () => {
       game.wild = []
       game.player.state = 'IDLE'
       Object.assign(game.runtime, { spawnIn: 0, stateIn: 1000, targetId: null })
-      tick(game, 200, bounds)
+      advanceScripted(game, 200, bounds)
     }
     const target = game.wild[0]
     expect(target).toMatchObject({ speciesId: 'wooper', formId: 'wooper-paldea' })

@@ -1,6 +1,7 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
 import { arenaSpriteRefs, battleGimmickStatus, createGame, currentTrainer, dispatch, fieldMemberMoves, fieldPowerOptions,
-  hydrateSave, moves, movesFor, playerStats, resolveTrainer, tick, type GameSave } from '../src/game/engine'
+  hydrateSave, moves, movesFor, playerStats, resolveTrainer, type GameSave } from '../src/game/engine'
 import { createArenaCast } from '../src/game/arenaMoves'
 import { damaging } from '../src/game/championsMoves'
 import { regionGimmick } from '../src/game/battleGimmicks'
@@ -44,7 +45,7 @@ function retreat(game: GameSave) {
   align(game, 800)
   game.wild[0].currentHP = 1
   game.campaign.battle!.fieldAI!.switchReadyAt = 0
-  tick(game, 20, bounds)
+  advanceScripted(game, 20, bounds)
 }
 
 const reload = (g: GameSave) => hydrateSave(JSON.parse(JSON.stringify(g)), 1)!
@@ -123,10 +124,10 @@ describe('Champions Arena campaign trainers', () => {
     b.arena.enemy.x = .94
     b.arena.player.x = .06
     b.arena.enemyInMs = 0
-    tick(game, 20, bounds)
+    advanceScripted(game, 20, bounds)
     expect(game.runtime.gimmick?.enemy).toBeUndefined()
     align(game)
-    for (let i = 0; i < 180 && !game.runtime.gimmick?.enemy; i++) tick(game, 40, bounds)
+    for (let i = 0; i < 180 && !game.runtime.gimmick?.enemy; i++) advanceScripted(game, 40, bounds)
     expect(game.runtime.gimmick?.enemy).toMatchObject({ kind: 'mega', owner: 'slot-' + b.opponentIndex, formId: 'gardevoir-mega' })
     expect(arenaSpriteRefs(reload(game)).enemy?.formId).toBe('gardevoir-mega')
   })
@@ -162,7 +163,7 @@ describe('Champions Arena campaign trainers', () => {
     expect(arena.casts[0].moveId).toBe('rockThrow')
     expect(dispatch(resumed, { type: 'arena-pause', paused: false })).toBe(true)
     const hp = resumed.player.currentHP
-    for (let i = 0; i < 160 && arena.nextCastId < 3; i++) tick(resumed, 30, bounds)
+    for (let i = 0; i < 160 && arena.nextCastId < 3; i++) advanceScripted(resumed, 30, bounds)
     expect(resumed.player.currentHP).toBeLessThan(hp)
     expect(currentTrainer(resumed)!.team[0].plan!.moves).toContain(arena.lastEnemyMoveId)
   })

@@ -9,7 +9,7 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 const booleanSettings = [
-  'sound', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve', 'effects', 'hud', 'notifications'
+  'sound', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve', 'effects', 'hud', 'notifications'
 ] as const
 
 function parseSettings(value: unknown): Partial<Settings> | null {
@@ -21,7 +21,7 @@ function parseSettings(value: unknown): Partial<Settings> | null {
   if (value.fps === 15 || value.fps === 30) settings.fps = value.fps
   const autoBall = captureBallIds.find(id => id === value.autoCaptureBall)
   if (value.autoCaptureBall === null || autoBall) settings.autoCaptureBall = autoBall ?? null
-  if (value.autoUseItem === null || (knownItem(value.autoUseItem) && !captureBallIds.includes(value.autoUseItem))) {
+  if (value.autoUseItem === null || knownItem(value.autoUseItem)) {
     settings.autoUseItem = value.autoUseItem
   }
   if (typeof value.spriteScale === 'number' && Number.isFinite(value.spriteScale) && value.spriteScale >= 0.75 && value.spriteScale <= 2) {
@@ -48,18 +48,9 @@ function knownItem(value: unknown): value is string {
   return typeof value === 'string' && Object.hasOwn(items, value)
 }
 
-function arenaAxis(value: unknown): value is -1 | 0 | 1 {
-  return value === -1 || value === 0 || value === 1
-}
-
 function parseArenaInput(value: unknown): ArenaInput | null {
   if (!record(value)) return null
   switch (value.type) {
-    case 'arena-move':
-      return arenaAxis(value.x) && arenaAxis(value.y) ? { type: value.type, x: value.x, y: value.y } : null
-    case 'arena-skill':
-      return typeof value.slot === 'number' && Number.isInteger(value.slot) && value.slot >= 0 && value.slot < 4
-        ? { type: value.type, slot: value.slot } : null
     case 'arena-switch':
       return memberId(value.instanceId) ? { type: value.type, instanceId: value.instanceId } : null
     case 'arena-pause':
@@ -67,7 +58,6 @@ function parseArenaInput(value: unknown): ArenaInput | null {
     case 'arena-gimmick':
       if (value.formId === undefined) return { type: value.type }
       return knownId(value.formId) ? { type: value.type, formId: value.formId } : null
-    case 'arena-dodge':
     case 'arena-surrender':
       return { type: value.type }
     default:

@@ -1,6 +1,7 @@
+import { advanceScripted } from './arenaSimulation'
 import { resumeWithLastOpponent } from './trainerArenaDriver'
 import { describe, expect, it } from 'vitest'
-import { createGame, dispatch, eligibleLegends, effectiveLevel, hydrateSave, playerStats, statsFor, tick } from '../src/game/engine'
+import { performArenaTactic, createGame, dispatch, eligibleLegends, effectiveLevel, hydrateSave, playerStats, statsFor, } from '../src/game/engine'
 import { battleForm, locationForm } from '../src/game/forms'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
 
@@ -39,13 +40,13 @@ describe('Galar stadiums and encounter eligibility', () => {
     const a = game.campaign.battle!.arena
     a.player = {x:.34, y:.5}; a.enemy = {x:.48, y:.5}; a.enemyInMs = 0
     game.player.currentHP = base
-    for (let i = 0; i < 90 && !target.maxActionsLeft; i++) tick(game, 30, bounds)
+    for (let i = 0; i < 90 && !target.maxActionsLeft; i++) advanceScripted(game, 30, bounds)
     expect(target.maxActionsLeft).toBe(1)
     expect(target.dynamax).toBe('dynamax')
     expect(battleForm(target)).toBeUndefined()
     expect(target.maxHP).toBe(Math.floor(before * 1.5))
     expect(game.campaign.battle!.arena.casts.some(cast => cast.gimmick === 'dynamax')).toBe(true)
-    for (let i=0; i<35 && target.maxActionsLeft; i++) tick(game,100,bounds)
+    for (let i=0; i<35 && target.maxActionsLeft; i++) advanceScripted(game,100,bounds)
     expect(target.maxActionsLeft).toBe(0)
     expect(target.maxHP).toBe(before)
     expect(dispatch(game,{type:'arena-gimmick'})).toBe(true)
@@ -59,8 +60,8 @@ describe('Galar stadiums and encounter eligibility', () => {
   it('keeps Dynamax combatants within the arena even at the largest desktop sprite scale', () => {
     const game = faceKabu()
     game.settings.spriteScale = 2
-    dispatch(game, { type: 'arena-move', x: -1, y: -1 })
-    for (let i = 0; i < 30; i++) tick(game, 100, bounds)
+    performArenaTactic(game, { type: 'arena-move', x: -1, y: -1 })
+    for (let i = 0; i < 30; i++) advanceScripted(game, 100, bounds)
     const arena = game.campaign.battle!.arena
     for (const position of [arena.player, arena.enemy]) {
       expect(position.x).toBeGreaterThanOrEqual(0.05)

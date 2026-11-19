@@ -64,7 +64,7 @@ export function figures(game: GameSave, evolution?: Effect, capture?: Effect, ah
       lookAt: player.position, cycleOffset: capture.targetActor % 97, moving: false, scale: game.settings.spriteScale * 0.84
     })
   }
-  const followers = game.followers.map(mon => ({
+  const followers = (game.settings.showPartyOnDesktop ? game.followers : []).map(mon => ({
     id: followerId(mon.instanceId), speciesId: mon.speciesId, formId: mon.formId, at: mon.position, direction: mon.direction,
     lookAt: mon.destination ?? undefined, cycleOffset: mon.roamSeed % 97,
     moving: mon.state === 'WANDER' && !!mon.destination, scale: game.settings.spriteScale

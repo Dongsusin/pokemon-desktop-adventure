@@ -1,10 +1,11 @@
+import { advanceScripted } from './arenaSimulation'
 import { castSkill } from './trainerArenaDriver'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { species } from '../src/game/catalog'
 import { battleForm, pokemonForms } from '../src/game/forms'
-import { createGame, dispatch, hydrateSave, tick } from '../src/game/engine'
+import { createGame, dispatch, hydrateSave, } from '../src/game/engine'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
 
 const bounds = { width: 1200, height: 780 }
@@ -44,7 +45,7 @@ describe('Alola forms and Totem battles', () => {
       game.wild = []
       game.player.state = 'IDLE'
       Object.assign(game.runtime, { spawnIn: 0, stateIn: 1000, targetId: null })
-      tick(game, 200, bounds)
+      advanceScripted(game, 200, bounds)
     }
     const target = game.wild[0]
     expect(target).toMatchObject({ speciesId: 'rattata', formId: 'rattata-alola' })
@@ -72,7 +73,7 @@ describe('Alola forms and Totem battles', () => {
       game.player.state = 'IDLE'
       game.wild = []
       Object.assign(game.runtime, { spawnIn: 0, stateIn: 1000, targetId: null })
-      tick(game, 200, bounds)
+      advanceScripted(game, 200, bounds)
       const mon = game.wild[0]
       if (mon?.speciesId === 'lycanroc') {
         seen.add(mon.formId ?? 'midday')

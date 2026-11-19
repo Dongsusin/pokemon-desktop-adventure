@@ -83,7 +83,7 @@ describe('ordered party and lead combatant', () => {
     expect(JSON.stringify(game)).toBe(before)
   })
 
-  it('executes both battle turns with the appointed lead, gives it the victory experience and leaves its predecessor unchanged', () => {
+  it('executes both battle turns with the appointed lead, gives it the victory experience and gives its former lead the reserve share', () => {
     const game = importV14()
     expect(move(game, 'caught-2', 0)).toBe(true)
     const starter = { ...game.followers[0] }
@@ -107,7 +107,7 @@ describe('ordered party and lead combatant', () => {
     tick(game, 100, bounds)
     expect(game.wins).toBe(1)
     expect(game.player.exp).toBeGreaterThan(xp)
-    expect(reload(game).followers[0]).toMatchObject({ instanceId: starter.instanceId, exp: 37, currentHP: 43 })
+    expect(reload(game).followers[0]).toMatchObject({ instanceId: starter.instanceId, exp: 37 + Math.floor((13 + 12 * 3) / 2), currentHP: 43 })
   })
 
   it('keeps rival teams tied to the original starter and refuses lead edits during a trainer battle, including after reload', () => {

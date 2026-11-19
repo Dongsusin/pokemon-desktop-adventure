@@ -1,5 +1,6 @@
+import { advanceScripted } from './arenaSimulation'
 import { arenaCastFrame, arenaCastTouches } from '../src/game/arenaMoves'
-import { arenaSkills, battleGimmickStatus, currentTrainer, dispatch, hydrateSave, moves, tick, typeMultiplier, type GameSave } from '../src/game/engine'
+import { performArenaTactic, arenaSkills, battleGimmickStatus, currentTrainer, dispatch, hydrateSave, moves, typeMultiplier, type GameSave } from '../src/game/engine'
 
 import { megaFormFor } from '../src/game/battleGimmicks'
 import { formStats } from '../src/game/forms'
@@ -26,7 +27,7 @@ export function resumeWithLastOpponent(game: GameSave, index = currentTrainer(ga
   return restored
 }
 
-// Drive only the same movement, dodge and skill commands as the trainer battle controls.
+// Feed the same fighter actions that the partner AI uses into the arena simulation.
 export function playFrame(game: GameSave, moveId?: string): boolean {
   resume(game)
   const arena = game.campaign.battle?.arena
@@ -58,14 +59,14 @@ export function playFrame(game: GameSave, moveId?: string): boolean {
         dx = perpendicular.x * sign
         dy = perpendicular.y * sign
       }
-      dispatch(game, { type: 'arena-move', x: Math.sign(dx), y: Math.sign(dy) })
-      dispatch(game, { type: 'arena-dodge' })
+      performArenaTactic(game, { type: 'arena-move', x: Math.sign(dx), y: Math.sign(dy) })
+      performArenaTactic(game, { type: 'arena-dodge' })
     } else {
       dx = 0
       dy = 0
     }
   }
-  dispatch(game, { type: 'arena-move', x: Math.abs(dx) < 0.03 ? 0 : Math.sign(dx), y: Math.abs(dy) < 0.03 ? 0 : Math.sign(dy) })
+  performArenaTactic(game, { type: 'arena-move', x: Math.abs(dx) < 0.03 ? 0 : Math.sign(dx), y: Math.abs(dy) < 0.03 ? 0 : Math.sign(dy) })
   const options = arenaSkills(game)
     .map((skill, slot) => ({ ...skill, slot }))
     .filter(skill => skill.unlocked && skill.inRange && skill.cooldownMs <= 0 &&
@@ -73,8 +74,8 @@ export function playFrame(game: GameSave, moveId?: string): boolean {
     .map(skill => ({ ...skill, score: skill.move.power * (typeof skill.effectiveness === 'number' ? skill.effectiveness : 0) }))
     .filter(skill => moveId || skill.score > 0)
     .sort((a, b) => b.score - a.score)
-  const cast = Boolean(options[0] && dispatch(game, { type: 'arena-skill', slot: options[0].slot }))
-  tick(game, frame, bounds)
+  const cast = Boolean(options[0] && performArenaTactic(game, { type: 'arena-skill', slot: options[0].slot }))
+  advanceScripted(game, frame, bounds)
   return cast
 }
 
@@ -84,10 +85,10 @@ export function castSkill(game: GameSave, moveId?: string) {
     if (!playFrame(game, moveId)) continue
     const committed = game.campaign.battle?.arena.casts.filter(cast => cast.side === 'player').at(-1)
     if (!committed || game.wild[0]?.id !== previousTarget) return
-    dispatch(game, { type: 'arena-move', x: 0, y: 0 })
+    performArenaTactic(game, { type: 'arena-move', x: 0, y: 0 })
     const duration = committed.profile.startupMs + committed.profile.activeMs + committed.profile.recoveryMs
     for (let t = 0; t <= duration && !committed.resolved && game.campaign.battle; t += frame) {
-      tick(game, frame, bounds)
+      advanceScripted(game, frame, bounds)
     }
     if (committed.result === 'hit' || game.wild[0]?.id !== previousTarget) return
   }
@@ -121,5 +122,5 @@ export function finishChallenge(game: GameSave) {
 export function idleUntilHit(game: GameSave) {
   resume(game)
   const hp = game.player.currentHP
-  for (let i = 0; i < 180 && game.campaign.battle && game.player.currentHP === hp; i++) tick(game, frame, bounds)
+  for (let i = 0; i < 180 && game.campaign.battle && game.player.currentHP === hp; i++) advanceScripted(game, frame, bounds)
 }

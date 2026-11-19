@@ -242,7 +242,7 @@ function startDesktop(): void {
       const after = current.campaign.battle
       if (before !== after?.opponentIndex || action.type === 'arena-pause' || action.type === 'arena-switch' || action.type === 'arena-gimmick') saveCurrent()
       if (!after) updatePresentation()
-      if (action.type !== 'arena-move') publish(true)
+      publish(true)
     }
     return snapshot(Boolean(current.campaign.battle))
   }
@@ -441,9 +441,6 @@ function startDesktop(): void {
   if (!process.argv.includes('--tray') || !game) {
     windows.control.once('ready-to-show', windows.showControl)
   }
-  windows.control.on('blur', pauseArena)
-  windows.control.on('hide', pauseArena)
-  windows.control.on('minimize', pauseArena)
   windows.control.on('show', () => publish(true))
   windows.control.on('restore', () => publish(true))
   app.on('second-instance', windows.showControl)

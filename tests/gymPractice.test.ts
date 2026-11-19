@@ -1,5 +1,6 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
-import { canPracticeGym, createGame, dispatch, hydrateSave, playerStats, tick, type GameSave } from '../src/game/engine'
+import { canPracticeGym, createGame, dispatch, hydrateSave, playerStats, type GameSave } from '../src/game/engine'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
 import { finishChallenge } from './trainerArenaDriver'
 
@@ -84,7 +85,7 @@ describe('gym practice', () => {
     invalid.wild = []
     invalid.player.currentHP = 0
     expect(records(hydrateSave(invalid, 1)!)).toEqual(original)
-    for (let i = 0; i < 1500 && g.campaign.battle; i++) tick(g, 100, bounds)
+    for (let i = 0; i < 1500 && g.campaign.battle; i++) advanceScripted(g, 100, bounds)
     expect(g.history[0].practiceResult).toBe('loss')
     expect(records(g)).toEqual(original)
   })

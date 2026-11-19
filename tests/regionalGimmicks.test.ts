@@ -1,5 +1,6 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
-import { arenaSkills, arenaSpriteRefs, battleGimmickStatus, createGame, dispatch, hydrateSave, moves, playerStats, tick, type GameSave } from '../src/game/engine'
+import { performArenaTactic, arenaSkills, arenaSpriteRefs, battleGimmickStatus, createGame, dispatch, hydrateSave, moves, playerStats, type GameSave } from '../src/game/engine'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
 import { megaFormFor } from '../src/game/battleGimmicks'
 import { MAX_GIMMICK_ACTIONS, boostedMove } from '../src/game/gimmickCombat'
@@ -29,7 +30,7 @@ function battle(region: RegionId, partner?: string) {
   return g
 }
 function frames(g: GameSave, n: number) {
-  for (let i = 0; i < n; i++) tick(g, 100, bounds)
+  for (let i = 0; i < n; i++) advanceScripted(g, 100, bounds)
 }
 function switchTo(g: GameSave, id: string) {
   g.campaign.battle!.arena.switchCooldownMs = 0
@@ -75,7 +76,7 @@ describe('regional battle gimmicks', () => {
     g.runtime.turn = 'player'
     g.runtime.stateIn = 0
     g.player.state = 'BATTLE'
-    tick(g, 100, bounds)
+    advanceScripted(g, 100, bounds)
     expect(battleGimmickStatus(g)).toMatchObject({ kind: 'z', teraType: 'normal', phase: 'active' })
     frames(g, 11)
     expect(foe.currentHP).toBeLessThan(500)
@@ -91,7 +92,7 @@ describe('regional battle gimmicks', () => {
     g.runtime.turn = 'player'
     g.runtime.stateIn = 0
     g.player.state = 'BATTLE'
-    tick(g, 100, bounds)
+    advanceScripted(g, 100, bounds)
     expect(foe.currentHP).toBeLessThan(500)
     expect(g.runtime.gimmick).toBeUndefined()
   })
@@ -112,7 +113,7 @@ describe('regional battle gimmicks', () => {
     arena.enemy = { x: .48, y: .5 }
     let powered = false
     for (let i = 0; i < 80 && !powered; i++) {
-      tick(g, 100, bounds)
+      advanceScripted(g, 100, bounds)
       powered = arena.casts.some(cast => cast.side === 'enemy' && cast.gimmick === 'z')
     }
     expect(powered).toBe(true)
@@ -132,7 +133,7 @@ describe('regional battle gimmicks', () => {
     arena.player = { x: .05, y: .10 }; arena.enemy = { x: .95, y: .90 }
     arena.enemyInMs = 5000
     const hp = g.wild[0].currentHP
-    expect(dispatch(g, { type: 'arena-skill', slot: 1 })).toBe(true)
+    expect(performArenaTactic(g, { type: 'arena-skill', slot: 1 })).toBe(true)
     expect(arena.casts[0].gimmick).toBe('z')
     expect(battleGimmickStatus(g)?.phase).toBe('spent')
     frames(g, 24)
@@ -149,7 +150,7 @@ describe('regional battle gimmicks', () => {
       a.enemyInMs = 6000
       a.player = {x:.05, y:.10}; a.enemy = {x:.95, y:.90}
       expect(battleGimmickStatus(g)?.remaining).toBe(n)
-      expect(dispatch(g, { type: 'arena-skill', slot: 0 })).toBe(true)
+      expect(performArenaTactic(g, { type: 'arena-skill', slot: 0 })).toBe(true)
       expect(a.casts[0].gimmick).toBe('dynamax')
       frames(g, 18)
     }
@@ -187,7 +188,7 @@ describe('regional battle gimmicks', () => {
     expect(dispatch(g, {type:'arena-gimmick'})).toBe(true)
     expect(battleGimmickStatus(g)).toMatchObject({ teraType:'water', phase:'active' })
     for (const sim of [g,normal]) {
-      expect(dispatch(sim,{type:'arena-skill',slot:2})).toBe(true)
+      expect(performArenaTactic(sim, {type:'arena-skill',slot:2})).toBe(true)
       frames(sim, 11)
     }
     expect(g.wild[0].currentHP).toBeLessThan(normal.wild[0].currentHP)
@@ -200,7 +201,7 @@ describe('regional battle gimmicks', () => {
     const g = regional(region), initial = playerStats(g).hp
     const foe = { id: 250, speciesId:'rattata',level:25,currentHP:500,maxHP:500,position:{...g.player.position},direction:1 as const }
     g.wild = [foe];g.runtime.targetId=foe.id;g.runtime.turn='player';g.runtime.stateIn=0;g.player.state='BATTLE'
-    tick(g, 100, bounds)
+    advanceScripted(g, 100, bounds)
     expect(g.effects.some(effect => effect.gimmick)).toBe(true)
     expect(g.runtime.gimmick?.player).toBeTruthy()
     expect(foe.currentHP).toBe(500)
@@ -215,7 +216,7 @@ describe('regional battle gimmicks', () => {
     const g = regional('alola')
     g.wild=[{id:230,speciesId:'rattata',level:5,currentHP:1,maxHP:8,position:g.player.position,direction:1}]
     g.runtime.targetId=230;g.runtime.turn='player';g.runtime.stateIn=0;g.player.state='BATTLE'
-    tick(g,100,bounds)
+    advanceScripted(g,100,bounds)
     expect(g.history.some(e=>e.text.includes('Z기술'))).toBe(false)
     const t = battle('alola')
     dispatch(t,{type:'arena-pause',paused:true})

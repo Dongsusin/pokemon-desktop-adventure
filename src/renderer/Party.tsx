@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { species } from '../game/catalog'
 import { isSpeciesMotionSupported } from '../game/motionEligibility'
-import { BOX_SIZE, canChangeLead, effectiveLevel, items, MAX_PARTY_SIZE, type GameSave, type PartyPokemon } from '../game/engine'
+import { BOX_SIZE, canChangeLead, effectiveLevel, items, levelCap, MAX_PARTY_SIZE, requiredExp, type GameSave, type PartyPokemon } from '../game/engine'
 import type { AdventureCommand } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName } from './shared'
 import { BoxSearch } from './BoxSearch'
@@ -52,6 +52,13 @@ export function Party({ game, busy, send }: {
   return <div className="pokemon-storage">
     <section className="card storage-party" aria-label="내 파티">
       <div className="storage-heading"><h2>내 파티</h2><span>{party.length} / {MAX_PARTY_SIZE}마리</span></div>
+      <label className="party-display-setting">탐험 중 표시
+        <select aria-label="탐험 중 표시" value={game.settings.showPartyOnDesktop ? 'party' : 'lead'} disabled={busy}
+          onChange={event => send({ type: 'settings', settings: { showPartyOnDesktop: event.target.value === 'party' } })}>
+          <option value="lead">선두만 표시</option><option value="party">파티 전체 표시</option>
+        </select>
+      </label>
+      <p className="party-rule">탐험 경험치는 선두가 전부, 기절하지 않은 동료가 각각 절반씩 받습니다.</p>
       {leadLocked ? <p className="party-rule" role="status">{lockedMessage}</p>
         : party.length === 1 && <p className="party-rule">마지막 한 마리를 맡기려면 다른 포켓몬을 꺼내거나 박스에서 교체하세요.</p>}
       <ol className="storage-party-list" aria-label="파티 자리">
@@ -59,8 +66,8 @@ export function Party({ game, busy, send }: {
           <span className="party-position" aria-label={index + 1 + '번 자리'}>{index + 1}</span>
           <Pokemon id={member.speciesId} formId={member.formId} />
           <div className="storage-member-name"><strong>{nameOf(member)}</strong>
-            <small>{index === 0 ? '선두 · 배틀' : '산책'} · Lv. {index === 0 ? effectiveLevel(game) : member.level}
-              {index === 0 && effectiveLevel(game) < member.level && ' · 기록 Lv. ' + member.level}</small>
+            <small>{index === 0 ? '선두 · 배틀' : '동료'} · Lv. {index === 0 ? effectiveLevel(game) : member.level}
+              {index === 0 && effectiveLevel(game) < member.level && ' · 기록 Lv. ' + member.level} · {member.level >= levelCap(game) ? '레벨 상한' : (member.exp ?? 0) + ' / ' + requiredExp(member.level) + ' EXP'}</small>
           </div>
           <div className="storage-member-actions" role="group" aria-label={nameOf(member) + ' 파티 편집'}>
             <button className="small-button order-step" aria-label="위로 이동" title="위로 이동"

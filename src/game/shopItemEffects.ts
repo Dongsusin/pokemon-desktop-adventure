@@ -225,7 +225,7 @@ function describe(effect: Rule, slug: string): ShopItemEffect {
       arena = '30초 동안 기술 재사용 대기 시간이 15% 줄어듭니다.'
       break
   }
-  return { ...effect, description: text + suffix + training, ...(arena && { arenaDescription: arena + suffix }) }
+  return { ...effect, description: text + suffix + training, ...((arena || effect.gimmick) && { arenaDescription: (arena ?? text) + training + (effect.gimmick ? ' 지방 기믹은 트레이너의 신호로 발동합니다.' : '') }) }
 }
 const ballDescriptions: Record<string, string> = {
   'master-ball': '잡을 수 있는 야생 포켓몬을 반드시 포획합니다.',

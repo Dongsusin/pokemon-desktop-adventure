@@ -155,7 +155,7 @@ export function Campaign({ game, busy, begin, locate }: {
         <p className="campaign-subtitle">야생전은 자동 발동 · 트레이너전은 <kbd>F</kbd> 또는 기믹 버튼으로 배틀당 한 번 발동</p>
         <p className="campaign-subtitle">{power === 'mega'
           ? (megaFormFor(game.player.speciesId, game.player.formId) ? species[game.player.speciesId].nameKo + '의 메가진화 모습으로 배틀합니다.' : '메가진화 전용 동작이 있는 포켓몬을 출전시키세요.')
-          : power === 'z' ? '준비 후 표시된 타입의 공격 기술을 쓰면 Z기술이 됩니다.'
+          : power === 'z' ? '발동 신호를 주면 포켓몬이 해당 타입의 공격을 Z기술로 사용합니다.'
           : power === 'dynamax' ? '몸집과 최대 HP가 증가하고 공격 기술이 다이맥스 기술로 바뀝니다.'
           : '출전 포켓몬의 첫 번째 타입으로 테라스탈합니다. 기술 상성 표시에 바뀐 방어 타입이 반영됩니다.'}</p>
       </section>}

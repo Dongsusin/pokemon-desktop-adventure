@@ -35,6 +35,10 @@ export interface TrainerArena {
   partyOrder: string[]
   participants: string[]
   paused: boolean
+  noProgressMs: number
+  lowestEnemyHP: number
+  partnerThinkMs: number
+  pendingGimmick?: { owner: string; formId?: string }
   needsSwitch: boolean
   casts: ArenaCast[]
   maxClash?: { playerCastId: number; enemyCastId: number; elapsedMs: number; ratio: number; point: Position }
@@ -67,7 +71,7 @@ const zero = (): Position => ({ x: 0, y: 0 })
 export function createArena(partyOrder: string[]): TrainerArena {
   return {
     player: { x: 230 / 1200, y: .5 }, enemy: { x: 970 / 1200, y: .5 }, direction: zero(), facing: { x: 1, y: 0 },
-    partyOrder, participants: partyOrder.slice(0, 1), paused: false, needsSwitch: false,
+    partyOrder, participants: partyOrder.slice(0, 1), paused: false, noProgressMs: 0, lowestEnemyHP: 1, partnerThinkMs: 0, needsSwitch: false,
     casts: [], beamClash: null, nextCastId: 1, dodgeCharges: maxCharges, dodgeMs: 0, dodgeDirection: zero(),
     dodgeCooldownMs: 0, invulnerableMs: 0, skillLockMs: 0, switchCooldownMs: 0, enemyInMs: 1150,
     telegraph: null, feedback: null,
@@ -91,6 +95,14 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
   arena.paused = true
   arena.needsSwitch = fainted
   if (!object(value)) return arena
+  arena.noProgressMs = number(value.noProgressMs, 0, 0, 10000)
+  arena.lowestEnemyHP = number(value.lowestEnemyHP, 1, 0, 1)
+  arena.partnerThinkMs = number(value.partnerThinkMs, 0, 0, 140)
+  const pending = value.pendingGimmick
+  if (!fainted && object(pending) && pending.owner === roster[0] &&
+      (pending.formId === undefined || (typeof pending.formId === 'string' && /^[a-z0-9-]{1,64}$/.test(pending.formId)))) {
+    arena.pendingGimmick = { owner: roster[0], ...(typeof pending.formId === 'string' && { formId: pending.formId }) }
+  }
   if (Array.isArray(value.partyOrder)) {
     const saved = value.partyOrder.filter((id): id is string => roster.includes(id))
     arena.partyOrder = [...new Set([...saved, ...roster])]
@@ -115,7 +127,7 @@ export function restoreArena(value: unknown, roster: string[], fainted: boolean,
   }
   arena.invulnerableMs = number(value.invulnerableMs, 0, 0, 350)
   arena.skillLockMs = number(value.skillLockMs, 0, 0, 4000)
-  arena.switchCooldownMs = number(value.switchCooldownMs, 0, 0, 3000)
+  arena.switchCooldownMs = fainted ? 0 : number(value.switchCooldownMs, 0, 0, 3000)
   arena.enemyInMs = number(value.enemyInMs, arena.enemyInMs, 0, 5000)
   if (typeof value.lastEnemyMoveId === 'string' && enemyMoves.some(move => move.id === value.lastEnemyMoveId)) arena.lastEnemyMoveId = value.lastEnemyMoveId
   arena.nextCastId = Math.floor(number(value.nextCastId, 1, 1, Number.MAX_SAFE_INTEGER - 1))

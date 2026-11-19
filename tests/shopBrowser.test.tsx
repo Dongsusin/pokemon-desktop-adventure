@@ -36,12 +36,11 @@ describe('expanded shop and battle bag', () => {
     const game = createGame('squirtle', 1, {width: 1000, height: 700})
     game.inventory = { pokeball: 2 }
     game.settings.autoUseItem = 'potion'
-    const bag = (arena: boolean) => renderToStaticMarkup(<InventoryBag game={game} send={() => {}} busy={false} arena={arena}/>)
-    expect(bag(false)).toContain('aria-label="몬스터볼 던지기"')
-    expect(bag(false)).toContain('상처약 · 보유 0개')
-    expect(bag(false)).toContain('자동 사냥 도구 해제')
-    expect(bag(true)).toContain('aria-label="몬스터볼 배틀 사용"')
-    expect(bag(true)).toContain('15%')
-    expect(bag(true)).not.toContain('자동 사냥 도구 해제')
+    const bag = renderToStaticMarkup(<InventoryBag game={game} send={() => {}} busy={false}/>)
+    expect(bag).toContain('aria-label="몬스터볼 던지기"')
+    expect(bag).toContain('상처약 · 보유 0개')
+    expect(bag).toContain('자동 배틀 도구 해제')
+    expect(bag).toContain('aria-label="몬스터볼 자동 배틀 지정"')
+    expect(bag).toContain('15%')
   })
 })

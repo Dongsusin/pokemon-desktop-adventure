@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { activeBattleItem, arenaSkills, createGame, dispatch, hydrateSave, levelCap, playerStats, requiredExp, type GameSave } from '../src/game/engine'
+import { autoUseBattleItem, performArenaTactic, activeBattleItem, arenaSkills, createGame, dispatch, hydrateSave, levelCap, playerStats, requiredExp, type GameSave } from '../src/game/engine'
 import { catalogItems } from '../src/game/shopCatalog'
 import { worldRegions } from '../src/game/regions/world'
 
@@ -14,6 +14,10 @@ function trainee() {
   return game
 }
 function use(game: GameSave, itemId: string) {
+  if (game.campaign.battle) {
+    dispatch(game, { type: 'update-settings', settings: { autoUseItem: itemId } })
+    return autoUseBattleItem(game, game.wild[0])
+  }
   return dispatch(game,{type:'useBattleItem',itemId,expectedOwned:game.inventory[itemId] ?? 0})
 }
 function total(level: number, exp: number) {
@@ -26,7 +30,7 @@ describe('shop candy and technical machines', () => {
     const g = trainee()
     if (trainer) {
       expect(dispatch(g,{type:'challenge-gym'})).toBe(true)
-      expect(dispatch(g,{type:'arena-skill',slot:1})).toBe(true)
+      expect(performArenaTactic(g, {type:'arena-skill',slot:1})).toBe(true)
     } else {
       g.player.state = 'BATTLE'
       g.wild = [{id:42,speciesId:'rattata',level:15,currentHP:50,maxHP:50,direction:-1,position:{...g.player.position}}]
@@ -42,7 +46,7 @@ describe('shop candy and technical machines', () => {
     expect(g.runtime.stateIn).toBe(remaining)
     expect(g.campaign.battle?.arena.casts).toEqual(casts)
     expect(g.inventory['rare-candy']).toBe(1)
-    g.runtime.clock += 3100
+    g.runtime.clock += trainer ? 120000 : 3100
     expect(use(g,'rare-candy')).toBe(true)
     expect(g.player.level).toBe(17)
   })

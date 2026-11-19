@@ -1,5 +1,6 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
-import { applyOffline, arenaSkills, createGame, dispatch, hydrateSave, moves, playerStats, tick, type GameSave } from '../src/game/engine'
+import { performArenaTactic, applyOffline, arenaSkills, createGame, dispatch, hydrateSave, moves, playerStats, type GameSave } from '../src/game/engine'
 import { arenaCastFrame } from '../src/game/arenaMoves'
 import { stepArena } from '../src/game/trainerArena'
 import { castSkill, finishChallenge, idleUntilHit } from './trainerArenaDriver'
@@ -26,7 +27,7 @@ function gym(withBench = false, starter = 'squirtle') {
 
 const arena = (g: GameSave) => g.campaign.battle!.arena
 function frames(g: GameSave, count: number) {
-  for (let i = 0; i < count; i++) tick(g, 100, bounds)
+  for (let i = 0; i < count; i++) advanceScripted(g, 100, bounds)
 }
 function until(g: GameSave, check: () => boolean, count = 120) {
   for (let i = 0; !check() && i < count; i++) frames(g, 1)
@@ -48,7 +49,7 @@ describe('real-time trainer arena', () => {
     expect(game.campaign.badges).toEqual(['brock'])
     expect(game.wins).toBe(1)
     expect(game.coins).toBeGreaterThan(cash)
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(false)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(false)
     expect(dispatch(game, { type: 'arena-surrender' })).toBe(false)
   })
 
@@ -80,15 +81,15 @@ describe('real-time trainer arena', () => {
     expect(skill.move.id).toBe('tackle')
     expect(skill.inRange).toBe(false)
     const initialHP = game.wild[0].currentHP
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(true)
     const distant = a.casts[0]
     expect(arenaCastFrame(distant).phase).toBe('windup')
     expect(arenaSkills(game)[0].cooldownMs).toBeGreaterThan(0)
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(false)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(false)
     until(game, () => distant.resolved)
     expect(distant.result).toBe('miss')
     expect(game.wild[0].currentHP).toBe(initialHP)
-    expect(dispatch(game, { type: 'arena-move', x: 1, y: -1 })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-move', x: 1, y: -1 })).toBe(true)
     frames(game, 3)
     expect(a.player.x).toBeGreaterThan(start.x)
     expect(a.player.y).toBeLessThan(start.y)
@@ -96,7 +97,7 @@ describe('real-time trainer arena', () => {
     const hp = game.wild[0].currentHP
     expect(hp).toBeLessThan(initialHP)
     expect(arenaSkills(game)[0].cooldownMs).toBeGreaterThan(0)
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(false)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(false)
     expect(game.wild[0].currentHP).toBe(hp)
   })
 
@@ -106,7 +107,7 @@ describe('real-time trainer arena', () => {
     a.enemy = { x: a.player.x + distance / 1200, y: .5 }
     const skill = arenaSkills(game)[0]
     expect(skill.inRange).toBe(hit)
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(true)
     const cast = a.casts[0]
     expect(cast.end).toEqual(skill.preview.end)
     expect(cast.profile.radius).toBe(skill.preview.profile.radius)
@@ -121,7 +122,7 @@ describe('real-time trainer arena', () => {
       a.player = { x: .25, y: .5 }
       a.enemy = { x: a.player.x + distance / 1200, y: .5 }
       a.enemyInMs = 0
-      tick(game, 15, bounds)
+      advanceScripted(game, 15, bounds)
       return a.casts.find(cast => cast.side === 'enemy')?.moveId
     }
     expect(brockMove(65, 'pikachu')).toBe('bulldoze')
@@ -134,7 +135,7 @@ describe('real-time trainer arena', () => {
     a.player = { x: .25, y: .5 }
     a.enemy = { x: .59, y: .5 }
     a.enemyInMs = 0
-    tick(game, 10, bounds)
+    advanceScripted(game, 10, bounds)
     const committed = a.casts[0]
     expect(committed.moveId).toBe('rocktomb')
     const resumed = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -142,8 +143,8 @@ describe('real-time trainer arena', () => {
     expect(arena(resumed).lastEnemyMoveId).toBe('rocktomb')
     dispatch(resumed, { type: 'arena-pause', paused: false })
     for (let i = 0; i < 240; i++) {
-      tick(game, 16, bounds)
-      tick(resumed, 16, bounds)
+      advanceScripted(game, 16, bounds)
+      advanceScripted(resumed, 16, bounds)
     }
     expect(committed.result).toBe('hit')
     expect(resumed.player.currentHP).toBe(game.player.currentHP)
@@ -158,9 +159,9 @@ describe('real-time trainer arena', () => {
     const mark = arena(hit).telegraph!
     expect(mark.radius).toBeGreaterThan(0)
     expect(mark.remainingMs).toBeGreaterThan(0)
-    dispatch(safe, { type: 'arena-move', x: -1, y: 1 })
-    expect(dispatch(safe, { type: 'arena-dodge' })).toBe(true)
-    expect(dispatch(safe, { type: 'arena-dodge' })).toBe(false)
+    performArenaTactic(safe, { type: 'arena-move', x: -1, y: 1 })
+    expect(performArenaTactic(safe, { type: 'arena-dodge' })).toBe(true)
+    expect(performArenaTactic(safe, { type: 'arena-dodge' })).toBe(false)
     const warned = arena(hit).casts.find(cast => cast.side === 'enemy')!
     const ticks = Math.ceil((mark.remainingMs + warned.profile.activeMs) / 100) + 1
     frames(hit, ticks)
@@ -173,14 +174,14 @@ describe('real-time trainer arena', () => {
   it('pauses during reload, preserves the enemy and telegraph, and safely upgrades old mid-battle saves', () => {
     const game = gym()
     until(game, () => Boolean(arena(game).telegraph))
-    dispatch(game, { type: 'arena-move', x: 1, y: 0 })
+    performArenaTactic(game, { type: 'arena-move', x: 1, y: 0 })
     const restored = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
     expect(arena(restored).paused).toBe(true)
     expect(arena(restored).player).toEqual(arena(game).player)
     expect(arena(restored).casts).toEqual(arena(game).casts)
     expect(arena(restored).telegraph).toEqual(arena(game).telegraph)
     const position = { ...arena(restored).player }, hp = restored.player.currentHP, opponent = {...restored.wild[0]}
-    expect(dispatch(restored, { type: 'arena-skill', slot: 1 })).toBe(false)
+    expect(performArenaTactic(restored, { type: 'arena-skill', slot: 1 })).toBe(false)
     frames(restored, 60)
     expect(arena(restored).player).toEqual(position)
     expect(restored.player.currentHP).toBe(hp)
@@ -211,24 +212,24 @@ describe('real-time trainer arena', () => {
     a.player = { x: 0.36, y: 0.5 }
     a.enemy = { x: 0.57, y: 0.5 }
     a.enemyInMs = 0
-    tick(standing, 16, bounds)
+    advanceScripted(standing, 16, bounds)
     const cast = a.casts.find(c => c.side === 'enemy')!
     expect(cast.moveId).toBe('waterGun')
     expect(cast.profile.kind).toBe('beam')
     const hp = standing.player.currentHP
     const escaping = structuredClone(standing)
-    dispatch(escaping, { type: 'arena-move', x: 0, y: 1 })
+    performArenaTactic(escaping, { type: 'arena-move', x: 0, y: 1 })
     for (let t = cast.elapsedMs; t + 16 < cast.profile.startupMs; t += 16) {
-      tick(standing, 16, bounds)
-      tick(escaping, 16, bounds)
+      advanceScripted(standing, 16, bounds)
+      advanceScripted(escaping, 16, bounds)
       expect(standing.player.currentHP).toBe(hp)
       expect(escaping.player.currentHP).toBe(hp)
     }
     const escapedCast = arena(escaping).casts.find(c => c.id === cast.id)!
     expect(escapedCast.target).toEqual(cast.target)
     for (let i = 0; i < 180 && (!cast.resolved || !escapedCast.resolved); i++) {
-      tick(standing, 16, bounds)
-      tick(escaping, 16, bounds)
+      advanceScripted(standing, 16, bounds)
+      advanceScripted(escaping, 16, bounds)
     }
     expect(cast.result).toBe('hit')
     expect(standing.player.currentHP).toBeLessThan(hp)
@@ -244,19 +245,19 @@ describe('real-time trainer arena', () => {
     game.wild[0].speciesId = 'squirtle'
     game.player.moveIds = ['waterGun', 'ember']
     const initialHP = game.wild[0].currentHP
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(true)
     const first = a.casts.find(c => c.side === 'player')!
     expect(arenaCastFrame(first).phase).toBe('windup')
     expect(arenaSkills(game)[0].cooldownMs).toBeGreaterThan(0)
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(false)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(false)
     expect(game.wild[0].currentHP).toBe(initialHP)
     a.enemy = { x: 0.69, y: 0.82 }
-    for (let i = 0; i < 200 && arenaSkills(game)[1].cooldownMs > 0; i++) tick(game, 16, bounds)
-    expect(dispatch(game, { type: 'arena-skill', slot: 1 })).toBe(true)
+    for (let i = 0; i < 200 && arenaSkills(game)[1].cooldownMs > 0; i++) advanceScripted(game, 16, bounds)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 1 })).toBe(true)
     const second = a.casts.find(c => c.side === 'player' && c.id !== first.id)!
     expect(second.moveId).toBe('ember')
     const target = game.wild[0]
-    for (let i = 0; i < 180 && (!first.resolved || !second.resolved); i++) tick(game, 16, bounds)
+    for (let i = 0; i < 180 && (!first.resolved || !second.resolved); i++) advanceScripted(game, 16, bounds)
     expect(first.result).toBe('miss')
     expect(second.result).toBe('hit')
     expect(target.currentHP).toBeLessThan(initialHP)
@@ -271,9 +272,9 @@ describe('real-time trainer arena', () => {
     a.player = { x: 0.27, y: 0.5 }
     a.enemy = { x: 0.55, y: 0.5 }
     a.enemyInMs = 20000
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(true)
     const cast = a.casts[0]
-    for (let i = 0; i < 120 && arenaCastFrame(cast).phase === 'windup'; i++) tick(game, 12, bounds)
+    for (let i = 0; i < 120 && arenaCastFrame(cast).phase === 'windup'; i++) advanceScripted(game, 12, bounds)
     expect(arenaCastFrame(cast).phase).toBe('active')
     expect(cast.resolved).toBe(false)
     const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -285,7 +286,7 @@ describe('real-time trainer arena', () => {
     expect(savedCast.elapsedMs).toBe(timeAtSave)
     expect(saved.wild[0].currentHP).toBe(hp)
     dispatch(saved, { type: 'arena-pause', paused: false })
-    for (let i = 0; i < 160 && !savedCast.resolved; i++) tick(saved, 12, bounds)
+    for (let i = 0; i < 160 && !savedCast.resolved; i++) advanceScripted(saved, 12, bounds)
     expect(savedCast.result).toBe('hit')
     expect(savedCast.impact?.position.x).toBeCloseTo(arena(saved).enemy.x + (savedCast.victimOffset?.x ?? 0), 2)
     expect(savedCast.impact?.position.y).toBeCloseTo(arena(saved).enemy.y + (savedCast.victimOffset?.y ?? 0), 2)
@@ -302,14 +303,14 @@ describe('real-time trainer arena', () => {
   it('uses separate dodge charges, rejects same-instant repeats, and recharges one at a time', () => {
     const game = gym(), a = arena(game)
     expect(a.dodgeCharges).toBe(2)
-    expect(dispatch(game, { type: 'arena-dodge' })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-dodge' })).toBe(true)
     expect(a.dodgeCharges).toBe(1)
-    expect(dispatch(game, { type: 'arena-dodge' })).toBe(false)
+    expect(performArenaTactic(game, { type: 'arena-dodge' })).toBe(false)
     frames(game, 4)
-    expect(dispatch(game, { type: 'arena-dodge' })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-dodge' })).toBe(true)
     expect(a.dodgeCharges).toBe(0)
     frames(game, 4)
-    expect(dispatch(game, { type: 'arena-dodge' })).toBe(false)
+    expect(performArenaTactic(game, { type: 'arena-dodge' })).toBe(false)
     until(game, () => a.dodgeCharges === 1)
     const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
     expect(arena(saved).dodgeCharges).toBe(1)

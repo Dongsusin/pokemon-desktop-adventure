@@ -1,8 +1,9 @@
+import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
 import { beamClashPower } from '../src/game/arenaBeams'
 import { arenaCastFrame, beamRounds } from '../src/game/arenaMoves'
 import { arenaStepMs, beginArenaCast, createArena, dodgeArena, moveArena, restoreArena, stepArena, type ArenaImpact, type TrainerArena } from '../src/game/trainerArena'
-import { createGame, dispatch, hydrateSave, moves, playerStats, tick } from '../src/game/engine'
+import { performArenaTactic, createGame, dispatch, hydrateSave, moves, playerStats, } from '../src/game/engine'
 
 function field(withEnemy = true) {
   const a = createArena(['starter'])
@@ -111,16 +112,16 @@ describe('sustained beams and clash resolution', () => {
       expect(g.wild[0].speciesId).toBe('staryu')
       const a = g.campaign.battle!.arena
       a.player = { x:.37, y:.5 }; a.enemy = { x:.54, y }; a.enemyInMs = 0
-      tick(g, 16, bounds)
-      expect(dispatch(g, { type:'arena-skill', slot:0 })).toBe(true)
-      for (let i=0; i<45 && !a.beamClash; i++) tick(g, 16, bounds)
+      advanceScripted(g, 16, bounds)
+      expect(performArenaTactic(g, { type:'arena-skill', slot:0 })).toBe(true)
+      for (let i=0; i<45 && !a.beamClash; i++) advanceScripted(g, 16, bounds)
       expect(a.beamClash).toBeTruthy()
       if (partner === 'pikachu') expect(a.beamClash!.ratio).toBeGreaterThan(1)
       expect(a.casts.map(c=>arenaCastFrame(c).beamTip)).toEqual([a.beamClash!.point, a.beamClash!.point])
       const restored = hydrateSave(JSON.parse(JSON.stringify(g)),1)!
       expect(restored.campaign.battle!.arena.beamClash).toEqual(a.beamClash)
       dispatch(restored,{ type:'arena-pause', paused:false })
-      for (let i=0; i<200 && a.beamClash; i++) { tick(g,16,bounds); tick(restored,16,bounds) }
+      for (let i=0; i<200 && a.beamClash; i++) { advanceScripted(g,16,bounds); advanceScripted(restored,16,bounds) }
       expect(a.lastClash?.winner).toBe(restored.campaign.battle!.arena.lastClash?.winner)
       expect(restored.player.currentHP).toBe(g.player.currentHP)
       expect(restored.wild[0].currentHP).toBe(g.wild[0].currentHP)
@@ -149,10 +150,10 @@ describe('sustained beams and clash resolution', () => {
     dispatch(game, { type:'challenge-gym' })
     const a = game.campaign.battle!.arena
     a.player = {x:.38,y:.48}; a.enemy = {x:.53,y:.5}; a.enemyInMs = 0
-    tick(game,16,bounds)
+    advanceScripted(game,16,bounds)
     const beam = a.casts.find(c=>c.side==='enemy')!
     const original = { ...beam.target }, previousHeight = beam.victimOffset!.y
-    expect(dispatch(game,{type:'arena-switch',instanceId:'caught-25'})).toBe(true)
+    expect(dispatch(game, {type:'arena-switch',instanceId:'caught-25'})).toBe(true)
     expect(beam.victimOffset!.y).not.toBe(previousHeight)
     const restored = hydrateSave(JSON.parse(JSON.stringify(game)),1)!.campaign.battle!.arena.casts[0]
     expect(restored.target).toEqual(original)
@@ -170,19 +171,19 @@ describe('sustained beams and clash resolution', () => {
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
     const a = game.campaign.battle!.arena
     a.player = { x: .38, y: .5 }; a.enemy = { x: .53, y: .5 }; a.enemyInMs = 5000
-    expect(dispatch(game, { type: 'arena-skill', slot: 0 })).toBe(true)
+    expect(performArenaTactic(game, { type: 'arena-skill', slot: 0 })).toBe(true)
     const c = a.casts[0]
-    tick(game, 480, bounds)
+    advanceScripted(game, 480, bounds)
     const afterOne = game.wild[0].currentHP
     expect(c.beam!.hits).toBe(1)
     const raw = JSON.parse(JSON.stringify(game))
     const saved = hydrateSave(raw, 1)!
     const savedCast = saved.campaign.battle!.arena.casts[0]
     expect(savedCast.beam).toEqual(c.beam)
-    tick(saved, 250, bounds)
+    advanceScripted(saved, 250, bounds)
     expect(saved.wild[0].currentHP).toBe(afterOne)
     dispatch(saved, { type: 'arena-pause', paused: false })
-    for (let i=0; i<12; i++) { tick(game, 80, bounds); tick(saved, 80, bounds) }
+    for (let i=0; i<12; i++) { advanceScripted(game, 80, bounds); advanceScripted(saved, 80, bounds) }
     expect(saved.wild[0].currentHP).toBe(game.wild[0].currentHP)
     expect(savedCast.beam!.hits).toBeGreaterThan(1)
     expect(savedCast.beam!.pulses).toBeLessThanOrEqual(beamRounds(savedCast))
@@ -192,7 +193,7 @@ describe('sustained beams and clash resolution', () => {
     legacy.resolved = true; legacy.result = 'hit'
     const old = hydrateSave(raw, 1)!
     dispatch(old, { type: 'arena-pause', paused: false })
-    tick(old, 550, bounds)
+    advanceScripted(old, 550, bounds)
     expect(old.wild[0].currentHP).toBe(afterOne)
   })
 })
