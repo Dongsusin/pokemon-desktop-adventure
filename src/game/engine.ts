@@ -75,6 +75,7 @@ const captureBallSet = new Set(captureBallIds)
 
 export interface Settings {
   autoCaptureBall: CaptureBallId | null
+  autoCaptureUncaughtOnly: boolean
   autoUseItem: string | null
   sound: boolean
   fps: 15 | 30
@@ -94,6 +95,7 @@ export interface Settings {
 
 export const defaultSettings: Settings = {
   autoCaptureBall: null,
+  autoCaptureUncaughtOnly: false,
   autoUseItem: null,
   sound: false,
   fps: 30,
@@ -2877,7 +2879,8 @@ function update(game: GameSave, elapsed: number, bounds: Bounds, decide: typeof 
       } else if (runtime.stateIn <= 0) {
         const ball = game.settings.autoCaptureBall
         if (!target.trainerId && ball && runtime.turn === 'player' && runtime.autoCaptureTargetId !== target.id &&
-            target.currentHP <= target.maxHP * AUTO_CAPTURE_HP && throwBall(game, ball)) {
+            target.currentHP <= target.maxHP * AUTO_CAPTURE_HP &&
+            (!game.settings.autoCaptureUncaughtOnly || !game.pokedexCaught.includes(target.speciesId)) && throwBall(game, ball)) {
           runtime.autoCaptureTargetId = target.id
         } else if (runtime.turn === 'player' && autoUseBattleItem(game, target)) {
           runtime.stateIn = 800
@@ -2949,7 +2952,7 @@ function hasKey(value: object, key: PropertyKey): boolean {
 }
 
 const booleanSettings = [
-  'sound', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve',
+  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve',
   'effects', 'hud', 'startOnLogin', 'notifications',
 ] as const
 

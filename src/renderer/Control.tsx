@@ -367,6 +367,8 @@ function SettingsPane({ game, snapshot, send }: { game: GameSave; snapshot: Adve
           {captureBallIds.map(id => <option value={id} key={id}>{items[id].nameKo}</option>)}
         </select>
       </label>
+      <Switch label="미포획 포켓몬만 자동 포획" note="도감에 포획 기록이 없는 종에게만 볼을 던집니다." checked={settings.autoCaptureUncaughtOnly}
+        onChange={autoCaptureUncaughtOnly => change({ autoCaptureUncaughtOnly })} />
       <label className="select-field"><strong>탐험 성향</strong><select value={settings.exploration} onChange={e => change({ exploration: e.target.value as Settings['exploration'] })}>
         {Object.entries(encounterOptions).map(([key, label]) => <option value={key} key={key}>{label}</option>)}
       </select></label>

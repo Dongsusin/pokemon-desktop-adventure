@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type HTMLAttributes, type PointerEvent as ReactPointerEvent } from 'react'
 import { createPortal } from 'react-dom'
-import { species } from '../game/catalog'
 import type { GameSave } from '../game/engine'
 import { locationAccess } from '../game/locationAccess'
 import type { KantoLocation } from '../game/regions/kanto'
 import { worldRegions } from '../game/regions/world'
 import { describePlace, levelLabel, placeKind, placeTrainers, rareCondition, usePlaceEncounters } from './mapLocationGuide'
-import { Pokemon } from './shared'
+import { MapEncounterName, Pokemon } from './shared'
 
 interface Preview {
   place: KantoLocation
@@ -84,7 +83,7 @@ export function PlaceGuideContent({ game, place, neighbors = [] }: {
   game: GameSave; place: KantoLocation; neighbors?: readonly KantoLocation[]
 }) {
   const region = worldRegions[game.regionId]
-  const { entries, rareEntries, available, weather } = usePlaceEncounters(game, place)
+  const { entries, rareEntries, available, weather, caught, catchSummary } = usePlaceEncounters(game, place)
   const trainers = placeTrainers(region, place)
   const here = place.id === game.locationId
   const locked = !locationAccess(game, place.id).unlocked
@@ -96,22 +95,23 @@ export function PlaceGuideContent({ game, place, neighbors = [] }: {
     </header>
     <div className="map-guide-scroll" key={place.id}>
       <p className="map-guide-description">{describePlace(game, place)}</p>
+      {catchSummary && <p className="map-catch-total">{catchSummary}</p>}
       <section className="map-guide-trainers"><h4>트레이너</h4>
         <p>{trainers.length ? trainers.join(' · ') : '이곳에는 트레이너가 없습니다.'}</p>
       </section>
       <section><h4>야생 포켓몬 <span>{entries.length}종{weather && ' · ' + weather}</span></h4>
         {entries.length ? <ul className="map-guide-roster">{entries.map(entry => <li key={entry.id}>
           <Pokemon id={entry.id} formId={entry.formId} />
-          <div><strong>{species[entry.id].nameKo}</strong><small>{[entry.description, levelLabel(entry.levels)].filter(Boolean).join(' · ')}</small></div>
+          <div><MapEncounterName id={entry.id} caught={caught.has(entry.id)} /><small>{[entry.description, levelLabel(entry.levels)].filter(Boolean).join(' · ')}</small></div>
         </li>)}</ul> : <p>일반 야생 포켓몬이 없습니다.</p>}
       </section>
       {rareEntries.length > 0 && <section><h4>희귀 출현</h4><ul className="map-guide-special">
-        {rareEntries.map(entry => <li key={entry.speciesId}><strong>{species[entry.speciesId].nameKo}</strong>
+        {rareEntries.map(entry => <li key={entry.speciesId}><MapEncounterName id={entry.speciesId} caught={caught.has(entry.speciesId)} />
           <small>Lv. {entry.level} · {available.some(choice => choice.speciesId === entry.speciesId) ? (locked && !here ? '도착 후 출현' : '출현 가능') : rareCondition(game, place, entry)}</small></li>)}
       </ul></section>}
       {Boolean(place.visitors?.length) && <section><h4>{game.campaign.champion ? '조사 출현' : '리그 우승 후 조사 출현'}</h4>
         <ul className="map-guide-special">{place.visitors!.map(entry => <li key={entry.speciesId}>
-          <strong>{species[entry.speciesId].nameKo}</strong><small>Lv. {entry.level}</small>
+          <MapEncounterName id={entry.speciesId} caught={caught.has(entry.speciesId)} /><small>Lv. {entry.level}</small>
         </li>)}</ul>
       </section>}
       {others.length > 0 && <p className="map-guide-neighbors">같은 지점 · {others.map(other => other.name).join(' · ')}</p>}

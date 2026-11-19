@@ -32,6 +32,12 @@ export function pokemonName(id: string, formId?: string) {
   return [species[id]?.nameKo ?? '포켓몬', formLabel(formId)].filter(Boolean).join(' · ')
 }
 
+export function MapEncounterName({ id, caught }: { id: string; caught: boolean }) {
+  return <span className="map-encounter-name"><strong>{species[id].nameKo}</strong>
+    <span className={'map-catch-status' + (caught ? ' caught' : '')}>{caught ? '포획함' : '미포획'}</span>
+  </span>
+}
+
 export function Pokemon({ id, formId, className = '', label = false }: { id: string; formId?: string; className?: string; label?: boolean }) {
   const [failedId, setFailedId] = useState('')
   const spriteId = formId ?? id

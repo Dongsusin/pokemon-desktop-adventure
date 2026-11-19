@@ -112,5 +112,10 @@ export function usePlaceEncounters(game: GameSave, place: KantoLocation) {
   }), [slots, game.regionId, place.id])
   const rareEntries = eligibleLegends(place, game.starterSpeciesId, true)
   const available = activeLegends(place, game.starterSpeciesId, game.campaign)
-  return { entries, weather: forecast?.weather, rareEntries, available }
+  const caught = useMemo(() => new Set(game.pokedexCaught), [game.pokedexCaught])
+  const localSpecies = new Set([...entries.map(entry => entry.id), ...rareEntries.map(entry => entry.speciesId),
+    ...(place.visitors ?? []).map(entry => entry.speciesId)])
+  const caughtCount = [...localSpecies].filter(id => caught.has(id)).length
+  const catchSummary = localSpecies.size ? '도감 포획 ' + caughtCount + '/' + localSpecies.size + '종' : ''
+  return { entries, weather: forecast?.weather, rareEntries, available, caught, catchSummary }
 }

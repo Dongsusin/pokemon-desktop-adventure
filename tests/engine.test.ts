@@ -659,6 +659,59 @@ describe('capture and party', () => {
     expect(dispatch(restored, { type: 'update-settings', settings: { autoCaptureBall: null } })).toBe(true)
   })
 
+  it('saves the uncaught-only filter per slot and keeps the all-species default for older saves', () => {
+    const game = makeGame()
+    const oldSettings = { autoCaptureBall: 'pokeball' }
+    expect(hydrateSave({ ...game, settings: oldSettings }, 1)!.settings).toMatchObject({
+      autoCaptureBall: 'pokeball', autoCaptureUncaughtOnly: false,
+    })
+    expect(dispatch(game, { type: 'update-settings', settings: { autoCaptureUncaughtOnly: true } })).toBe(true)
+    expect(hydrateSave(JSON.parse(JSON.stringify(game)), 1)!.settings.autoCaptureUncaughtOnly).toBe(true)
+    expect(makeGame().settings.autoCaptureUncaughtOnly).toBe(false)
+  })
+
+  it('auto-catches seen but unregistered species, then spends no ball on a boxed species and keeps battling', () => {
+    const game = makeGame()
+    game.pokedexSeen.push('caterpie')
+    dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball', autoCaptureUncaughtOnly: true } })
+    encounter(game, 'caterpie', 2)
+    tick(game, 200, bounds)
+    expect(game.pokedexCaught).toContain('caterpie')
+    expect(game.inventory.pokeball).toBe(7)
+    const instanceId = game.followers[0].instanceId
+    expect(dispatch(game, { type: 'set-follower-active', instanceId, active: false })).toBe(true)
+    const restored = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
+    expect(dispatch(restored, { type: 'travel', locationId: 'pallet-town' })).toBe(true)
+    const duplicate = encounter(restored, 'caterpie', 2)
+    tick(restored, 200, bounds)
+    expect(restored.inventory.pokeball).toBe(7)
+    expect(restored.history.filter(log => log.kind === 'capture')).toHaveLength(1)
+    expect(duplicate.currentHP).toBeLessThan(2)
+
+    expect(dispatch(restored, { type: 'travel', locationId: 'pallet-town' })).toBe(true)
+    encounter(restored, 'caterpie', 2)
+    expect(dispatch(restored, { type: 'throw-ball', itemId: 'pokeball' })).toBe(true)
+    expect(restored.inventory.pokeball).toBe(6)
+    dispatch(restored, { type: 'update-settings', settings: { autoCaptureUncaughtOnly: false } })
+    expect(dispatch(restored, { type: 'travel', locationId: 'pallet-town' })).toBe(true)
+    encounter(restored, 'caterpie', 2)
+    tick(restored, 200, bounds)
+    expect(restored.inventory.pokeball).toBe(5)
+  })
+
+  it('allows another automatic attempt on a new encounter after an uncaught species escaped the ball', () => {
+    const game = makeGame()
+    dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball', autoCaptureUncaughtOnly: true } })
+    encounter(game, 'mewtwo', 7)
+    tick(game, 200, bounds)
+    expect(game.pokedexCaught).not.toContain('mewtwo')
+    run(game, 5)
+    expect(game.inventory.pokeball).toBe(7)
+    encounter(game, 'mewtwo', 7)
+    tick(game, 200, bounds)
+    expect(game.inventory.pokeball).toBe(6)
+  })
+
   it('keeps five independent roaming followers and stores, activates and restores overflow members', () => {
     const game = makeGame()
     for (const id of ['caterpie', 'weedle', 'pidgey', 'rattata', 'spearow', 'metapod']) {

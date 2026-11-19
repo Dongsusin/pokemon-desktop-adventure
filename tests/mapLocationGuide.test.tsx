@@ -4,6 +4,7 @@ import { createGame, regionalWeather } from '../src/game/engine'
 import { species } from '../src/game/catalog'
 import { fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
+import { RegionMap } from '../src/renderer/RegionMap'
 import { PlaceGuideContent } from '../src/renderer/MapLocationTooltip'
 import { describePlace, placeTrainers } from '../src/renderer/mapLocationGuide'
 
@@ -21,6 +22,26 @@ function guide(game: ReturnType<typeof opening>, id: string) {
   const place = worldRegions[game.regionId].locationById[id]
   return renderToStaticMarkup(<PlaceGuideContent game={game} place={place} />)
 }
+
+const selectedMap = (game: ReturnType<typeof opening>, focus: string) =>
+  renderToStaticMarkup(<RegionMap game={game} focus={focus} busy={false} begin={() => {}} travel={() => {}} />)
+
+it.each([['지도 툴팁', guide], ['장소의 출현 목록', selectedMap]] as const)('%s marks each wild, rare and research species from the caught Pokédex', (_label, render) => {
+  const game = opening('kanto')
+  game.pokedexCaught.push('pikachu', 'mew')
+  game.pokedexSeen.push('pikachu', 'weedle', 'mew', 'bulbasaur')
+  const row = (html: string, name: string) => html.match(/<li\b[^>]*>[\s\S]*?<\/li>/g)?.find(li => li.includes('>' + name + '<'))
+  const forest = render(game, 'viridian-forest')
+  expect(forest).toContain('도감 포획 1/6종')
+  expect(row(forest, '피카츄')).toContain('포획함')
+  expect(row(forest, '뿔충이')).toContain('미포획')
+  expect(row(forest, '이상해씨')).toContain('미포획')
+  expect(row(render(game, 'pokemon-mansion'), '뮤')).toContain('포획함')
+  game.pokedexCaught.push('weedle')
+  const updated = render(game, 'viridian-forest')
+  expect(updated).toContain('도감 포획 2/6종')
+  expect(row(updated, '뿔충이')).toContain('포획함')
+})
 
 it('separates the forest encounters from post-league visitors and describes a city with no wild encounters', () => {
   const game = opening('kanto')

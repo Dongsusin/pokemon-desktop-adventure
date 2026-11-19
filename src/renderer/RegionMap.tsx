@@ -15,7 +15,6 @@ import {
   kantoIllustratedPins
 } from '../game/regions/kantoIllustratedMap'
 import type { KantoLocation } from '../game/regions/kanto'
-import { species } from '../game/catalog'
 import { nextGymTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
 import { locationAccess } from '../game/locationAccess'
 import { fieldTrainersByRegion } from '../game/regions/fieldTrainers'
@@ -24,7 +23,7 @@ import { describePlace, levelLabel, locationKinds, placeKind, rareCondition, use
 import { FieldTrainerCard } from './FieldTrainerCard'
 import { FieldTrainerDirectory } from './FieldTrainerDirectory'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
-import { Pokemon } from './shared'
+import { MapEncounterName, Pokemon } from './shared'
 import './region-map.css'
 
 const maps = {
@@ -117,16 +116,17 @@ function areaViewport(places: readonly KantoLocation[], width: number, height: n
 }
 
 function RangeList({ location, game }: { location: KantoLocation; game: GameSave }) {
-  const { entries, weather, rareEntries, available } = usePlaceEncounters(game, location)
+  const { entries, weather, rareEntries, available, caught, catchSummary } = usePlaceEncounters(game, location)
   const rareWeight = available.reduce((total, entry) => total + entry.weight, 0)
   const rarePercent = KANTO_LEGENDARY_ENCOUNTER_CHANCE * 100
   return <section className="kanto-encounters">
+    {catchSummary && <p className="map-catch-total">{catchSummary}</p>}
     <h3>일반 야생 포켓몬</h3>
     {weather && <p className="subtext">오늘의 날씨 · {weather}</p>}
     {entries.length > 0 ? <ul className="kanto-encounter-list">
       {entries.map(entry => <li key={entry.id}>
         <Pokemon id={entry.id} formId={entry.formId} />
-        <div><strong>{species[entry.id].nameKo}</strong><small>{[entry.description, levelLabel(entry.levels)].filter(Boolean).join(' · ')}</small></div>
+        <div><MapEncounterName id={entry.id} caught={caught.has(entry.id)} /><small>{[entry.description, levelLabel(entry.levels)].filter(Boolean).join(' · ')}</small></div>
         <span>{entry.percent === 0 ? '0.1% 미만' : entry.percent.toLocaleString('ko-KR') + '%'}</span>
       </li>)}
     </ul> : <p className="empty">이 장소에서는 일반 야생 포켓몬이 출현하지 않습니다.</p>}
@@ -135,7 +135,7 @@ function RangeList({ location, game }: { location: KantoLocation; game: GameSave
       <h3>리그 우승 후 조사 출현</h3>
       <p className="subtext">{game.campaign.champion ? '조사 가능' : '이 지방 우승 후 해금'} · 희귀 조우 판정 후 {RESEARCH_VISIT_CHANCE * 100}%</p>
       <ul className="kanto-encounter-list">{location.visitors!.map(mon => <li key={mon.speciesId}>
-        <Pokemon id={mon.speciesId}/><div><strong>{species[mon.speciesId].nameKo}</strong><small>Lv. {mon.level}</small></div>
+        <Pokemon id={mon.speciesId}/><div><MapEncounterName id={mon.speciesId} caught={caught.has(mon.speciesId)} /><small>Lv. {mon.level}</small></div>
       </li>)}</ul>
     </div>}
     {rareEntries.length > 0 && <div className="kanto-legendary">
@@ -144,7 +144,7 @@ function RangeList({ location, game }: { location: KantoLocation; game: GameSave
       <ul className="kanto-encounter-list">
         {rareEntries.map(entry => <li key={entry.speciesId}>
           <Pokemon id={entry.speciesId} />
-          <div><strong>{species[entry.speciesId].nameKo}</strong><small>Lv. {entry.level}</small></div>
+          <div><MapEncounterName id={entry.speciesId} caught={caught.has(entry.speciesId)} /><small>Lv. {entry.level}</small></div>
           <span>{available.some(choice => choice.speciesId === entry.speciesId) ? (rarePercent * entry.weight / rareWeight).toLocaleString('ko-KR') + '%' : rareCondition(game, location, entry)}</span>
         </li>)}
       </ul>

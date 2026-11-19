@@ -9,7 +9,7 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 const booleanSettings = [
-  'sound', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve', 'effects', 'hud', 'notifications'
+  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoHeal', 'autoEvolve', 'effects', 'hud', 'notifications'
 ] as const
 
 function parseSettings(value: unknown): Partial<Settings> | null {
