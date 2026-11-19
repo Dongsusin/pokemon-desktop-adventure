@@ -1,3 +1,5 @@
+import { catalogItems } from './shopCatalog'
+import { shopItemEffect, type ShopItemEffect } from './shopItemEffects'
 import { species, starterIds, wildIds } from './catalog'
 import { megaFormFor, megaFormsFor, regionGimmick, type BattleGimmick } from './battleGimmicks'
 import { boostedMove, gimmickLabels, MAX_GIMMICK_ACTIONS, preparedMove, type GimmickSide, type EncounterGimmicks, type UsedGimmick } from './gimmickCombat'
@@ -58,12 +60,14 @@ export const activityLabels = {
 }
 export type Activity = keyof typeof activityLabels
 
-const ballMultipliers = { pokeball: 1, greatBall: 1.5, ultraBall: 2 }
-export type CaptureBallId = keyof typeof ballMultipliers
-export const captureBallIds = Object.keys(ballMultipliers) as CaptureBallId[]
+const catalogById = new Map(catalogItems.map(entry => [entry.id, entry]))
+export type CaptureBallId = string
+export const captureBallIds = catalogItems.filter(entry => entry.category === 'balls').map(entry => entry.id)
+const captureBallSet = new Set(captureBallIds)
 
 export interface Settings {
   autoCaptureBall: CaptureBallId | null
+  autoUseItem: string | null
   sound: boolean
   fps: 15 | 30
   overlayVisible: boolean
@@ -81,6 +85,7 @@ export interface Settings {
 
 export const defaultSettings: Settings = {
   autoCaptureBall: null,
+  autoUseItem: null,
   sound: false,
   fps: 30,
   overlayVisible: true,
@@ -155,8 +160,8 @@ export const items: Record<string, Item> = {
   potion: item('potion', '상처약', '최대 HP의 35%를 회복해요.', 'recovery', 'common', '+', { heal: 0.35 }),
   superPotion: item('superPotion', '좋은상처약', '최대 HP의 70%를 회복해요.', 'recovery', 'uncommon', '+', { heal: 0.7 }),
   pokeball: item('pokeball', '몬스터볼', '전투 중 야생 포켓몬을 잡을 때 사용해요.', 'capture', 'common', '●'),
-  greatBall: item('greatBall', '수퍼볼', '몬스터볼보다 포획 확률이 높아요.', 'capture', 'uncommon', '●'),
-  ultraBall: item('ultraBall', '하이퍼볼', '수퍼볼보다 포획 확률이 높아요.', 'capture', 'rare', '●'),
+  greatBall: item('greatBall', '슈퍼볼', '몬스터볼보다 포획 확률이 높아요.', 'capture', 'uncommon', '●'),
+  ultraBall: item('ultraBall', '하이퍼볼', '슈퍼볼보다 포획 확률이 높아요.', 'capture', 'rare', '●'),
   muscleBand: item('muscleBand', '힘의머리띠', '공격과 특수공격이 8% 증가해요.', 'equipment', 'uncommon', '▲', { attack: 0.08 }),
   guardCharm: item('guardCharm', '진화의휘석', '방어와 특수방어가 8% 증가해요.', 'equipment', 'uncommon', '◆', { defense: 0.08 }),
   luckyEgg: item('luckyEgg', '행복의알', '전투 경험치가 12% 증가해요.', 'equipment', 'rare', '○', { exp: 0.12 }),
@@ -176,6 +181,20 @@ const dropPools: Record<Item['rarity'], Item[]> = {
 for (const [id, data] of Object.entries(collectionItems)) {
   items[id] = item(id, data.name, data.fossil ? '지정 연구소에서 포켓몬으로 복원해요.' : '조건에 맞는 선두 포켓몬을 진화시켜요.',
     data.fossil ? 'fossil' : 'evolution', 'rare', '◇')
+}
+
+// Keep field drops and excavation sites independent of the worldwide retail catalog.
+const nativeEquipment = new Set(Object.values(items).filter(entry => entry.kind === 'equipment').map(entry => entry.id))
+for (const row of catalogItems) {
+  if (Object.hasOwn(items, row.id)) {
+    items[row.id].nameKo = row.nameKo
+    continue
+  }
+  const effect = shopItemEffect(row.id)
+  const kind: Item['kind'] = row.category === 'balls' ? 'capture' : row.category === 'held' && effect.reusable ? 'equipment'
+    : effect.kind === 'heal' || effect.kind === 'revive' ? 'recovery' : 'boost'
+  const rarity: Item['rarity'] = row.price >= 10000 ? 'epic' : row.price >= 2000 ? 'rare' : row.price >= 500 ? 'uncommon' : 'common'
+  items[row.id] = item(row.id, row.nameKo, effect.description, kind, rarity, kind === 'capture' ? '●' : kind === 'recovery' ? '+' : '◇')
 }
 
 export interface Player {
@@ -218,6 +237,7 @@ export interface PartyPokemon {
 export type PokemonBox = (PartyPokemon | null)[]
 
 export interface Wild {
+  battleActions?: number
   teraType?: string
   abilityId?: KantoTrainerMember['abilityId']
   dynamax?: 'dynamax' | 'gigantamax'
@@ -273,7 +293,12 @@ interface Drop {
   position: Position
 }
 
+interface BattleItemState { itemId: string; until: number }
+
 interface Runtime {
+  battleItem?: BattleItemState
+  itemReadyAt?: number
+  heldHealReadyAt?: number
   gimmick?: EncounterGimmicks
   captureIn: number
   autoCaptureTargetId: number | null
@@ -295,6 +320,11 @@ interface Runtime {
 }
 
 interface PracticeParty {
+  clock: number
+  inventory: GameSave['inventory']
+  battleItem?: BattleItemState
+  itemReadyAt?: number
+  heldHealReadyAt?: number
   player: Player
   followers: PartyPokemon[]
   cooldowns: Runtime['cooldowns']
@@ -366,7 +396,10 @@ export type ShopPurchase = {
   expectedOwned: number
 }
 
+export type BattleItemUse = { type: 'useBattleItem'; itemId: string; expectedOwned: number }
+
 export type GameAction =
+  | BattleItemUse
   | ShopPurchase
   | ArenaAction
   | { type: 'travel'; locationId: string }
@@ -395,7 +428,6 @@ const STARTER_BALLS = 8
 const CAPTURE_MS = 2200
 const AUTO_CAPTURE_HP = 0.35
 const MAX_LEVEL = 100
-const MAX_INVENTORY_SLOTS = 100
 const MAX_HISTORY = 100
 const MAX_WILD = 2
 const MAX_OFFLINE_MS = 8 * 60 * 60 * 1000
@@ -617,19 +649,47 @@ export function effectiveLevel(game: GameSave, level = game.player.level): numbe
   return Math.min(level, levelCap(game))
 }
 
+export function activeBattleItem(game: GameSave) {
+  const provision = game.runtime.battleItem
+  return provision && provision.until > game.runtime.clock ? provision : undefined
+}
+
+function provisionBonus(game: GameSave, kind: ShopItemEffect['kind'], type?: string): number {
+  const magnitude = (effect: ShopItemEffect) => {
+    if (kind === 'focus' && effect.kind === 'experience') return 0.05
+    if (kind === 'focus' && effect.kind === 'capture') return 0.15
+    if (effect.kind !== kind) return 0
+    return type && effect.type !== type ? Math.min(.05, effect.magnitude) : effect.magnitude
+  }
+  const active = activeBattleItem(game)
+  const held = game.player.heldItemId
+  return Math.max(active ? magnitude(shopItemEffect(active.itemId)) : 0,
+    held && !nativeEquipment.has(held) ? magnitude(shopItemEffect(held)) : 0)
+}
+
+function focusedDelay(game: GameSave, ms: number): number {
+  return Math.round(ms * (1 - Math.min(.75, provisionBonus(game, 'focus'))))
+}
+
 export function playerStats(game: GameSave): Stats {
   const stats = statsFor(game.player.speciesId, effectiveLevel(game), game.player.heldItemId, playerBattleForm(game))
+  const offense = 1 + provisionBonus(game, 'attack')
+  const defense = 1 + provisionBonus(game, 'defense')
+  stats.attack = Math.round(stats.attack * offense)
+  stats.spAttack = Math.round(stats.spAttack * offense)
+  stats.defense = Math.round(stats.defense * defense)
+  stats.spDefense = Math.round(stats.spDefense * defense)
+  stats.speed = Math.round(stats.speed * (1 + provisionBonus(game, 'speed')))
   if (activePower(game, 'player')?.kind === 'dynamax') stats.hp = dynamaxHP(stats.hp)
   return stats
 }
 
-export const shopStock = [
-  { itemId: 'pokeball', price: 20, badges: 0 },
-  { itemId: 'greatBall', price: 50, badges: 2 },
-  { itemId: 'ultraBall', price: 100, badges: 4 },
-  { itemId: 'potion', price: 30, badges: 0 },
-  { itemId: 'superPotion', price: 75, badges: 2 },
-] as const
+const shopBadgeRequirements: Readonly<Record<string, number>> = { greatBall: 2, superPotion: 2, ultraBall: 4 }
+export const shopStock = catalogItems.map(row => ({
+  itemId: row.id, price: row.price, badges: shopBadgeRequirements[row.id] ?? 0,
+}))
+const offersById = new Map(shopStock.map(offer => [offer.itemId, offer]))
+export function shopOffer(itemId: string) { return offersById.get(itemId) }
 
 export function hasShop(game: GameSave): boolean {
   const place = worldRegions[game.regionId].locationById[game.locationId]
@@ -639,12 +699,11 @@ export function hasShop(game: GameSave): boolean {
 export function shopPurchaseLimit(game: GameSave, offer: typeof shopStock[number]): number {
   if (!hasShop(game) || game.campaign.battle || game.campaign.badges.length < offer.badges) return 0
   const owned = game.inventory[offer.itemId] ?? 0
-  if (!owned && Object.keys(game.inventory).length >= MAX_INVENTORY_SLOTS) return 0
   return Math.min(Math.floor(game.coins / offer.price), Number.MAX_SAFE_INTEGER - owned)
 }
 
 function buyItem(game: GameSave, order: ShopPurchase): boolean {
-  const offer = shopStock.find(entry => entry.itemId === order.itemId)
+  const offer = shopOffer(order.itemId)
   if (!offer || !Number.isSafeInteger(order.quantity) || order.quantity < 1 ||
       order.quantity > shopPurchaseLimit(game, offer)) return false
   const owned = game.inventory[offer.itemId] ?? 0
@@ -689,7 +748,7 @@ export function canUseCollectionItem(game: GameSave, itemId: string) {
 function consume(game: GameSave, itemId: string): boolean {
   const count = game.inventory[itemId] ?? 0
   const entry = items[itemId]
-  if (count <= 0 || !entry || game.player.currentHP <= 0) return false
+  if (!(count > 0) || !entry || game.player.currentHP <= 0) return false
 
   if (entry.kind === 'evolution' || entry.kind === 'fossil') {
     if (!canUseCollectionItem(game, itemId)) return false
@@ -717,6 +776,103 @@ function consume(game: GameSave, itemId: string): boolean {
 
   spendItem(game, itemId)
   return true
+}
+
+const ITEM_USE_DELAY = 3000
+
+function machineMoveToLearn(game: GameSave, itemId: string) {
+  const machine = catalogById.get(itemId)
+  const lead = game.player
+  if (machine?.category !== 'machines' || !machine.moveId || lead.moveIds.length >= 4) return undefined
+  // Only restore a native move from this species and form's existing learnable set.
+  return movesFor(lead.speciesId, effectiveLevel(game), lead.formId).find(move =>
+    move.id.replace(/[A-Z]/g, c => '-' + c.toLowerCase()) === machine.moveId &&
+    !lead.moveIds.includes(move.id) && isMoveMotionSupported(lead.speciesId, playerBattleForm(game), move.id))
+}
+
+export function canUseBattleItem(game: GameSave, itemId: string): boolean {
+  const entry = catalogById.get(itemId)
+  if (!entry || !(game.inventory[itemId] > 0) || (game.runtime.itemReadyAt ?? 0) > game.runtime.clock ||
+      game.campaign.battle?.arena.maxClash) return false
+  const effect = shopItemEffect(itemId)
+  if (items[itemId].kind === 'equipment' && availableEquipment(game, itemId) - (game.player.heldItemId === itemId ? 1 : 0) < 1) return false
+  if (effect.kind === 'revive') return game.player.currentHP === 0
+  if (game.player.currentHP <= 0) return false
+  if (effect.kind === 'heal') return game.player.currentHP < playerStats(game).hp
+  if (effect.kind === 'capture' && !game.campaign.battle) return canThrowBall(game, itemId)
+  if (activeBattleItem(game)?.itemId !== itemId) return true
+  return Boolean((effect.growth && game.player.level < levelCap(game)) || machineMoveToLearn(game, itemId))
+}
+
+function useBattleItem(game: GameSave, order: BattleItemUse): boolean {
+  const id = order.itemId
+  if (order.expectedOwned !== game.inventory[id] || !canUseBattleItem(game, id)) return false
+  const effect = shopItemEffect(id)
+  const arena = game.campaign.battle?.arena
+  if (effect.kind === 'capture' && !arena) {
+    if (!throwBall(game, id)) return false
+    game.runtime.itemReadyAt = game.runtime.clock + ITEM_USE_DELAY
+    return true
+  }
+  let detail = arena ? effect.arenaDescription ?? effect.description : effect.description
+  if (effect.kind === 'heal' || effect.kind === 'revive') {
+    const hp = heal(game, Math.ceil(playerStats(game).hp * effect.magnitude))
+    if (effect.kind === 'revive') {
+      if (arena) { arena.needsSwitch = false; arena.enemyInMs = Math.max(700, arena.enemyInMs) }
+      else if (game.player.state === 'FAINT') transition(game, 'RECOVER', 600)
+    }
+    detail = (effect.kind === 'revive' ? '기절 회복 · ' : '') + '+' + hp + ' HP'
+  } else {
+    game.runtime.battleItem = { itemId: id, until: game.runtime.clock + (effect.durationMs ?? 30000) }
+    if (effect.growth) {
+      const exp = effect.growth === 'level' ? requiredExp(game.player.level) - game.player.exp : effect.growth
+      const gained = addExperience(game, exp)
+      detail = (gained ? 'EXP +' + gained.toLocaleString('ko-KR') : '지방 레벨 상한 도달') + ' · ' + detail
+    }
+    const learned = machineMoveToLearn(game, id)
+    if (learned) {
+      game.player.moveIds.push(learned.id)
+      detail = learned.nameKo + ' 습득 · ' + detail
+    }
+    const foe = findTarget(game)
+    if (game.player.state === 'BATTLE' && foe && effect.gimmick && effect.gimmick === regionGimmick(game.regionId) &&
+        (!effect.users || effect.users.includes(game.player.formId ?? game.player.speciesId) || effect.users.includes(game.player.speciesId))) {
+      const form = effect.megaForms ? availableMegaForms(game, foe, 'player').find(id => effect.megaForms!.includes(id)) : effect.megaForm
+      if (!effect.megaForms || form) activateGimmick(game, foe, 'player', form, { zType: effect.gimmick === 'z' ? effect.type : undefined })
+    }
+  }
+  if (!effect.reusable) spendItem(game, id)
+  game.runtime.itemReadyAt = game.runtime.clock + ITEM_USE_DELAY
+  const text = items[id].nameKo + ' · ' + detail
+  addLog(game, effect.kind === 'heal' || effect.kind === 'revive' ? 'recovery' : 'battle', text)
+  addEffect(game, effect.kind === 'heal' || effect.kind === 'revive' ? 'heal' : 'reward', game.player.position, 1500,
+    { text: items[id].nameKo, itemId: id, actor: 'partner' })
+  if (arena) arenaNotice(game, arena, { actor: 'player', kind: effect.kind === 'heal' || effect.kind === 'revive' ? 'heal' : 'switch', text })
+  return true
+}
+
+function autoUseBattleItem(game: GameSave, foe: Wild) {
+  const id = game.settings.autoUseItem
+  if (!id || game.campaign.battle || !game.autoBattle || !canUseBattleItem(game, id)) return false
+  const effect = shopItemEffect(id)
+  if (effect.kind !== 'revive') {
+    const lowHP = game.player.currentHP <= playerStats(game).hp * .5
+    if (effect.kind === 'heal' ? !lowHP : activeBattleItem(game) || (!lowHP && foe.level + 2 < effectiveLevel(game))) return false
+  }
+  return useBattleItem(game, { type: 'useBattleItem', itemId: id, expectedOwned: game.inventory[id] })
+}
+
+function recoverFromHeldItem(game: GameSave) {
+  const id = game.player.heldItemId
+  if (!id || !game.player.currentHP || (game.runtime.heldHealReadyAt ?? 0) > game.runtime.clock ||
+      shopItemEffect(id).kind !== 'heal') return
+  const amount = heal(game, Math.max(1, Math.floor(playerStats(game).hp / 16)))
+  if (amount) {
+    game.runtime.heldHealReadyAt = game.runtime.clock + 8000
+    addEffect(game, 'heal', game.player.position, 900, { text: '+' + amount + ' HP', itemId: id, actor: 'partner' })
+    const arena = game.campaign.battle?.arena
+    if (arena) arenaNotice(game, arena, { actor: 'player', kind: 'heal', amount, text: items[id].nameKo + ' · +' + amount + ' HP' })
+  }
 }
 
 function spendItem(game: GameSave, itemId: string): void {
@@ -821,7 +977,7 @@ function evolutionEffect(game: GameSave, fromSpeciesId: string, remainingMs = EV
 }
 
 function moveToward(game: GameSave, to: Position, speed: number, elapsed: number, radius: number): boolean {
-  const boost = game.runtime.boostUntil > game.runtime.clock ? (items.swiftBerry.speed ?? 0) : 0
+  const boost = Math.max(game.runtime.boostUntil > game.runtime.clock ? items.swiftBerry.speed ?? 0 : 0, provisionBonus(game, 'speed'))
   return moveActorToward(game.player, to, speed * (1 + boost), elapsed, radius)
 }
 
@@ -842,14 +998,42 @@ function findTarget(game: GameSave): Wild | undefined {
 }
 
 function isCaptureBallId(id: unknown): id is CaptureBallId {
-  return typeof id === 'string' && hasKey(ballMultipliers, id)
+  return typeof id === 'string' && captureBallSet.has(id)
 }
 
-export function captureChance(wild: Wild, itemId: CaptureBallId): number {
+const ultraBeasts = new Set(['nihilego', 'buzzwole', 'pheromosa', 'xurkitree', 'celesteela', 'kartana', 'guzzlord', 'poipole', 'naganadel', 'stakataka', 'blacephalon'])
+
+function ballBonus(wild: Wild, itemId: CaptureBallId, game?: GameSave): number {
+  const types = formStats(wild.speciesId, wild.formId).types
+  switch (catalogById.get(itemId)?.slug) {
+    case 'net-ball': return types.some(type => type === 'water' || type === 'bug') ? 3.5 : 1
+    case 'repeat-ball': return game?.pokedexCaught.includes(wild.speciesId) ? 3.5 : 1
+    case 'quick-ball': return (wild.battleActions ?? 0) < 2 ? 5 : 1
+    case 'timer-ball': return Math.min(4, 1 + Math.floor((wild.battleActions ?? 0) / 2) * .3)
+    case 'nest-ball': return Math.max(1, (41 - wild.level) / 10)
+    case 'fast-ball': return formStats(wild.speciesId, wild.formId).baseStats.speed >= 100 ? 4 : 1
+    case 'moon-ball': return collectionItems.moonStone.evolutions?.[wild.formId ?? wild.speciesId] ? 4 : 1
+    case 'level-ball': {
+      const level = game ? effectiveLevel(game) : 1
+      return level >= wild.level * 4 ? 8 : level >= wild.level * 2 ? 4 : level > wild.level ? 2 : 1
+    }
+    case 'dusk-ball': {
+      if (!game) return 1
+      const hour = new Date(game.runtime.clock).getHours()
+      return hour >= 19 || hour < 6 || worldRegions[game.regionId].locationById[game.locationId]?.kind === 'dungeon' ? 3 : 1
+    }
+    case 'beast-ball': return ultraBeasts.has(wild.speciesId) ? 5 : .1
+    default: return shopItemEffect(itemId).magnitude
+  }
+}
+
+export function captureChance(wild: Wild, itemId: CaptureBallId, game?: GameSave): number {
+  if (!isCaptureBallId(itemId)) return 0
+  if (catalogById.get(itemId)?.slug === 'master-ball') return 1
   const baseRate = captureRates[species[wild.speciesId].pokedexNumber - 1]
   const speciesChance = 0.1 + 0.75 * Math.sqrt(baseRate / 255)
   const hpRatio = clamp(wild.currentHP / wild.maxHP, 0, 1)
-  return clamp(speciesChance * (1 - 0.65 * hpRatio) * ballMultipliers[itemId], 0.04, 0.98)
+  return clamp(speciesChance * (1 - 0.65 * hpRatio) * ballBonus(wild, itemId, game), 0.04, 0.98)
 }
 
 function captureTarget(game: GameSave): Wild | undefined {
@@ -1045,7 +1229,7 @@ function availableMegaForms(game: GameSave, foe: Wild, side: GimmickSide): reado
     (!wildTypes || typeMultiplier(move.type, wildTypes) > 0)))
 }
 
-function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleGimmick, selectedForm?: string): UsedGimmick | undefined {
+function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleGimmick, selectedForm?: string, selectedZType?: string): UsedGimmick | undefined {
   if (selectedForm !== undefined && kind !== 'mega') return
   const ally = side === 'player'
   const actor = ally ? game.player : foe
@@ -1073,7 +1257,8 @@ function makeGimmick(game: GameSave, foe: Wild, side: GimmickSide, kind: BattleG
       const attacks = native.filter(move => move.category !== 'healing' && isMoveMotionSupported(actor.speciesId, actor.formId, move.id) &&
         (foe.trainerId || matchup(game, foe, move, ally) > 0))
       const nativeTypes = formStats(actor.speciesId, actor.formId).types
-      const matching = nativeTypes.find(type => attacks.some(m => m.type === type)) ?? attacks[0]?.type
+      const matching = selectedZType ? attacks.find(move => move.type === selectedZType)?.type
+        : nativeTypes.find(type => attacks.some(m => m.type === type)) ?? attacks[0]?.type
       return matching ? { ...common, teraType: matching } : undefined
     }
   }
@@ -1114,14 +1299,14 @@ export function battleGimmickStatus(game: GameSave, side: GimmickSide = 'player'
     ...(available && foe && kind === 'mega' && { megaOptions: availableMegaForms(game, foe, side) }) }
 }
 
-function activateGimmick(game: GameSave, foe: Wild, side: GimmickSide, selectedForm?: string): boolean {
+function activateGimmick(game: GameSave, foe: Wild, side: GimmickSide, selectedForm?: string, bag?: { zType?: string }): boolean {
   const kind = regionGimmick(game.regionId)
   if (!kind || !foe.currentHP || !game.player.currentHP || game.runtime.targetId !== foe.id) return false
   const arena = game.campaign.battle?.arena
-  if (arena && (arena.paused || arena.needsSwitch || arena.casts.some(cast => cast.side === side))) return false
+  if (arena && ((arena.paused && !bag) || arena.needsSwitch || arena.casts.some(cast => cast.side === side))) return false
   const encounter = game.runtime.gimmick ?? { targetId: foe.id }
   if (encounter.targetId !== foe.id || encounter[side]) return false
-  const used = makeGimmick(game, foe, side, kind, selectedForm)
+  const used = makeGimmick(game, foe, side, kind, selectedForm, bag?.zType)
   if (!used) return false
   const ally = side === 'player'
   const actor = ally ? game.player : foe
@@ -1300,7 +1485,7 @@ function handleArenaAction(game: GameSave, action: ArenaAction): boolean {
       const cast = beginArenaCast(arena, 'player', skill.move, arenaSpriteRefs(game, target))
       commitPoweredMove(game, target, 'player', skill.move)
       arena.skillLockMs = castDuration(cast)
-      game.runtime.cooldowns[skill.move.id] = game.runtime.clock + Math.max(620, skill.move.cooldownMs)
+      game.runtime.cooldowns[skill.move.id] = game.runtime.clock + focusedDelay(game, Math.max(620, skill.move.cooldownMs))
       return true
     }
   }
@@ -1317,7 +1502,7 @@ function updateTrainerArena(game: GameSave, elapsed: number): void {
     ? skills.find(move => move.id === cast.moveId) ?? moves[cast.moveId] : moves[cast.moveId], cast.gimmick)
   const committed = arena.casts.find(cast => cast.side === 'enemy')
   const selected = committed ? castMove(committed) : preparedMove(chooseTrainerMove(game, opponent, arena, skills), activePower(game, 'enemy', opponent))
-  const boost = game.runtime.boostUntil > game.runtime.clock ? 1.3 : 1
+  const boost = 1 + Math.max(game.runtime.boostUntil > game.runtime.clock ? 0.3 : 0, provisionBonus(game, 'speed'))
   const playerSpeed = Math.min(0.33, 0.23 + playerStats(game).speed / 1200) * boost
   const enemySpeed = Math.min(0.28, 0.17 + opponentStats(game, opponent).speed / 1100)
   const refs = arenaSpriteRefs(game, opponent)
@@ -1390,7 +1575,8 @@ function throwBall(game: GameSave, itemId: CaptureBallId): boolean {
   if (!wild || (game.inventory[itemId] ?? 0) <= 0) return false
 
   spendItem(game, itemId)
-  const captured = random(game) < captureChance(wild, itemId)
+  const captured = random(game) < captureChance(wild, itemId, game)
+  wild.battleActions = (wild.battleActions ?? 0) + 1
   const speciesName = species[wild.speciesId].nameKo
   game.runtime.captureIn = CAPTURE_MS
   faceTarget(game, wild)
@@ -1533,7 +1719,8 @@ function matchup(game: GameSave, wild: Wild, move: Move, playerTurn: boolean) {
   const defenderTera = playerTurn ? wild.teraType : partnerTera
   const defenderTypes = defenderTera ? [defenderTera] : playerTurn ? enemyTypes : playerTypes
   const factor = typeMultiplier(move.type, defenderTypes, playerTurn ? wild.abilityId : undefined)
-  return attackerTera ? factor * teraStabBonus(move.type, playerTurn ? playerTypes : enemyTypes, attackerTera) : factor
+  const supply = playerTurn ? 1 + provisionBonus(game, 'type', move.type) : 1 - Math.min(.9, provisionBonus(game, 'guardType', move.type))
+  return factor * supply * (attackerTera ? teraStabBonus(move.type, playerTurn ? playerTypes : enemyTypes, attackerTera) : 1)
 }
 
 function chooseMove(game: GameSave, wild: Wild): Move {
@@ -1783,7 +1970,8 @@ function sendTrainerOpponent(game: GameSave, trainer: KantoTrainer, position: Po
 }
 
 function practiceParty(game: GameSave): PracticeParty {
-  return { player: game.player, followers: game.followers, cooldowns: game.runtime.cooldowns, boostUntil: game.runtime.boostUntil }
+  return { player: game.player, followers: game.followers, inventory: game.inventory, clock: game.runtime.clock,
+    battleItem: activeBattleItem(game), itemReadyAt: game.runtime.itemReadyAt, heldHealReadyAt: game.runtime.heldHealReadyAt, cooldowns: game.runtime.cooldowns, boostUntil: game.runtime.boostUntil }
 }
 
 function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: PracticeParty): boolean {
@@ -1826,6 +2014,11 @@ function endPractice(game: GameSave, trainer: KantoTrainer, party: PracticeParty
   game.followers = party.followers
   game.runtime.cooldowns = party.cooldowns
   game.runtime.boostUntil = party.boostUntil
+  game.inventory = party.inventory
+  const practiceElapsed = Math.max(0, game.runtime.clock - party.clock)
+  game.runtime.battleItem = party.battleItem && { ...party.battleItem, until: party.battleItem.until + practiceElapsed }
+  game.runtime.itemReadyAt = party.itemReadyAt === undefined ? undefined : party.itemReadyAt + practiceElapsed
+  game.runtime.heldHealReadyAt = party.heldHealReadyAt === undefined ? undefined : party.heldHealReadyAt + practiceElapsed
   game.effects = []
   transition(game, 'IDLE', 700)
   const label = { win: '승리', loss: '패배', left: '종료' }[outcome]
@@ -1875,7 +2068,7 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
     game.campaign.leagueIndex = (game.campaign.leagueIndex ?? 0) + 1
   }
 
-  const earned = addExperience(game, experience)
+  const earned = addExperience(game, Math.round(experience * (1 + provisionBonus(game, 'experience'))))
   game.coins += coins
   restoreTrainerParty(game, battle.arena, true)
   restAfterChallenge(game)
@@ -1931,7 +2124,7 @@ function victory(game: GameSave, wild: Wild): void {
   game.wins++
   game.wild = game.wild.filter((entry) => entry.id !== wild.id)
   game.runtime.targetId = null
-  const amount = Math.round((13 + wild.level * 3) * (1 + (equipped(game)?.exp ?? 0)))
+  const amount = Math.round((13 + wild.level * 3) * (1 + (equipped(game)?.exp ?? 0) + provisionBonus(game, 'experience')))
   const coins = Math.max(1, Math.round(2 + wild.level / 2))
   const earned = addExperience(game, amount)
   const rewards = formatRewards(earned, coins)
@@ -1968,6 +2161,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
   if (!manual && activePower(game, 'player')?.remaining === 0) endPower(game, target, 'player')
   const selected = manual?.move ?? (playerTurn
     ? preparedMove(chooseMove(game, target), activePower(game, 'player', target)) : wildMove(target))
+  if (!manual) target.battleActions = (target.battleActions ?? 0) + 1
   if (!manual && playerTurn) commitPoweredMove(game, target, 'player', selected)
   const arena = game.campaign.battle?.arena
   const stats = playerStats(game)
@@ -1979,7 +2173,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
   faceTarget(game, target)
   const feedback = manual ? { castId: manual.cast.id, moveId: selected.id, position: manual.position } : {}
   if (playerTurn && !manual && selected.cooldownMs) {
-    game.runtime.cooldowns[selected.id] = game.runtime.clock + selected.cooldownMs
+    game.runtime.cooldowns[selected.id] = game.runtime.clock + focusedDelay(game, selected.cooldownMs)
   }
 
   const beam = manual?.cast.beam
@@ -2012,6 +2206,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
       beam.applied += damage
     } else damage = rollDamage()
     recipient.currentHP = Math.max(0, recipient.currentHP - damage)
+    if (!playerTurn && damage > 0) recoverFromHeldItem(game)
     addEffect(game, 'attack', source.position, 560, {
       target: { ...recipient.position }, moveId: selected.id, moveType: selected.type, text: selected.nameKo, actor, targetActor
     })
@@ -2027,6 +2222,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     }
   }
 
+  if (!playerTurn && player.currentHP === 0 && !target.trainerId) autoUseBattleItem(game, target)
   const trainer = target.trainerId ? currentTrainer(game) : undefined
   if (target.currentHP === 0) {
     if (trainer) trainerVictory(game, trainer, target)
@@ -2042,13 +2238,13 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     else defeat(game, target)
   } else {
     game.runtime.turn = playerTurn ? 'wild' : 'player'
-    game.runtime.stateIn = TURN_MS
+    game.runtime.stateIn = playerTurn ? TURN_MS : focusedDelay(game, TURN_MS)
   }
 }
 
 function collect(game: GameSave, drop: Drop): void {
   const count = game.inventory[drop.itemId] ?? 0
-  if (count || Object.keys(game.inventory).length < MAX_INVENTORY_SLOTS) {
+  if (count < Number.MAX_SAFE_INTEGER) {
     game.inventory[drop.itemId] = count + 1
     addLog(game, 'loot', items[drop.itemId].nameKo + ' ×1 획득')
     addEffect(game, 'pickup', drop.position, 1750, {
@@ -2056,7 +2252,7 @@ function collect(game: GameSave, drop: Drop): void {
       text: items[drop.itemId].nameKo + ' ×1 획득'
     })
   } else {
-    addLog(game, 'loot', '가방이 가득 차 전리품을 가져올 수 없어요.')
+    addLog(game, 'loot', '이 도구는 이미 최대 수량을 보유하고 있어요.')
   }
   game.runtime.drop = null
 }
@@ -2236,13 +2432,17 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
         transition(game, 'IDLE', 550)
       }
       break
-    case 'FAINT':
+    case 'FAINT': {
+      const id = game.settings.autoUseItem
+      if (game.autoBattle && id && shopItemEffect(id).kind === 'revive' &&
+          useBattleItem(game, { type: 'useBattleItem', itemId: id, expectedOwned: game.inventory[id] })) break
       if (runtime.stateIn <= 0) {
         player.position = home(bounds, game.settings.spriteScale)
         runtime.destination = null
         transition(game, 'RECOVER', RECOVERY_MS)
       }
       break
+    }
     case 'RECOVER':
       if (runtime.stateIn > 0) break
       if (player.currentHP >= playerStats(game).hp) transition(game, 'IDLE', 650)
@@ -2291,6 +2491,8 @@ function update(game: GameSave, elapsed: number, bounds: Bounds): void {
         if (!target.trainerId && ball && runtime.turn === 'player' && runtime.autoCaptureTargetId !== target.id &&
             target.currentHP <= target.maxHP * AUTO_CAPTURE_HP && throwBall(game, ball)) {
           runtime.autoCaptureTargetId = target.id
+        } else if (runtime.turn === 'player' && autoUseBattleItem(game, target)) {
+          runtime.stateIn = 800
         } else {
           attack(game, target)
         }
@@ -2370,6 +2572,9 @@ function validatedSettings(value: Record<string, unknown>): Partial<Settings> {
     if (typeof flag === 'boolean') next[key] = flag
   }
   if (value.autoCaptureBall === null || isCaptureBallId(value.autoCaptureBall)) next.autoCaptureBall = value.autoCaptureBall
+  if (value.autoUseItem === null || (typeof value.autoUseItem === 'string' && catalogById.has(value.autoUseItem) && !isCaptureBallId(value.autoUseItem))) {
+    next.autoUseItem = value.autoUseItem
+  }
   if (value.fps === 15 || value.fps === 30) next.fps = value.fps
   if (typeof value.spriteScale === 'number' && Number.isFinite(value.spriteScale)) next.spriteScale = clamp(value.spriteScale, 0.75, 2)
   if (typeof value.spawnRate === 'number' && Number.isFinite(value.spawnRate)) next.spawnRate = clamp(value.spawnRate, 0.5, 2)
@@ -2452,6 +2657,8 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     }
     case 'buyItem':
       return buyItem(game, action)
+    case 'useBattleItem':
+      return useBattleItem(game, action)
     case 'use-item':
       return !game.campaign.battle && typeof action.itemId === 'string' && hasKey(items, action.itemId) && consume(game, action.itemId)
     case 'take-box-item': {
@@ -2554,8 +2761,9 @@ function readActivity(value: unknown, fallback: Activity): Activity {
 function readInventory(value: unknown): Record<string, number> {
   if (!isRecord(value)) return {}
   const inventory: Record<string, number> = {}
-  for (const id of Object.keys(items)) {
-    const count = integer(value[id], 0, 0, maxStoredNumber)
+  for (const [id, quantity] of Object.entries(value)) {
+    if (!Object.hasOwn(items, id)) continue
+    const count = integer(quantity, 0, 0, maxStoredNumber)
     if (count) inventory[id] = count
   }
   return inventory
@@ -2591,7 +2799,8 @@ function readWild(value: unknown, clock: number, regionId: RegionId, location: K
     const maxHP = encounterMaxHP(entry.speciesId, level, formId)
     const currentHP = integer(entry.currentHP, maxHP, 1, maxHP)
     const expiresAt = finite(entry.expiresAt, clock + 90000, 0, clock + 90000)
-    results.push({ id, expiresAt, ...(formId && { formId }), speciesId: entry.speciesId, level, currentHP, maxHP, position, direction: entry.direction === -1 ? -1 : 1 })
+    const battleActions = integer(entry.battleActions, 0, 0, maxStoredNumber - 1000)
+    results.push({ id, expiresAt, ...(battleActions && { battleActions }), ...(formId && { formId }), speciesId: entry.speciesId, level, currentHP, maxHP, position, direction: entry.direction === -1 ? -1 : 1 })
   }
   return results
 }
@@ -2729,6 +2938,16 @@ function readRuntime(value: unknown, now: number): Runtime {
   runtime.pausedState = readActivity(value.pausedState, 'IDLE')
   if (runtime.pausedState === 'PAUSED' || runtime.pausedState === 'EVOLUTION') runtime.pausedState = 'IDLE'
   runtime.boostUntil = finite(value.boostUntil, 0, 0, runtime.clock + 120000)
+  if (isRecord(value.battleItem) && typeof value.battleItem.itemId === 'string' && catalogById.has(value.battleItem.itemId)) {
+    const id = value.battleItem.itemId
+    const effect = shopItemEffect(id)
+    const until = finite(value.battleItem.until, 0, 0, runtime.clock + (effect.durationMs ?? 30000))
+    if (until > runtime.clock && effect.kind !== 'heal' && effect.kind !== 'revive') runtime.battleItem = { itemId: id, until }
+  }
+  const ready = finite(value.itemReadyAt, 0, 0, runtime.clock + ITEM_USE_DELAY)
+  if (ready > runtime.clock) runtime.itemReadyAt = ready
+  const heldReady = finite(value.heldHealReadyAt, 0, 0, runtime.clock + 8000)
+  if (heldReady > runtime.clock) runtime.heldHealReadyAt = heldReady
   runtime.evolutionFrom = typeof value.evolutionFrom === 'string' && hasKey(species, value.evolutionFrom) ? value.evolutionFrom : null
   if (isRecord(value.drop) && typeof value.drop.itemId === 'string' && hasKey(items, value.drop.itemId)) {
     const position = readPosition(value.drop.position)
@@ -2933,8 +3152,10 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   if (!isRecord(snapshot) || !isRecord(value.runtime) || !Array.isArray(snapshot.followers) ||
       snapshot.followers.length >= MAX_PARTY_SIZE) return null
   const opening = readGame({ ...value, player: snapshot.player, followers: snapshot.followers, wild: [],
+    inventory: snapshot.inventory ?? value.inventory,
     campaign: { ...value.campaign, battle: null },
-    runtime: { ...value.runtime, targetId: null, cooldowns: snapshot.cooldowns, boostUntil: snapshot.boostUntil },
+    runtime: { ...value.runtime, clock: snapshot.clock ?? value.runtime.clock, targetId: null, cooldowns: snapshot.cooldowns,
+      boostUntil: snapshot.boostUntil, battleItem: snapshot.battleItem, itemReadyAt: snapshot.itemReadyAt, heldHealReadyAt: snapshot.heldHealReadyAt },
   }, expectedSlot)
   if (!opening) return null
   const live = readGame(value, expectedSlot, practiceParty(opening))
@@ -2943,7 +3164,8 @@ export function hydrateSave(value: unknown, expectedSlot: number): GameSave | nu
   const fighters = [live.player, ...live.followers]
   if (fighters.length !== identities.size || fighters.some(member => {
     const original = identities.get(member.instanceId)
-    return !original || original.speciesId !== member.speciesId || original.formId !== member.formId || original.level !== member.level
+    return !original || original.speciesId !== member.speciesId || original.formId !== member.formId ||
+      member.level < original.level || member.level > Math.max(original.level, levelCap(live))
   })) return opening
   return live
 }

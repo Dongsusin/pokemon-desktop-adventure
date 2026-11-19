@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { collectionGuide, collectionItemHint } from '../game/collectionGuide'
-import { canUseCollectionItem } from '../game/engine'
+import { collectionGuide } from '../game/collectionGuide'
 import type { ReactNode } from 'react'
 import { species, starterIds, wildIds } from '../game/catalog'
 import { isSpeciesMotionSupported } from '../game/motionEligibility'
@@ -14,6 +13,7 @@ import type { AdventureCommand, AdventureSnapshot } from '../preload/contracts'
 import { ItemSprite, Pokemon, pokemonName, statNames, types, useAdventure } from './shared'
 import { Party } from './Party'
 import { FriendlyShop } from './FriendlyShop'
+import { InventoryBag } from './InventoryBag'
 import { TrainerArena, BattleResult, type TrainerResult } from './TrainerArena'
 import { RegionMap } from './RegionMap'
 import { Campaign, TrainerBattleCard, type ChallengeKind } from './Campaign'
@@ -24,7 +24,6 @@ const typeClasses = ['grass', 'fire', 'water']
 const generationLabels = ['관동', '성도', '호연', '신오', '하나', '칼로스', '알로라', '가라르', '팔데아']
 const tabs = ['상태', '지도', '도전', '포켓몬', '파티', '도감', '가방', '전투 기록', '설정'] as const
 const modes = ['대기', '걷기', '공격'] as const
-const rarityLabels = { common: '일반', uncommon: '고급', rare: '희귀', epic: '영웅' }
 const encounterOptions = { cautious: '안전 우선', balanced: '균형', bold: '적극 탐험' }
 type Command = (action: AdventureCommand) => void
 const dexPageSize = 36
@@ -187,6 +186,9 @@ function History({ game, limit }: { game: GameSave; limit?: number }) {
 }
 
 function CapturePanel({ game, send }: { game: GameSave; send: Command }) {
+  const [preferred, setPreferred] = useState('')
+  const owned = captureBallIds.filter(id => (game.inventory[id] ?? 0) > 0)
+  const selected = owned.find(id => id === preferred) ?? owned[0]
   const target = game.wild.find(mon => mon.id === game.runtime.targetId)
   if (!target || target.trainerId) return null
 
@@ -199,15 +201,17 @@ function CapturePanel({ game, send }: { game: GameSave; send: Command }) {
         <Meter label="HP" value={target.currentHP} max={target.maxHP} />
       </div>
     </div>
+    {owned.length > 3 && <label className="select-field"><strong>던질 볼</strong><select value={selected} onChange={e => setPreferred(e.target.value)}>
+      {owned.map(id => <option key={id} value={id}>{items[id].nameKo} ×{game.inventory[id]}</option>)}</select></label>}
     <div className="capture-options">
-      {captureBallIds.map(id => <button key={id} className="small-button capture-option"
+      {(owned.length > 3 ? [selected] : owned).map(id => <button key={id} className="small-button capture-option"
         disabled={!canThrowBall(game, id)} aria-label={items[id].nameKo + ' 던지기'}
         onClick={() => send({ type: 'throwBall', itemId: id })}>
         <ItemSprite id={id} />
         <span><strong>{items[id].nameKo}</strong><small>×{game.inventory[id] ?? 0}</small></span>
       </button>)}
     </div>
-    <p className="subtext">상대 HP가 낮을수록 포획 확률이 높아집니다.</p>
+    <p className="subtext">{owned.length ? '상대 HP가 낮을수록 포획 확률이 높아집니다.' : '보유한 볼이 없습니다. 마을의 프렌들리숍에서 구입하세요.'}</p>
   </Card>
 }
 
@@ -344,33 +348,6 @@ function Pokedex({ game }: { game: GameSave }) {
   </Card>
 }
 
-function Bag({ game, send }: { game: GameSave; send: Command }) {
-  const inventory = Object.entries(game.inventory).filter(([id, count]) => count > 0 && items[id])
-  return <Card title={'가방 · ' + inventory.length + ' / 100'}>
-    {inventory.length ? <ul className="detail-list bag-list">{inventory.map(([id, count]) => {
-      const item = items[id]
-      const ball = captureBallIds.find(ballId => ballId === id)
-      const collection = item.kind === 'fossil' || item.kind === 'evolution'
-      const equipped = game.player.heldItemId === id
-      const inUse = item.kind === 'equipment' && availableEquipment(game, id) <= 0
-      return <li key={id}>
-        <span className={'item-icon ' + item.rarity}><ItemSprite id={id} /></span>
-        <div><strong>{item.nameKo} <span>×{count}</span></strong><small>{collection ? collectionItemHint(id) : item.description}</small></div>
-        <span className={'rarity ' + item.rarity}>{rarityLabels[item.rarity]}</span>
-        {collection && <button className="small-button" disabled={!canUseCollectionItem(game, id)}
-          onClick={() => send({ type: 'useItem', itemId: id })}>{item.kind === 'fossil' ? '복원' : '진화'}</button>}
-        {ball && <button className="small-button" disabled={!canThrowBall(game, ball)}
-          aria-label={item.nameKo + ' 던지기'} onClick={() => send({ type: 'throwBall', itemId: ball })}>던지기</button>}
-        {(item.kind === 'recovery' || item.kind === 'boost' || item.kind === 'equipment') &&
-          <button className="small-button" disabled={equipped || inUse} onClick={() => send(item.kind === 'equipment'
-            ? { type: 'equip', itemId: id } : { type: 'useItem', itemId: id })}>
-            {equipped ? '장착 중' : inUse ? '동료 사용 중' : item.kind === 'equipment' ? '장착' : '사용'}
-          </button>}
-      </li>
-    })}</ul> : <p className="empty">사냥에서 얻은 아이템이 여기에 쌓입니다.</p>}
-  </Card>
-}
-
 function SettingsPane({ game, snapshot, send }: { game: GameSave; snapshot: AdventureSnapshot; send: Command }) {
   const settings = game.settings
   const change = (update: Partial<Settings>) => send({ type: 'settings', settings: update })
@@ -476,7 +453,7 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     {tab === '포켓몬' && <Partner game={game} send={send} />}
     {tab === '파티' && <Party game={game} busy={busy} send={send} />}
     {tab === '도감' && <Pokedex game={game} />}
-    {tab === '가방' && <div className="dashboard-stack"><FriendlyShop game={game} busy={busy} buy={send} /><Bag game={game} send={send} /></div>}
+    {tab === '가방' && <div className="dashboard-stack"><FriendlyShop game={game} busy={busy} buy={send} /><InventoryBag game={game} busy={busy} send={send} /></div>}
     {tab === '전투 기록' && <Card title="전투 기록"><History game={game} /></Card>}
     {tab === '설정' && <SettingsPane game={game} snapshot={snapshot} send={send} />}
   </>
@@ -495,6 +472,7 @@ export function Control() {
     setMessage('')
     void window.adventure.dispatch(action).then(next => {
       setResponse(next)
+      if (action.type === 'useBattleItem' && !next.warning) setMessage(items[action.itemId].nameKo + ' 사용')
       if (action.type === 'save' && !next.warning) setMessage('저장했습니다.')
       if (action.type === 'buyItem' && !next.warning) setMessage(items[action.itemId].nameKo + ' ' + action.quantity + '개를 가방에 담았습니다.')
     }).catch(() => setMessage('변경 사항을 적용하지 못했습니다.')).finally(() => setBusy(false))

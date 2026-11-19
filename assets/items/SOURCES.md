@@ -39,3 +39,9 @@
 아이템 이미지의 저작권은 The Pokémon Company 등 원작 권리자에게 있습니다. [PokéAPI 저작권 안내](https://github.com/PokeAPI/sprites/blob/c0542f7c51215d9672439012838c99f520596cbd/LICENCE.txt)
 
 `guardCharm`, `explorerBadge`, `swiftBerry`, `trailStone` 등의 내부 이름은 이전 가방 데이터를 읽기 위해 사용합니다.
+
+## 확장 프렌들리숍
+
+상품 2,317개에는 모두 오프라인 PNG를 연결했습니다. 2,200개는 해당 도구에 대응하는 원작 그림(같은 그림을 공유하는 기술머신·폼 포함)을 사용합니다. 전용 그림을 확인하지 못한 117개는 해당 분류의 아이콘을 사용하며, 그림 위에 마우스를 올리면 공용 아이콘이라고 표시합니다. 기존 가방 이미지 경로와 도구 ID도 유지합니다. [PokéAPI 가방 그림](https://github.com/PokeAPI/sprites/tree/c0542f7c51215d9672439012838c99f520596cbd/sprites/items) · [히스이 도구 그림](https://www.serebii.net/legendsarceus/newitems.shtml) · [신오 석판](https://www.serebii.net/brilliantdiamondshiningpearl/newitems.shtml) · [미르시티 도구](https://www.dittobase.com/legends-za/items)
+
+프로젝트 루트에서 `node tools/build-shop-icons.mjs`를 실행하면 도구별 경로와 PNG를 재생성합니다. 가져온 원본의 Git 블롭 ID와 추가 자료의 SHA-256을 검사합니다. [품목별 추가 자료와 해시](../../tools/data/shop-icon-supplement.json) · [메가스톤·전용 Z크리스털의 대응 자료](https://github.com/smogon/pokemon-showdown/blob/5b88c476113d51a939bddbcd00b5cd182a5d8058/data/items.ts)

@@ -2,10 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { createGame, dispatch, hasShop, hydrateSave, shopStock, type GameSave, type ShopPurchase } from '../src/game/engine'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
 import { parseCommand } from '../src/main/commands'
+import { catalogItems } from '../src/game/shopCatalog'
 
 function customer() {
   const game = createGame('squirtle', 1, { width: 1280, height: 720 })
-  game.coins = 300
+  game.coins = 100000
   return game
 }
 
@@ -16,17 +17,20 @@ function order(game: GameSave, itemId: string, quantity = 1): ShopPurchase {
 describe('Friendly Shop', () => {
   it('buys multiple items together, rejects a repeated checkout and reloads the receipt', () => {
     const game = customer()
+    const ballCost = shopStock.find(entry => entry.itemId === 'pokeball')!.price * 3
+    const potionCost = shopStock.find(entry => entry.itemId === 'potion')!.price * 8
+    game.coins = ballCost + potionCost
     const receipt = order(game, 'pokeball', 3)
     expect(parseCommand(receipt)).toEqual(receipt)
     expect(dispatch(game, receipt)).toBe(true)
     expect(game.inventory.pokeball).toBe(receipt.expectedOwned + 3)
-    expect(game.coins).toBe(240)
+    expect(game.coins).toBe(potionCost)
     expect(game.history[0].text).toContain('몬스터볼 3개 구매')
     const saved = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
     expect(saved.inventory).toEqual(game.inventory)
     expect(saved.history[0]).toEqual(game.history[0])
     expect(dispatch(saved, receipt)).toBe(false)
-    expect(saved.coins).toBe(240)
+    expect(saved.coins).toBe(potionCost)
     expect(saved.inventory.pokeball).toBe(receipt.expectedOwned + 3)
     expect(dispatch(saved, order(saved, 'potion', 8))).toBe(true)
     expect(saved.coins).toBe(0)
@@ -63,7 +67,7 @@ describe('Friendly Shop', () => {
       expect(parseCommand(receipt)).toBeNull()
       expect(dispatch(game, receipt)).toBe(false)
     }
-    for (const itemId of ['__proto__', 'oldAmber', 'linkingCord', 'muscleBand']) {
+    for (const itemId of ['__proto__', 'constructor', 'not-a-real-item']) {
       expect(parseCommand(order(game, itemId))).toBeNull()
       expect(dispatch(game, order(game, itemId))).toBe(false)
     }
@@ -73,7 +77,24 @@ describe('Friendly Shop', () => {
     game.inventory.pokeball = Number.MAX_SAFE_INTEGER
     expect(dispatch(game, order(game, 'pokeball'))).toBe(false)
     expect(game.coins).toBe(before.coins)
-    expect(shopStock).toHaveLength(5)
+    expect(shopStock).toHaveLength(catalogItems.length)
+  })
+
+  it('sells and restores the entire catalog in a single bag, including fossils and equipment', () => {
+    const game = customer()
+    game.coins = Number.MAX_SAFE_INTEGER
+    game.campaign.badges = worldRegions.kanto.gymTrainers.map(gym => gym.id)
+    for (const row of catalogItems) {
+      const owned = game.inventory[row.id] ?? 0
+      const before = game.coins
+      const buy = order(game, row.id)
+      expect(parseCommand(buy)).toEqual(buy)
+      expect(dispatch(game, buy), row.id).toBe(true)
+      expect(game.coins, row.id).toBe(before - row.price)
+      expect(game.inventory[row.id], row.id).toBe(owned + 1)
+    }
+    expect(Object.keys(game.inventory).length).toBe(catalogItems.length)
+    expect(hydrateSave(game, 1)?.inventory).toEqual(game.inventory)
   })
 
   it('respects local badge resets and locks purchases during an active gym challenge', () => {

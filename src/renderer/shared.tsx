@@ -3,6 +3,7 @@ import { pokemonForms, formLabel } from '../game/forms'
 import { species } from '../game/catalog'
 import { megaForms } from '../game/battleGimmicks'
 import { items } from '../game/engine'
+import shopIcons from './shop-item-icons.json'
 import type { AdventureSnapshot } from '../preload/contracts'
 
 export const types: Record<string, string> = {
@@ -41,8 +42,12 @@ export function Pokemon({ id, formId, className = '', label = false }: { id: str
   return <img className={'pokemon-sprite ' + className} src={spriteUrl(spriteId)} alt={label ? name : ''} draggable={false} onError={() => setFailedId(spriteId)} />
 }
 
+const iconFiles: Readonly<Record<string, string>> = shopIcons.icons
+const sharedIcons = new Set<string>(shopIcons.shared)
+
 export function itemSpriteUrl(id: string) {
-  return new URL('items/' + encodeURIComponent(id) + '.png', document.baseURI).href
+  const file = Object.hasOwn(iconFiles, id) ? iconFiles[id] : encodeURIComponent(id)
+  return new URL('items/' + file + '.png', document.baseURI).href
 }
 
 export function ItemSprite({ id, className = '', label = false }: { id: string; className?: string; label?: boolean }) {
@@ -53,7 +58,7 @@ export function ItemSprite({ id, className = '', label = false }: { id: string; 
       role={label ? 'img' : undefined} aria-label={label ? item?.nameKo : undefined}>{item?.symbol || '•'}</span>
   }
   return <img className={'item-sprite ' + className} src={itemSpriteUrl(id)}
-    alt={label ? item.nameKo : ''} draggable={false} onError={() => setFailedId(id)} />
+    alt={label ? item.nameKo : ''} title={sharedIcons.has(id) ? '이 분류의 공용 아이콘' : undefined} draggable={false} onError={() => setFailedId(id)} />
 }
 
 export function useAdventure() {

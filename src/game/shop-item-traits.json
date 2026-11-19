@@ -1,0 +1,357 @@
+{
+  "stones": {
+    "abomasite": [
+      "abomasnow-mega"
+    ],
+    "absolite": [
+      "absol-mega"
+    ],
+    "absolitez": [
+      "absol-mega-z"
+    ],
+    "aerodactylite": [
+      "aerodactyl-mega"
+    ],
+    "aggronite": [
+      "aggron-mega"
+    ],
+    "alakazite": [
+      "alakazam-mega"
+    ],
+    "altarianite": [
+      "altaria-mega"
+    ],
+    "ampharosite": [
+      "ampharos-mega"
+    ],
+    "audinite": [
+      "audino-mega"
+    ],
+    "banettite": [
+      "banette-mega"
+    ],
+    "barbaracite": [
+      "barbaracle-mega"
+    ],
+    "baxcalibrite": [
+      "baxcalibur-mega"
+    ],
+    "beedrillite": [
+      "beedrill-mega"
+    ],
+    "blastoisinite": [
+      "blastoise-mega"
+    ],
+    "blazikenite": [
+      "blaziken-mega"
+    ],
+    "cameruptite": [
+      "camerupt-mega"
+    ],
+    "chandelurite": [
+      "chandelure-mega"
+    ],
+    "charizarditex": [
+      "charizard-mega-x"
+    ],
+    "charizarditey": [
+      "charizard-mega-y"
+    ],
+    "chesnaughtite": [
+      "chesnaught-mega"
+    ],
+    "chimechite": [
+      "chimecho-mega"
+    ],
+    "clefablite": [
+      "clefable-mega"
+    ],
+    "crabominite": [
+      "crabominable-mega"
+    ],
+    "darkranite": [
+      "darkrai-mega"
+    ],
+    "delphoxite": [
+      "delphox-mega"
+    ],
+    "diancite": [
+      "diancie-mega"
+    ],
+    "dragalgite": [
+      "dragalge-mega"
+    ],
+    "dragoninite": [
+      "dragonite-mega"
+    ],
+    "drampanite": [
+      "drampa-mega"
+    ],
+    "eelektrossite": [
+      "eelektross-mega"
+    ],
+    "emboarite": [
+      "emboar-mega"
+    ],
+    "excadrite": [
+      "excadrill-mega"
+    ],
+    "falinksite": [
+      "falinks-mega"
+    ],
+    "feraligite": [
+      "feraligatr-mega"
+    ],
+    "floettite": [
+      "floette-mega"
+    ],
+    "froslassite": [
+      "froslass-mega"
+    ],
+    "galladite": [
+      "gallade-mega"
+    ],
+    "garchompite": [
+      "garchomp-mega"
+    ],
+    "garchompitez": [
+      "garchomp-mega-z"
+    ],
+    "gardevoirite": [
+      "gardevoir-mega"
+    ],
+    "gengarite": [
+      "gengar-mega"
+    ],
+    "glalitite": [
+      "glalie-mega"
+    ],
+    "glimmoranite": [
+      "glimmora-mega"
+    ],
+    "golisopite": [
+      "golisopod-mega"
+    ],
+    "golurkite": [
+      "golurk-mega"
+    ],
+    "greninjite": [
+      "greninja-mega"
+    ],
+    "gyaradosite": [
+      "gyarados-mega"
+    ],
+    "hawluchanite": [
+      "hawlucha-mega"
+    ],
+    "heatranite": [
+      "heatran-mega"
+    ],
+    "heracronite": [
+      "heracross-mega"
+    ],
+    "houndoominite": [
+      "houndoom-mega"
+    ],
+    "kangaskhanite": [
+      "kangaskhan-mega"
+    ],
+    "latiasite": [
+      "latias-mega"
+    ],
+    "latiosite": [
+      "latios-mega"
+    ],
+    "lopunnite": [
+      "lopunny-mega"
+    ],
+    "lucarionite": [
+      "lucario-mega"
+    ],
+    "lucarionitez": [
+      "lucario-mega-z"
+    ],
+    "magearnite": [
+      "magearna-mega",
+      "magearna-original-mega"
+    ],
+    "malamarite": [
+      "malamar-mega"
+    ],
+    "manectite": [
+      "manectric-mega"
+    ],
+    "mawilite": [
+      "mawile-mega"
+    ],
+    "medichamite": [
+      "medicham-mega"
+    ],
+    "meganiumite": [
+      "meganium-mega"
+    ],
+    "meowsticite": [
+      "meowstic-m-mega",
+      "meowstic-f-mega"
+    ],
+    "metagrossite": [
+      "metagross-mega"
+    ],
+    "mewtwonitex": [
+      "mewtwo-mega-x"
+    ],
+    "mewtwonitey": [
+      "mewtwo-mega-y"
+    ],
+    "pidgeotite": [
+      "pidgeot-mega"
+    ],
+    "pinsirite": [
+      "pinsir-mega"
+    ],
+    "pyroarite": [
+      "pyroar-mega"
+    ],
+    "raichunitex": [
+      "raichu-mega-x"
+    ],
+    "raichunitey": [
+      "raichu-mega-y"
+    ],
+    "sablenite": [
+      "sableye-mega"
+    ],
+    "salamencite": [
+      "salamence-mega"
+    ],
+    "sceptilite": [
+      "sceptile-mega"
+    ],
+    "scizorite": [
+      "scizor-mega"
+    ],
+    "scolipite": [
+      "scolipede-mega"
+    ],
+    "scovillainite": [
+      "scovillain-mega"
+    ],
+    "scraftinite": [
+      "scrafty-mega"
+    ],
+    "sharpedonite": [
+      "sharpedo-mega"
+    ],
+    "skarmorite": [
+      "skarmory-mega"
+    ],
+    "slowbronite": [
+      "slowbro-mega"
+    ],
+    "staraptite": [
+      "staraptor-mega"
+    ],
+    "starminite": [
+      "starmie-mega"
+    ],
+    "steelixite": [
+      "steelix-mega"
+    ],
+    "swampertite": [
+      "swampert-mega"
+    ],
+    "tatsugirinite": [
+      "tatsugiri-mega",
+      "tatsugiri-droopy-mega",
+      "tatsugiri-stretchy-mega"
+    ],
+    "tyranitarite": [
+      "tyranitar-mega"
+    ],
+    "venusaurite": [
+      "venusaur-mega"
+    ],
+    "victreebelite": [
+      "victreebel-mega"
+    ],
+    "zeraorite": [
+      "zeraora-mega"
+    ],
+    "zygardite": [
+      "zygarde-mega"
+    ],
+    "crucibellite": [
+      "crucibelle-mega"
+    ]
+  },
+  "zUsers": {
+    "aloraichiumz": [
+      "raichu-alola"
+    ],
+    "decidiumz": [
+      "decidueye"
+    ],
+    "eeviumz": [
+      "eevee"
+    ],
+    "inciniumz": [
+      "incineroar"
+    ],
+    "kommoniumz": [
+      "kommo-o",
+      "kommo-o-totem"
+    ],
+    "lunaliumz": [
+      "lunala",
+      "necrozma-dawn-wings"
+    ],
+    "lycaniumz": [
+      "lycanroc",
+      "lycanroc-midnight",
+      "lycanroc-dusk"
+    ],
+    "marshadiumz": [
+      "marshadow"
+    ],
+    "mewniumz": [
+      "mew"
+    ],
+    "mimikiumz": [
+      "mimikyu",
+      "mimikyu-busted",
+      "mimikyu-totem",
+      "mimikyu-busted-totem"
+    ],
+    "pikaniumz": [
+      "pikachu"
+    ],
+    "pikashuniumz": [
+      "pikachu-original",
+      "pikachu-hoenn",
+      "pikachu-sinnoh",
+      "pikachu-unova",
+      "pikachu-kalos",
+      "pikachu-alola",
+      "pikachu-partner"
+    ],
+    "primariumz": [
+      "primarina"
+    ],
+    "snorliumz": [
+      "snorlax"
+    ],
+    "solganiumz": [
+      "solgaleo",
+      "necrozma-dusk-mane"
+    ],
+    "tapuniumz": [
+      "tapu-koko",
+      "tapu-lele",
+      "tapu-bulu",
+      "tapu-fini"
+    ],
+    "ultranecroziumz": [
+      "necrozma-ultra"
+    ]
+  }
+}

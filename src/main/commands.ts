@@ -1,4 +1,4 @@
-import { captureBallIds, items, MAX_PARTY_SIZE, shopStock, type Settings } from '../game/engine'
+import { captureBallIds, items, MAX_PARTY_SIZE, shopOffer, type Settings } from '../game/engine'
 import { isSlot, type AdventureCommand, type ArenaInput } from '../preload/contracts'
 import { isRegionId, worldLocationById } from '../game/regions/world'
 
@@ -19,6 +19,9 @@ function parseSettings(value: unknown): Partial<Settings> | null {
   if (value.fps === 15 || value.fps === 30) settings.fps = value.fps
   const autoBall = captureBallIds.find(id => id === value.autoCaptureBall)
   if (value.autoCaptureBall === null || autoBall) settings.autoCaptureBall = autoBall ?? null
+  if (value.autoUseItem === null || (knownItem(value.autoUseItem) && !captureBallIds.includes(value.autoUseItem))) {
+    settings.autoUseItem = value.autoUseItem
+  }
   if (typeof value.spriteScale === 'number' && Number.isFinite(value.spriteScale) && value.spriteScale >= 0.75 && value.spriteScale <= 2) {
     settings.spriteScale = value.spriteScale
   }
@@ -97,11 +100,16 @@ export function parseCommand(value: unknown): AdventureCommand | null {
     case 'equip':
       return value.itemId === null || knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null
     case 'buyItem': {
-      const offer = shopStock.find(entry => entry.itemId === value.itemId)
+      const offer = typeof value.itemId === 'string' ? shopOffer(value.itemId) : undefined
       const { quantity, expectedOwned } = value
       return offer && typeof quantity === 'number' && Number.isSafeInteger(quantity) && quantity > 0 &&
         typeof expectedOwned === 'number' && Number.isSafeInteger(expectedOwned) && expectedOwned >= 0
         ? { type: 'buyItem', itemId: offer.itemId, quantity, expectedOwned } : null
+    }
+    case 'useBattleItem': {
+      const owned = value.expectedOwned
+      return knownItem(value.itemId) && typeof owned === 'number' && Number.isSafeInteger(owned) && owned > 0
+        ? { type: value.type, itemId: value.itemId, expectedOwned: owned } : null
     }
     case 'useItem':
       return knownItem(value.itemId) ? { type: value.type, itemId: value.itemId } : null

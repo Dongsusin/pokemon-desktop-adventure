@@ -13,6 +13,8 @@ import { useMoveSounds } from './useMoveSounds'
 import { arenaHeightRatio } from '../game/arenaMoves'
 import { battleGroundUrl } from './battleGround'
 import { GimmickControl } from './GimmickControl'
+import { ArenaBag } from './ArenaBag'
+import { ActiveBattleItem } from './InventoryBag'
 import './trainer-arena.css'
 
 type Input = Extract<GameAction, { type: `arena-${string}` }>
@@ -86,6 +88,8 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const [rangeSlot, setRangeSlot] = useState<number | null>(null)
   const [hint, setHint] = useState('')
   const [confirmExit, setConfirmExit] = useState(false)
+  const [bagOpen, setBagOpen] = useState(false)
+  const resumeAfterBag = useRef(false)
   const keys = useRef(new Set<string>())
   const sent = useRef<Position>({ x: 0, y: 0 })
   const surface = useRef<HTMLDivElement>(null)
@@ -118,6 +122,16 @@ export function TrainerArena({ game }: { game: GameSave }) {
     setConfirmExit(false)
     setHint('')
     input({ type: 'arena-pause', paused })
+  }
+  function openBag() {
+    if (bagOpen) return
+    resumeAfterBag.current = !arena.paused
+    if (resumeAfterBag.current) pause(true)
+    setBagOpen(true)
+  }
+  function closeBag() {
+    setBagOpen(false)
+    if (resumeAfterBag.current) pause(false)
   }
   function walkKeys() {
     let x = 0, y = 0
@@ -158,6 +172,10 @@ export function TrainerArena({ game }: { game: GameSave }) {
     down: (e) => {
       if (e.altKey || e.ctrlKey || e.metaKey || e.isComposing) return
       const code = e.code
+      if (bagOpen) return
+      if (code === 'KeyB' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement)) {
+        e.preventDefault(); if (!e.repeat) openBag(); return
+      }
       if (e.target instanceof HTMLSelectElement && code !== 'KeyF') return
       if (code === 'Escape') { e.preventDefault(); if (!e.repeat) pause(!arena.paused); return }
       if (Object.hasOwn(arrows, code)) {
@@ -180,7 +198,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
     up: (e) => {
       if (keys.current.delete(e.code)) { e.preventDefault(); walkKeys() }
     },
-    suspend: () => { stop(); if (!arena.paused) pause(true) }
+    suspend: () => { resumeAfterBag.current = false; stop(); if (!arena.paused) pause(true) }
   }
   useEffect(() => {
     mounted.current = true
@@ -325,6 +343,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
             <kbd>Shift</kbd><strong>회피 {arena.dodgeCharges}/2</strong>
             {arena.dodgeCharges < 2 && <small>{duration(arena.dodgeCooldownMs)}</small>}
           </button>
+          <button className="ring-bag-button" aria-label="배틀 가방 열기" aria-haspopup="dialog" aria-keyshortcuts="B" onClick={openBag}>가방 <kbd>B</kbd></button>
           <button className="ring-pause-button" onClick={() => pause(!arena.paused)}>{arena.paused ? '재개' : '일시정지'} <kbd>Esc</kbd></button>
         </div>
       </div>
@@ -335,6 +354,9 @@ export function TrainerArena({ game }: { game: GameSave }) {
       : arena.maxClash ? '다이맥스기 맞대결 중' : arena.beamClash ? '광선 맞대결 중 · 방향을 틀거나 회피해 빠져나올 수 있습니다.'
       : feedback?.text || '방향키·Alt 클릭 이동 / Q W E R 기술 / 좌·우 클릭 Q·W / Shift·Space 회피')}</div>
     {special && <p className="ring-special">{special}</p>}
+    <ActiveBattleItem game={game}/>
+    {bagOpen && <ArenaBag game={game} close={closeBag} resume={resumeAfterBag.current}/>}
+
   </section>
 }
 
