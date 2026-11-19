@@ -1,0 +1,17 @@
+.player-trainer-sprite { display: block; object-fit: contain; image-rendering: pixelated; user-select: none; pointer-events: none; }
+.trainer-choices { margin: 0 0 14px; border: 0; padding: 0; min-width: 0; max-width: 560px; }
+.trainer-choices legend { padding: 0; margin-bottom: 7px; font-size: 13px; font-weight: 750; color: var(--ink); }
+.trainer-choices > div { display: flex; gap: 8px; }
+.trainer-choice { position: relative; display: flex; align-items: center; flex: 1; gap: 6px; min-width: 0; padding: 4px 8px;
+  border: 1px solid #cbd3c9; border-radius: 8px; cursor: pointer; background: #edf3ec; color: #344b40; }
+.trainer-choice.female { background: #f6ebe4; }
+.trainer-choice .player-trainer-sprite { flex: none; width: 96px; height: 96px; }
+@media (max-width: 700px) { .trainer-choice .player-trainer-sprite { width: 76px; height: 76px; } }
+.trainer-choice input { accent-color: #23664c; width: 15px; height: 15px; flex: none; margin: 0; }
+.trainer-choice strong { font-size: 12px; }
+.trainer-choice:has(input:checked) { border-color: #28654e; box-shadow: inset 0 0 0 1px #28654e; }
+.trainer-choice:has(input:focus-visible) { outline: 2px solid #a87124; outline-offset: 2px; }
+.trainer-migration { width: min(100%, 540px); margin: 32px auto; }
+.trainer-migration > .primary { margin-top: 5px; }
+.ring-player-trainer { position: absolute; z-index: 1; height: auto; transform: translate(-50%, -92%); }
+.field-trainer { position: absolute; height: auto; }

@@ -1,4 +1,6 @@
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
+import type { TrainerAvatar } from '../game/trainerAvatar'
+import { PlayerTrainerSprite } from './PlayerTrainer'
 
 const namedSprites = new Set([
   'aaron', 'acerola', 'agatha', 'bea', 'bede', 'bertha', 'blaine', 'blue', 'brassius', 'brawly', 'brock', 'bruno',
@@ -22,11 +24,14 @@ function TrainerFigure({ image, x, y }: { image: string; x: number; y: number })
       pointerEvents: 'none', imageRendering: 'pixelated' }}/>
 }
 
-export function ArenaTrainers({ trainer }: { trainer: KantoTrainer }) {
+export function ArenaTrainers({ trainer, avatar, commanding, cameraLeft, zoom }: {
+  trainer: KantoTrainer; avatar: TrainerAvatar | null; commanding: boolean; cameraLeft: number; zoom: number
+}) {
   const name = trainer.id.replace(/^(johto|hoenn|sinnoh|unova|kalos|alola|galar|paldea)-/, '').replace(/-(cup|elite)$/, '')
   const rival = namedSprites.has(name) ? name : femaleFallback.has(name) ? 'ace-f' : 'ace-m'
-  return <div aria-hidden="true" style={{ pointerEvents: 'none' }}>
-    <TrainerFigure image="player" x={2.2} y={51}/>
+  return <div style={{ pointerEvents: 'none' }}>
+    {avatar && <PlayerTrainerSprite avatar={avatar} pose={commanding ? 'command' : 'idle'} className="ring-player-trainer"
+      style={{ left: (cameraLeft + .034 / zoom) * 100 + '%', top: '52%', width: 6.7 / zoom + '%' }} />}
     {trainer.trialKind !== 'totem' && (name === 'tate-liza'
       ? <><TrainerFigure image="tate" x={97.8} y={48}/><TrainerFigure image="liza" x={97.8} y={55}/></>
       : <TrainerFigure image={rival} x={97.8} y={51}/>)}

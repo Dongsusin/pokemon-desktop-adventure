@@ -1,6 +1,6 @@
 # 전장 사이드라인 트레이너
 
-[포켓몬 레조넌스 v3.0.0 Windows 배포본](https://reso.jhcloud.kr/)의 `assets/Graphics/Characters`에 수록된 Another Red · Pokémon Essentials 필드 캐릭터 시트를 사용했습니다. 네 방향 시트에서 제자리 프레임을 자르고 투명 여백만 제거했습니다. 주인공은 오른쪽, 상대 트레이너는 왼쪽을 봅니다. 관동 주인공은 Boying이 팩의 필드 도트를 재채색한 복장입니다. 원작 게임 캐릭터·디자인은 Nintendo, Creatures Inc., GAME FREAK의 작품입니다. 도트의 커뮤니티 기여자는 배포본의 [Another Red 원출처 크레딧](SOURCE-CREDITS.txt)에 기재되어 있습니다. 비영리 팬게임용입니다.
+[포켓몬 레조넌스 v3.0.0 Windows 배포본](https://reso.jhcloud.kr/)의 `assets/Graphics/Characters`에 수록된 Another Red · Pokémon Essentials 필드 캐릭터 시트를 사용했습니다. 네 방향 시트에서 제자리 프레임을 자르고 투명 여백만 제거했습니다. 이 시트는 상대 트레이너에 사용하며 상대는 왼쪽을 봅니다. 플레이어는 [새로 그린 남성·여성 트레이너](../../trainers/player)의 도트를 사용합니다. 원작 게임 캐릭터·디자인은 Nintendo, Creatures Inc., GAME FREAK의 작품입니다. 도트의 커뮤니티 기여자는 배포본의 [Another Red 원출처 크레딧](SOURCE-CREDITS.txt)에 기재되어 있습니다. 비영리 팬게임용입니다.
 
 | 도트 파일 | 출처 시트 |
 | --- | --- |
@@ -81,7 +81,6 @@
 | opal.png | trainer_LEADER_Opal2.png |
 | phoebe.png | trainer_PHOEBE.png |
 | piers.png | trainer_LEADER_Fiers2.png |
-| player.png | trainer_RES2_PLAYER_KANTO_M.png |
 | poppy.png | trainer_POPPY.png |
 | raihan.png | trainer_RAIHAN.png |
 | ramos.png | trainer_RAMOS.png |

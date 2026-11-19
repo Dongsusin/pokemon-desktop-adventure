@@ -1,3 +1,4 @@
+import { isTrainerAvatar, type TrainerAvatar } from './trainerAvatar'
 import { catalogItems } from './shopCatalog'
 import { shopItemEffect, type ShopItemEffect } from './shopItemEffects'
 import { species, starterIds, wildIds } from './catalog'
@@ -350,11 +351,12 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 17
+const SAVE_SCHEMA_VERSION = 18
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
 export interface GameSave {
+  trainerAvatar: TrainerAvatar | null
   schemaVersion: typeof SAVE_SCHEMA_VERSION
   selectedSlot: number
   regionId: RegionId
@@ -399,6 +401,7 @@ export type ShopPurchase = {
 export type BattleItemUse = { type: 'useBattleItem'; itemId: string; expectedOwned: number }
 
 export type GameAction =
+  | { type: 'choose-trainer'; avatar: TrainerAvatar }
   | BattleItemUse
   | ShopPurchase
   | ArenaAction
@@ -433,6 +436,12 @@ const MAX_WILD = 2
 const MAX_OFFLINE_MS = 8 * 60 * 60 * 1000
 const INITIAL_SPAWN_MS = 5000
 const TURN_MS = 730
+const FIELD_COMMAND_MS = 560
+
+export function wildTrainerCommanding(game: GameSave, foe: Wild): boolean {
+  return (foe.battleActions ?? 0) > 0 && game.runtime.turn === 'wild'
+    && game.runtime.stateIn > TURN_MS - FIELD_COMMAND_MS && game.runtime.stateIn <= TURN_MS
+}
 const TRAINER_HEALTH_MULTIPLIER = 0.82
 const RECOVERY_MS = 680
 const EVOLUTION_MS = 3200
@@ -578,6 +587,7 @@ export function createGame(speciesId: string, slot: number, bounds: Bounds, now 
   return {
     schemaVersion: SAVE_SCHEMA_VERSION,
     selectedSlot: slot,
+    trainerAvatar: null,
     regionId: 'kanto',
     locationId: worldRegions.kanto.startLocationId,
     campaign: newCampaign(),
@@ -2207,7 +2217,7 @@ function attack(game: GameSave, target: Wild, manual?: { move: Move; playerTurn:
     } else damage = rollDamage()
     recipient.currentHP = Math.max(0, recipient.currentHP - damage)
     if (!playerTurn && damage > 0) recoverFromHeldItem(game)
-    addEffect(game, 'attack', source.position, 560, {
+    addEffect(game, 'attack', source.position, FIELD_COMMAND_MS, {
       target: { ...recipient.position }, moveId: selected.id, moveType: selected.type, text: selected.nameKo, actor, targetActor
     })
     if (firstBeamContact && playerTurn && defensiveAbility(selected.type, target.abilityId) === 'absorb') {
@@ -2641,6 +2651,10 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
       }
       return true
     }
+    case 'choose-trainer':
+      if (game.trainerAvatar || !isTrainerAvatar(action.avatar)) return false
+      game.trainerAvatar = action.avatar
+      return true
     case 'update-settings': {
       if (!isRecord(action.settings)) return false
       const validated = validatedSettings(action.settings)
@@ -3311,6 +3325,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const hydrated: GameSave = {
     schemaVersion: SAVE_SCHEMA_VERSION,
     selectedSlot: expectedSlot,
+    trainerAvatar: isTrainerAvatar(value.trainerAvatar) ? value.trainerAvatar : null,
     regionId,
     locationId: location.id,
     campaign,

@@ -11,7 +11,7 @@ import { nativeBodyStyle } from './NativeMove'
 import { ArenaTrainers } from './ArenaTrainers'
 import { useMoveSounds } from './useMoveSounds'
 import { arenaHeightRatio } from '../game/arenaMoves'
-import { battleGroundUrl } from './battleGround'
+import { battleVenue } from './battleGround'
 import { GimmickControl } from './GimmickControl'
 import { ArenaBag } from './ArenaBag'
 import { ActiveBattleItem } from './InventoryBag'
@@ -264,8 +264,9 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const enemyBurst = bursts.filter(e => foe && e.actor === foe.id).at(-1)
   const terrain = trainer.type ?? (trainer.role === 'champion' ? 'champion' : 'normal')
   const preview = range?.unlocked && isPlaying ? range.preview : undefined
-  const ground = battleGroundUrl(trainer.locationId, terrain, trainer.role !== 'gym')
+  const venue = battleVenue(region.id, trainer)
   const location = region.locationById[trainer.locationId].name
+  const venueLabel = venue.name?.startsWith(location) ? venue.name : [location, venue.name].filter(Boolean).join(' · ')
   const special = [trainer.totemAura && '주인 포켓몬의 오라', enemyActive && ('상대 ' + enemyActive.label + ' · ' + enemyActive.detail),
     foe?.abilityId && '특성 ' + (foe.abilityId === 'levitate' ? '부유' : '저수')].filter(Boolean).join(' · ')
   return <section className="trainer-arena" data-has-gimmick={playerGimmick ? true : undefined} aria-label="실시간 도전 배틀">
@@ -277,11 +278,11 @@ export function TrainerArena({ game }: { game: GameSave }) {
         <Health rival id={opponentId} formId={opponentForm} hp={foe?.currentHP ?? 0} max={foe?.maxHP ?? 1} level={foeMember.level}
           remaining={trainer.team.map((_,i)=>i>=battle.opponentIndex)}/>
       </header>
-      <div className={'ring-floor' + (isPlaying ? '' : ' stopped')} data-terrain={terrain} style={{backgroundImage: 'url("' + ground + '")'}}
+      <div className={'ring-floor' + (isPlaying ? '' : ' stopped')} data-terrain={terrain} data-venue={region.id + '/' + trainer.id} style={{backgroundImage: 'url("' + venue.image + '")'}}
         ref={surface} tabIndex={0} role="group" aria-label="배틀 경기장 · 방향키 또는 Alt와 바닥 클릭으로 이동" onPointerDown={pointAndWalk} onContextMenu={event => event.preventDefault()}>
-        <div className="ring-location">{location}</div>
+        <div className="ring-location">{venueLabel}</div>
         <div ref={world} className="ring-world" style={{transform:camera}} data-zoom={zoom}>
-        <ArenaTrainers trainer={trainer}/>
+        <ArenaTrainers trainer={trainer} avatar={game.trainerAvatar} commanding={arena.casts.some(cast => cast.side === 'player')} cameraLeft={cx} zoom={zoom} />
         {goal && isPlaying && <i className="ring-goal" aria-hidden="true" style={point(goal)}/>}
         <ArenaEffects casts={arena.casts} clash={arena.beamClash} maxClash={arena.maxClash} lastClash={arena.lastClash} preview={preview} effects={game.settings.effects} playing={isPlaying}/>
         <ArenaFighter side="enemy" pos={arena.enemy} bodyStyle={game.settings.effects ? nativeBodyStyle(arena.casts, 'enemy') : undefined} id={opponentId} formId={opponentForm}

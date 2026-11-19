@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Application, Container, Graphics, ImageSource, Rectangle, Sprite, Texture } from 'pixi.js'
 import 'pixi.js/unsafe-eval'
+import { WildTrainer } from './PlayerTrainer'
 import { GimmickFlare } from './GimmickControl'
 import { species } from '../game/catalog'
 import { worldLocationById, worldRegions } from '../game/regions/world'
@@ -541,6 +542,7 @@ export function Overlay() {
   const level = game ? effectiveLevel(game) : 0
   const xpToNext = game && level < levelCap(game) ? requiredExp(level) : 0
   return <>
+    {game && <WildTrainer game={game} viewportWidth={window.innerWidth} />}
     <Stage key={snapshot?.selectedSlot ?? 0} game={game} />
     {game?.settings.overlayVisible && <>
       {game.settings.effects && <div className="overlay-effects" aria-hidden="true">

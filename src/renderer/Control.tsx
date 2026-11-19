@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { TrainerAvatar } from '../game/trainerAvatar'
+import { ExistingTrainerChoice, TrainerChoices } from './PlayerTrainer'
 import { collectionGuide } from '../game/collectionGuide'
 import type { ReactNode } from 'react'
 import { species, starterIds, wildIds } from '../game/catalog'
@@ -89,6 +91,7 @@ function Stats({ values }: { values: ReturnType<typeof statsFor> }) {
 }
 
 function Onboarding({ send, busy }: { send: Command; busy: boolean }) {
+  const [avatar, setAvatar] = useState<TrainerAvatar | null>(null)
   const [generation, getGeneration] = useState(0)
   const [type, setType] = useState('')
   const [selected, setSelected] = useState(playableStarters[0])
@@ -115,9 +118,10 @@ function Onboarding({ send, busy }: { send: Command; busy: boolean }) {
     : pokemon.baseStats.defense >= 60 ? '단단한 방어형' : '균형 잡힌 성장형'
 
   return <>
-    <div className="page-heading"><h1>함께할 포켓몬을 고르세요<span>.</span></h1>
-      <p>첫 파트너와 태초마을에서 출발합니다. 지도에서 도로를 고르면 야생 포켓몬을 만납니다.</p>
+    <div className="page-heading"><h1>모험을 시작하세요<span>.</span></h1>
+      <p>트레이너와 첫 파트너를 고르면 태초마을에서 모험이 시작됩니다.</p>
     </div>
+    <TrainerChoices value={avatar} choose={setAvatar} busy={busy} />
     <div className="setup-grid">
       <section className="catalog-panel" aria-label="스타팅 포켓몬">
         <div className="section-heading"><h2>파트너 선택</h2><span>{list.length}종</span></div>
@@ -151,7 +155,7 @@ function Onboarding({ send, busy }: { send: Command; busy: boolean }) {
           <div className="partner-title"><h2>{pokemon.nameKo}</h2><TypeTag type={pokemon.types[0]} /></div>
           <p className="subtext">{generationLabels[pokemon.generation - 1]} 지방 · {starterRole} · 시작 Lv. 5</p>
           <Stats values={statsFor(id, 5)} />
-          <button className="primary start-button" disabled={busy} onClick={() => send({ type: 'start', speciesId: id, settings, autoBattle })}>
+          <button className="primary start-button" disabled={busy || !avatar} onClick={() => avatar && send({ type: 'start', trainerAvatar: avatar, speciesId: id, settings, autoBattle })}>
             이 포켓몬으로 시작 <span aria-hidden="true">→</span>
           </button>
         </div>
@@ -479,13 +483,16 @@ export function Control() {
   }
 
   if (!current) return <div className="loading" role={error ? 'alert' : 'status'}>{error || '모험을 불러오는 중…'}</div>
+  const choosingTrainer = Boolean(current.game && !current.game.trainerAvatar)
+  const inArena = Boolean(current.game?.campaign.battle && !choosingTrainer)
   return <>
-    {!current.game?.campaign.battle && <Header snapshot={current} send={send} busy={busy} />}
-    <main className={current.game?.campaign.battle ? 'shell arena-shell' : 'shell'}>
+    {!inArena && <Header snapshot={current} send={send} busy={busy} />}
+    <main className={inArena ? 'shell arena-shell' : 'shell'}>
       {(current.warning || message) && <p className="notice" role={current.warning ? 'alert' : 'status'}>{current.warning || message}</p>}
-      {current.game
-        ? <Dashboard key={current.selectedSlot} game={current.game} snapshot={current} send={send} busy={busy} />
-        : <Onboarding key={current.selectedSlot} send={send} busy={busy} />}
+      {!current.game ? <Onboarding key={current.selectedSlot} send={send} busy={busy} />
+        : choosingTrainer ? <ExistingTrainerChoice key={current.selectedSlot} busy={busy}
+            choose={avatar => send({ type: 'chooseTrainer', slot: current.selectedSlot, avatar })} />
+        : <Dashboard key={current.selectedSlot} game={current.game} snapshot={current} send={send} busy={busy} />}
     </main>
     <footer><span>{current.game ? '자동 저장 · 슬롯 ' + current.selectedSlot : '스타팅 포켓몬 ' + playableStarters.length + '종'}</span></footer>
   </>

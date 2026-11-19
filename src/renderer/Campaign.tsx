@@ -9,6 +9,7 @@ import { gimmickLabels } from '../game/gimmickCombat'
 import { worldRegions, type RegionId } from '../game/regions/world'
 import { species } from '../game/catalog'
 import { Pokemon, TeraIcon, statNames, types } from './shared'
+import { VenuePreview } from './VenuePreview'
 import './campaign.css'
 
 export type ChallengeKind = 'practice' | 'gym' | 'league' | 'finale'
@@ -79,10 +80,13 @@ export function ChallengeActions({ game, kind, busy, begin }: {
   const candidates = leagueOpponents(game)
   if (region.freeEliteOrder && candidates.length > 1) {
     return <div className="league-choices" role="group" aria-label="도전할 사천왕 선택">
-      {candidates.map(trainer => <button key={trainer.id} className="small-button" disabled={busy || !canChallengeLeague(game)}
-        aria-label={trainer.name + '에게 도전'} onClick={() => begin('league', trainer.id)}>
-        {trainer.name}에게 도전 {trainer.type && <small>{types[trainer.type]}</small>}
-      </button>)}
+      {candidates.map(trainer => <div key={trainer.id} className="league-opponent">
+        <button className="small-button" disabled={busy || !canChallengeLeague(game)}
+          aria-label={trainer.name + '에게 도전'} onClick={() => begin('league', trainer.id)}>
+          {trainer.name}에게 도전 {trainer.type && <small>{types[trainer.type]}</small>}
+        </button>
+        <VenuePreview region={region.id} trainer={trainer} />
+      </div>)}
     </div>
   }
   const opponent = candidates[0]
@@ -177,6 +181,7 @@ export function Campaign({ game, busy, begin, locate }: {
         <div className="campaign-heading"><h2>{gymHeading(region.locationById[gym.locationId].name, gym)}</h2>
           <span>{gym.type ? types[gym.type] : ''}</span></div>
         <p className="campaign-subtitle">{gym.trialKind === 'totem' ? gym.name : (gym.trialKind === 'kahuna' ? '섬의 대표' : '관장') + ' · ' + gym.name}</p>
+        <VenuePreview region={region.id} trainer={gym} />
         <TrainerTeam trainer={gym} regionId={region.id} />
         <ChallengeActions game={game} kind="gym" busy={busy} begin={begin} />
       </section>}
@@ -198,13 +203,17 @@ export function Campaign({ game, busy, begin, locate }: {
           })}
         </ol>
         {next && <div className="league-next"><p className="campaign-subtitle">다음 상대 · {next.name}</p>
+          <VenuePreview region={region.id} trainer={next} />
           <TrainerTeam trainer={next} regionId={region.id} /></div>}
         {atLeague || game.campaign.champion ? <ChallengeActions game={game} kind="league" busy={busy} begin={begin} />
           : <button className="small-button" onClick={() => locate(region.leagueLocationId)}>{region.locationById[region.leagueLocationId].name} 지도에서 보기</button>}
       </section>
       {finale && game.campaign.champion && <section className="card campaign-finale" aria-label="챔피언 로드 최종전">
         <div className="campaign-heading"><h2>네모와의 결전</h2><span>{region.locationById[finale.locationId].name}</span></div>
-        {!game.campaign.finaleWon && !inBattle && <TrainerTeam trainer={finale} regionId={region.id} />}
+        {!game.campaign.finaleWon && !inBattle && <>
+          <VenuePreview region={region.id} trainer={finale} />
+          <TrainerTeam trainer={finale} regionId={region.id} />
+        </>}
         {game.campaign.finaleWon || game.locationId === finale.locationId
           ? <ChallengeActions game={game} kind="finale" busy={busy} begin={begin} />
           : <button className="small-button" onClick={() => locate(finale.locationId)}>네모를 지도에서 찾기</button>}

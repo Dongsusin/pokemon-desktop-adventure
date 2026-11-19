@@ -22,6 +22,7 @@ import { regionalWeather, eligibleLegends, KANTO_LEGENDARY_ENCOUNTER_CHANCE, typ
 import { formLabel } from '../game/forms'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
 import { Pokemon, types } from './shared'
+import { VenuePreview } from './VenuePreview'
 import './region-map.css'
 
 const maps = {
@@ -296,6 +297,7 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
         <span>{localTrainer.trialKind ? '' : '관장 '}{localTrainer.name} · {localTrainer.badge}</span>
       </div>}
       {selected.kind === 'league' && <div className="kanto-landmark"><strong>{region.id === 'galar' ? '가라르 챔피언컵' : region.id === 'paldea' ? '팔데아 챔피언 테스트' : region.name.replace(/지방$/, '') + ' 포켓몬 리그'}</strong></div>}
+      {localTrainer && <VenuePreview region={region.id} trainer={localTrainer} />}
       {isHere && region.finaleTrainer?.locationId === selected.id && <ChallengeActions game={game} kind="finale" busy={busy} begin={begin} />}
       {isHere && localTrainer && <ChallengeActions game={game} kind="gym" busy={busy} begin={begin} />}
       {isHere && selected.kind === 'league' && <ChallengeActions game={game} kind="league" busy={busy} begin={begin} />}

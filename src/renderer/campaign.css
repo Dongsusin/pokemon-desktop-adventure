@@ -30,6 +30,10 @@
 .campaign-hp > span { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
 .league-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 .league-choices small { color: var(--muted); }
+.league-opponent { min-width: 0; }
+.league-opponent > button { width: 100%; }
+.league-opponent .venue-preview { margin: 3px 0 0; }
+.league-opponent .venue-preview > summary > img { width: 44px; height: 28px; }
 .league-steps { display: grid; gap: 4px; margin-bottom: 8px; }
 .league-steps li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 5px; background: #edf2e9; font-size: 12px; }
 .league-steps li > span, .league-steps li > small { color: var(--muted); font-size: 10px; }
@@ -46,3 +50,15 @@
 .tera-icon { width: 18px; height: 18px; vertical-align: middle; object-fit: contain; }
 .tera-match, .tera-match span { display: flex; align-items: center; gap: 5px; }
 .tera-match { flex-wrap: wrap; gap: 8px; }
+
+.venue-preview { margin: 8px 0; border: 1px solid #cbd4c9; border-radius: 7px; overflow: hidden; background: #f3f5ee; }
+.venue-preview > summary { padding: 4px; display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none; }
+.venue-preview > summary::-webkit-details-marker { display: none; }
+.venue-preview > summary:focus-visible { outline-offset: -3px; }
+.venue-preview > summary::after { content: ''; margin: 0 10px 0 auto; width: 6px; height: 6px; border: solid #536553; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+.venue-preview[open] > summary::after { transform: rotate(225deg); }
+.venue-preview > summary > img { flex: none; width: 76px; height: 48px; border-radius: 3px; image-rendering: pixelated; }
+.venue-preview > summary > span { display: grid; gap: 2px; min-width: 0; }
+.venue-preview small { color: var(--muted); font-size: 10px; }
+.venue-preview strong { color: var(--ink); font-size: 12px; }
+.venue-overview { display: block; width: 100%; height: auto; image-rendering: pixelated; border-top: 1px solid #cbd4c9; }

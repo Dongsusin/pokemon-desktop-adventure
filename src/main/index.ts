@@ -198,6 +198,7 @@ function startDesktop(): void {
     } catch {
       throw new Error('선택한 포켓몬으로 시작할 수 없습니다.')
     }
+    if (command.trainerAvatar) dispatch(starter, { type: 'choose-trainer', avatar: command.trainerAvatar })
     dispatch(starter, { type: 'update-settings', settings: command.settings ?? {} })
     if (command.autoBattle !== undefined) {
       dispatch(starter, { type: 'set-auto-battle', value: command.autoBattle })
@@ -260,6 +261,15 @@ function startDesktop(): void {
       case 'selectSlot':
         selectSlot(command.slot)
         break
+      case 'chooseTrainer': {
+        const current = requireGame()
+        if (command.slot !== selectedSlot || current.trainerAvatar) break
+        if (dispatch(current, { type: 'choose-trainer', avatar: command.avatar }) && !saveCurrent()) {
+          current.trainerAvatar = null
+          throw new Error(saveWarning ?? '트레이너를 저장하지 못했습니다.')
+        }
+        break
+      }
       case 'start':
         startGame(command)
         break

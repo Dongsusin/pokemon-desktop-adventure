@@ -1,5 +1,6 @@
 import type { BattleItemUse, CaptureBallId, GameAction, GameSave, Settings, ShopPurchase } from '../game/engine'
 
+import type { TrainerAvatar } from '../game/trainerAvatar'
 import type { RegionId } from '../game/regions/world'
 
 export type SlotNumber = 1 | 2 | 3
@@ -32,7 +33,8 @@ export type AdventureCommand =
   | BattleItemUse
   | { type: 'arenaInput'; action: ArenaInput }
   | { type: 'selectSlot'; slot: SlotNumber }
-  | { type: 'start'; speciesId: string; settings?: Partial<Settings>; autoBattle?: boolean }
+  | { type: 'chooseTrainer'; slot: SlotNumber; avatar: TrainerAvatar }
+  | { type: 'start'; speciesId: string; trainerAvatar?: TrainerAvatar; settings?: Partial<Settings>; autoBattle?: boolean }
   | { type: 'settings'; settings: Partial<Settings> }
   | { type: 'autoBattle'; enabled: boolean }
   | { type: 'equip'; itemId: string | null }

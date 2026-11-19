@@ -1,4 +1,5 @@
 import { captureBallIds, items, MAX_PARTY_SIZE, shopOffer, type Settings } from '../game/engine'
+import { isTrainerAvatar } from '../game/trainerAvatar'
 import { isSlot, type AdventureCommand, type ArenaInput } from '../preload/contracts'
 import { isRegionId, worldLocationById } from '../game/regions/world'
 
@@ -82,11 +83,14 @@ export function parseCommand(value: unknown): AdventureCommand | null {
     }
     case 'selectSlot':
       return isSlot(value.slot) ? { type: value.type, slot: value.slot } : null
+    case 'chooseTrainer':
+      return isSlot(value.slot) && isTrainerAvatar(value.avatar) ? { type: value.type, slot: value.slot, avatar: value.avatar } : null
     case 'start': {
-      if (!knownId(value.speciesId)) return null
+      if (!knownId(value.speciesId) || (value.trainerAvatar !== undefined && !isTrainerAvatar(value.trainerAvatar))) return null
       const settings = value.settings === undefined ? undefined : parseSettings(value.settings)
       if (settings === null || (value.autoBattle !== undefined && typeof value.autoBattle !== 'boolean')) return null
-      return { type: value.type, speciesId: value.speciesId, settings, autoBattle: value.autoBattle }
+      return { type: value.type, speciesId: value.speciesId, settings, autoBattle: value.autoBattle,
+        ...(value.trainerAvatar && { trainerAvatar: value.trainerAvatar }) }
     }
     case 'settings': {
       const settings = parseSettings(value.settings)
