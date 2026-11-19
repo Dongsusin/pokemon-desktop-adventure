@@ -20,6 +20,7 @@ import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
 import { fieldTrainersByRegion } from './regions/fieldTrainers'
+import { locationAccess } from './locationAccess'
 import type { KantoTrainer, KantoTrainerMember } from './regions/kantoCampaign'
 import { isRegionId, regionOrder, worldRegions, type RegionId, type WorldRegion } from './regions/world'
 
@@ -2313,7 +2314,7 @@ function collect(game: GameSave, drop: Drop): void {
 
 function travel(game: GameSave, locationId: unknown): boolean {
   const location = readLocation(worldRegions[game.regionId], locationId)
-  if (!location || (location.afterFinale && !game.campaign.finaleWon)) return false
+  if (!location || !locationAccess(game, location.id).unlocked) return false
   if (game.locationId !== location.id) travelTo(game, location)
   return true
 }
@@ -3294,6 +3295,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const proposedLocation = value.schemaVersion >= 4 && savedRegion === regionId
     ? readLocation(region, value.locationId) : undefined
   const savedCampaign = savedRegion === regionId ? value.campaign : regionProgress[regionId]
+  // Keep legacy players at their saved location. New route requirements apply when entering a destination.
   const savedLocation = proposedLocation?.afterFinale && !readRegionProgress(region, savedCampaign).finaleWon ? undefined : proposedLocation
   const fallbackLocationId = regionId === 'kanto' ? LEGACY_LOCATION_ID : region.startLocationId
   const location = savedLocation ?? region.locationById[fallbackLocationId]

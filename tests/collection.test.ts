@@ -86,7 +86,9 @@ describe('National Pokédex collection paths', () => {
 
   it('finds and collects new field supplies through ordinary hunts at their excavation site', () => {
     const game = fresh()
-    dispatch(game, { type: 'travel', locationId: 'mt-moon' })
+    game.campaign.badges = ['brock']
+    game.campaign.fieldWins = ['field-kanto-ash']
+    expect(dispatch(game, { type: 'travel', locationId: 'mt-moon' })).toBe(true)
     const wanted = new Set(fieldItems['mt-moon'])
     const found = new Set<string>()
     for (let seed = 1; seed <= 1500 && found.size < wanted.size; seed++) {
@@ -111,6 +113,7 @@ describe('National Pokédex collection paths', () => {
     game.inventory.oldAmber = 6
     expect(dispatch(game, { type: 'use-item', itemId: 'oldAmber' })).toBe(false)
     expect(game.inventory.oldAmber).toBe(6)
+    game.campaign.badges = worldRegions.kanto.gymTrainers.slice(0, 6).map(gym => gym.id)
     expect(dispatch(game, { type: 'travel', locationId: 'cinnabar-island' })).toBe(true)
     for (let i = 0; i < 6; i++) expect(dispatch(game, { type: 'use-item', itemId: 'oldAmber' })).toBe(true)
     const again = reload(game)
@@ -124,7 +127,8 @@ describe('National Pokédex collection paths', () => {
 
   it('unlocks a real visitor after its own local league and resumes only legal encounters', () => {
     const game = fresh()
-    dispatch(game, { type: 'travel', locationId: 'silph-co' })
+    game.campaign.badges = worldRegions.kanto.gymTrainers.slice(0, 4).map(gym => gym.id)
+    expect(dispatch(game, { type: 'travel', locationId: 'silph-co' })).toBe(true)
     function draw() {
       game.wild = []
       game.runtime.spawnIn = 0

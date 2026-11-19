@@ -65,7 +65,8 @@ describe('Alola forms and Totem battles', () => {
 
   it('draws both Sun canyon Lycanroc forms and restores the selected form without rerolling', () => {
     const game = arriveInAlola()
-    dispatch(game, { type: 'travel', locationId: 'vast-poni-canyon' })
+    game.campaign.badges = worldRegions.alola.gymTrainers.slice(0, 10).map(t => t.id)
+    expect(dispatch(game, { type: 'travel', locationId: 'vast-poni-canyon' })).toBe(true)
     const seen = new Set<string>()
     for (let i = 0; i < 2000 && seen.size < 2; i++) {
       game.player.state = 'IDLE'
@@ -84,7 +85,8 @@ describe('Alola forms and Totem battles', () => {
   it('applies the first Totem’s Defense aura to damage and resumes a weakened School Wishiwashi', () => {
     const game = arriveInAlola()
     const trials = worldRegions.alola.gymTrainers
-    dispatch(game, { type: 'travel', locationId: trials[0].locationId })
+    game.campaign.fieldWins = ['field-alola-hau']
+    expect(dispatch(game, { type: 'travel', locationId: trials[0].locationId })).toBe(true)
     dispatch(game, { type: 'set-auto-battle', value: false })
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
     expect(trials[0].totemAura).toMatchObject({ stat: 'defense', stages: 1 })
@@ -100,7 +102,8 @@ describe('Alola forms and Totem battles', () => {
     const water = arriveInAlola()
     const index = trials.findIndex(trainer => trainer.team[0].speciesId === 'wishiwashi')
     water.campaign.badges = trials.slice(0, index).map(trainer => trainer.id)
-    dispatch(water, { type: 'travel', locationId: trials[index].locationId })
+    water.campaign.fieldWins = ['field-alola-hau', 'field-alola-gladion']
+    expect(dispatch(water, { type: 'travel', locationId: trials[index].locationId })).toBe(true)
     expect(dispatch(water, { type: 'challenge-gym' })).toBe(true)
     expect(battleForm(water.wild[0])).toBe('wishiwashi-school')
     water.wild[0].currentHP = Math.floor(water.wild[0].maxHP / 4)

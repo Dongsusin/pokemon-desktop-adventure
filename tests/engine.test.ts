@@ -5,6 +5,8 @@ import { species, starterIds, wildIds } from '../src/game/catalog'
 import { kantoLocationById, kantoLocations } from '../src/game/regions/kanto'
 import { kantoGymTrainers, kantoLeagueTrainers } from '../src/game/regions/kantoCampaign'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
+import { fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
+import { locationAccess } from '../src/game/locationAccess'
 import {
   applyOffline,
   calculateDamage,
@@ -145,8 +147,10 @@ describe('Kanto travel and encounters', () => {
     expect(regularLocations.length).toBeGreaterThan(15)
     const game = makeGame()
     game.player.level = 90
+    game.campaign.badges = kantoGymTrainers.map(t => t.id)
+    game.campaign.fieldWins = fieldTrainersByRegion.kanto.map(t => t.id)
     for (const location of regularLocations) {
-      dispatch(game, { type: 'travel', locationId: location.id })
+      expect(dispatch(game, { type: 'travel', locationId: location.id })).toBe(true)
       for (let trial = 0; trial < 40; trial++) {
         const wild = encounter(game)!
         expect(location.encounters.some((slot) => slot.speciesId === wild.speciesId && slot.level === wild.level)).toBe(true)
@@ -187,6 +191,7 @@ describe('Kanto travel and encounters', () => {
     ] as const
     const fallbackRoll = Math.ceil((4294967296 - 1013904223) / 1664525)
     const game = makeGame()
+    game.campaign.badges = kantoGymTrainers.map(t => t.id)
     for (const [locationId, speciesId, level] of expected) {
       expect(dispatch(game, { type: 'travel', locationId })).toBe(true)
       game.runtime.rngState = fallbackRoll
@@ -561,7 +566,9 @@ describe('capture and party', () => {
   function encounter(game: GameSave, speciesId: string, currentHP: number): Wild {
     const location = kantoLocations.find((entry) => [...entry.encounters, ...(entry.legends ?? [])].some((slot) => slot.speciesId === speciesId))!
     const slot = [...location.encounters, ...(location.legends ?? [])].find((entry) => entry.speciesId === speciesId)!
-    dispatch(game, { type: 'travel', locationId: location.id })
+    game.campaign.badges = kantoGymTrainers.map(t => t.id)
+    game.campaign.fieldWins = fieldTrainersByRegion.kanto.map(t => t.id)
+    expect(dispatch(game, { type: 'travel', locationId: location.id })).toBe(true)
     const wild: Wild = {
       id: game.runtime.nextId++, speciesId, level: slot.level, currentHP, maxHP: 20,
       position: { x: game.player.position.x + 60, y: game.player.position.y },
@@ -703,6 +710,7 @@ describe('offline progression', () => {
   it('settles elapsed time without paying for safe towns or encounters the party cannot tackle', () => {
     const game = makeGame()
     expect(applyOffline(game, startTime + 3_600_000)).toEqual({ minutes: 0, exp: 0, coins: 0 })
+    game.campaign.badges = kantoGymTrainers.map(t => t.id)
     expect(dispatch(game, { type: 'travel', locationId: 'cerulean-cave' })).toBe(true)
     expect(applyOffline(game, startTime + 7_200_000)).toEqual({ minutes: 0, exp: 0, coins: 0 })
     expect(game.lastSavedAt).toBe(new Date(startTime + 7_200_000).toISOString())
@@ -756,6 +764,17 @@ describe('offline progression', () => {
 })
 
 describe('regional gyms and Pokémon Leagues', () => {
+  function clearRouteTrainers(game: GameSave, destination: string) {
+    const { missingTrainerId } = locationAccess(game, destination)
+    if (!missingTrainerId) return
+    const trainer = fieldTrainerById[missingTrainerId]!
+    clearRouteTrainers(game, trainer.locationId)
+    expect(dispatch(game, { type: 'travel', locationId: trainer.locationId }), trainer.name).toBe(true)
+    expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: trainer.id }), trainer.name).toBe(true)
+    finishChallenge(game)
+    expect(game.campaign.fieldWins, trainer.name).toContain(trainer.id)
+  }
+
   function train(game: GameSave, speciesId: string, level: number) {
     game.player.speciesId = speciesId
     game.player.level = level
@@ -807,7 +826,8 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(levelCap(game)).toBe(caps[0])
     for (const [index, trainer] of kantoGymTrainers.entries()) {
       train(game, partners[index], 80)
-      dispatch(game, { type: 'travel', locationId: trainer.locationId })
+      clearRouteTrainers(game, trainer.locationId)
+      expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
       expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
       finishChallenge(game)
       expect(game.campaign.badges).toContain(trainer.id)
@@ -829,7 +849,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     }
     expect(game.losses).toBe(0)
     expect(game.campaign).toMatchObject({ champion: true, leagueIndex: null, battle: null })
-    expect(game.wins).toBe(13)
+    expect(game.wins).toBe(13 + game.campaign.fieldWins!.length)
     expect(game.coins).toBeGreaterThan(beforeLeague)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
     const restored = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -907,7 +927,8 @@ describe('regional gyms and Pokémon Leagues', () => {
     for (const [index, trainer] of johto.gymTrainers.entries()) {
       expect(nextGymTrainer(veteran)?.id).toBe(trainer.id)
       train(veteran, ['blastoise', 'charizard', 'blastoise', 'blastoise', 'charizard', 'charizard', 'charizard', 'blastoise'][index], 80)
-      dispatch(veteran, { type: 'travel', locationId: trainer.locationId })
+      clearRouteTrainers(veteran, trainer.locationId)
+      expect(dispatch(veteran, { type: 'travel', locationId: trainer.locationId })).toBe(true)
       expect(dispatch(veteran, { type: 'challenge-gym' })).toBe(true)
       if (index === 0) {
         const saved = hydrateSave(JSON.parse(JSON.stringify(veteran)), 1)!
@@ -981,6 +1002,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(levelCap(game)).toBe(25)
     expect(effectiveLevel(game)).toBe(25)
     expect(game.player.instanceId).toBe(previous.player.instanceId)
+    clearRouteTrainers(game, route)
     expect(dispatch(game, { type: 'travel', locationId: route })).toBe(true)
     game.runtime.spawnIn = 0
     tick(game, 200, bounds)
@@ -988,11 +1010,12 @@ describe('regional gyms and Pokémon Leagues', () => {
       speciesId: game.wild[0].speciesId, level: game.wild[0].level,
     }))
     dispatch(game, { type: 'set-auto-battle', value: false })
-    expect(dispatch(game, { type: 'travel', locationId: region.leagueLocationId })).toBe(true)
+    expect(dispatch(game, { type: 'travel', locationId: region.leagueLocationId })).toBe(false)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
 
     for (const [index, trainer] of region.gymTrainers.entries()) {
       expect(nextGymTrainer(game)?.id).toBe(trainer.id)
+      clearRouteTrainers(game, trainer.locationId)
       expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
       expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
       game = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -1001,6 +1024,7 @@ describe('regional gyms and Pokémon Leagues', () => {
       expect(game.campaign.badges).toHaveLength(index + 1)
       expect(levelCap(game)).toBe(region.levelCaps[index + 1])
     }
+    clearRouteTrainers(game, region.leagueLocationId)
     expect(dispatch(game, { type: 'travel', locationId: region.leagueLocationId })).toBe(true)
     const elites = region.leagueTrainers.filter(trainer => trainer.role === 'elite')
     const champion = region.leagueTrainers.find(trainer => trainer.role === 'champion')!
@@ -1063,7 +1087,8 @@ describe('regional gyms and Pokémon Leagues', () => {
     const game = makeGame('bulbasaur')
     game.campaign.badges = ['brock']
     train(game, 'venusaur', 30)
-    dispatch(game, { type: 'travel', locationId: 'cerulean-city' })
+    game.campaign.fieldWins = ['field-kanto-ash', 'field-kanto-rocket-duo']
+    expect(dispatch(game, { type: 'travel', locationId: 'cerulean-city' })).toBe(true)
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
     const old = structuredClone(game)
     old.campaign.badges = []
@@ -1101,7 +1126,7 @@ describe('regional gyms and Pokémon Leagues', () => {
 
   it('preserves a version 4 Kanto location and rejects stale challenge data', () => {
     const game = makeGame()
-    dispatch(game, { type: 'travel', locationId: 'saffron-city' })
+    game.locationId = 'saffron-city' // This legacy slot predates gated travel.
     game.coins = 93
     game.inventory.greatBall = 6
     const { campaign: _campaign, ...old } = structuredClone(game)

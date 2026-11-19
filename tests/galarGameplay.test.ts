@@ -22,7 +22,8 @@ function enterGalar() {
 function faceKabu() {
   const game = enterGalar()
   game.campaign.badges = ['galar-milo', 'galar-nessa']
-  dispatch(game, { type: 'travel', locationId: 'motostoke' })
+  game.campaign.fieldWins = ['field-galar-hop', 'field-galar-bede']
+  expect(dispatch(game, { type: 'travel', locationId: 'motostoke' })).toBe(true)
   expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
   for (let i = 0; i < 2; i++) {
     game.wild[0].currentHP = 1

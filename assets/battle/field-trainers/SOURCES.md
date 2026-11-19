@@ -40,3 +40,21 @@ Pokémon Showdown의 트레이너 도감에서 내려받은 원본 PNG를 그대
 | giacomo.png | [giacomo.png](https://play.pokemonshowdown.com/sprites/trainers/giacomo.png) | ZacWeavile |
 | arven.png | [arven-s.png](https://play.pokemonshowdown.com/sprites/trainers/arven-s.png) | kyledove |
 | penny.png | [penny.png](https://play.pokemonshowdown.com/sprites/trainers/penny.png) | ZacWeavile |
+| fisherman.png | [fisherman-gen1.png](https://play.pokemonshowdown.com/sprites/trainers/fisherman-gen1.png) | 개별 표기 없음 |
+| hiker.png | [hiker-gen1.png](https://play.pokemonshowdown.com/sprites/trainers/hiker-gen1.png) | 개별 표기 없음 |
+| proton.png | [proton.png](https://play.pokemonshowdown.com/sprites/trainers/proton.png) | 개별 표기 없음 |
+| kimono-girl.png | [kimonogirl.png](https://play.pokemonshowdown.com/sprites/trainers/kimonogirl.png) | 개별 표기 없음 |
+| tabitha.png | [tabitha.png](https://play.pokemonshowdown.com/sprites/trainers/tabitha.png) | kyledove |
+| shelly.png | [shelly.png](https://play.pokemonshowdown.com/sprites/trainers/shelly.png) | Gnomowladny |
+| mars.png | [mars.png](https://play.pokemonshowdown.com/sprites/trainers/mars.png) | 개별 표기 없음 |
+| cheren.png | [cheren.png](https://play.pokemonshowdown.com/sprites/trainers/cheren.png) | 개별 표기 없음 |
+| ghetsis.png | [ghetsis.png](https://play.pokemonshowdown.com/sprites/trainers/ghetsis.png) | 개별 표기 없음 |
+| trevor.png | [trevor.png](https://play.pokemonshowdown.com/sprites/trainers/trevor.png) | kyledove |
+| alain.png | [alain.png](https://play.pokemonshowdown.com/sprites/trainers/alain.png) | ZacWeavile |
+| ilima.png | [ilima.png](https://play.pokemonshowdown.com/sprites/trainers/ilima.png) | Beliot419 |
+| plumeria.png | [plumeria.png](https://play.pokemonshowdown.com/sprites/trainers/plumeria.png) | Beliot419 |
+| yell-grunt.png | [yellgrunt.png](https://play.pokemonshowdown.com/sprites/trainers/yellgrunt.png) | Brumirage |
+| oleana.png | [oleana.png](https://play.pokemonshowdown.com/sprites/trainers/oleana.png) | Brumirage |
+| mela.png | [mela.png](https://play.pokemonshowdown.com/sprites/trainers/mela.png) | ZacWeavile |
+| atticus.png | [atticus.png](https://play.pokemonshowdown.com/sprites/trainers/atticus.png) | ZacWeavile |
+| dawn.png | [dawn-contest.png](https://play.pokemonshowdown.com/sprites/trainers/dawn-contest.png) | kyledove |

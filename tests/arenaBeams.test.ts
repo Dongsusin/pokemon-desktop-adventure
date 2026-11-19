@@ -105,7 +105,8 @@ describe('sustained beams and clash resolution', () => {
       g.player.currentHP = playerStats(g).hp
       g.player.moveIds = [move]
       g.campaign.badges = ['brock']
-      dispatch(g, { type:'travel', locationId:'cerulean-city' })
+      g.campaign.fieldWins = ['field-kanto-ash', 'field-kanto-rocket-duo']
+      expect(dispatch(g, { type:'travel', locationId:'cerulean-city' })).toBe(true)
       expect(dispatch(g, { type:'challenge-gym' })).toBe(true)
       expect(g.wild[0].speciesId).toBe('staryu')
       const a = g.campaign.battle!.arena
@@ -143,7 +144,8 @@ describe('sustained beams and clash resolution', () => {
     game.campaign.badges = ['brock']
     game.followers.push({ instanceId:'caught-25', speciesId:'onix', level:18, currentHP:35,
       position:{x:400,y:100}, direction:1, state:'IDLE', destination:null, active:true, restMs:0, roamSeed:25 })
-    dispatch(game, { type:'travel', locationId:'cerulean-city' })
+    game.campaign.fieldWins = ['field-kanto-ash', 'field-kanto-rocket-duo']
+    expect(dispatch(game, { type:'travel', locationId:'cerulean-city' })).toBe(true)
     dispatch(game, { type:'challenge-gym' })
     const a = game.campaign.battle!.arena
     a.player = {x:.38,y:.48}; a.enemy = {x:.53,y:.5}; a.enemyInMs = 0

@@ -84,7 +84,8 @@ const locationRows: readonly LocationRow[] = [
   ['ns-castle', 'N의 성', 'N\'s Castle', 'dungeon', 182, 6, ['unova-victory-road']],
   ['p2-laboratory', 'P2랩', 'P2 Laboratory', 'dungeon', 214, 151, ['unova-route-17', 'plasma-frigate']],
   ['pinwheel-forest', '바람개비숲', 'Pinwheel Forest', 'dungeon', 194, 125, ['nacrene-city', 'skyarrow-bridge']],
-  ['plasma-frigate', '플라스마 프리깃', 'Plasma Frigate', 'dungeon', 222, 151, ['p2-laboratory']],
+  // The Frigate can be boarded from Seaside Cave during the campaign and from P2 Lab later.
+  ['plasma-frigate', '플라스마 프리깃', 'Plasma Frigate', 'dungeon', 222, 151, ['p2-laboratory', 'seaside-cave']],
   ['pledge-grove', '맹세의 숲', 'Pledge Grove', 'dungeon', 33, 127, ['floccesy-town']],
   ['poke-transfer-lab', '시프트팩토리', 'Poké Transfer Lab', 'dungeon', 177, 84, ['unova-route-15']],
   ['pokestar-studios', '포켓우드', 'Pokéstar Studios', 'dungeon', 64, 115, ['virbank-city']],
@@ -93,7 +94,7 @@ const locationRows: readonly LocationRow[] = [
   ['relic-passage', '고대샛길', 'Relic Passage', 'dungeon', 105, 118, ['relic-castle', 'castelia-sewers', 'pwt']],
   ['reversal-mountain', '리버스마운틴', 'Reversal Mountain', 'dungeon', 206, 67, ['lentimas-town', 'undella-town', 'strange-house']],
   ['rocky-mountain-room', '바위산의 방', 'Rock Peak Chamber', 'dungeon', 72, 77, ['underground-ruins']],
-  ['seaside-cave', '해변동혈', 'Seaside Cave', 'dungeon', 235, 53, ['unova-route-21', 'undella-bay']],
+  ['seaside-cave', '해변동혈', 'Seaside Cave', 'dungeon', 235, 53, ['unova-route-21', 'undella-bay', 'plasma-frigate']],
   ['skyarrow-bridge', '스카이애로 브리지', 'Skyarrow Bridge', 'dungeon', 163, 121, ['pinwheel-forest', 'castelia-city']],
   ['strange-house', '스트레인저 하우스', 'Strange House', 'dungeon', 198, 59, ['reversal-mountain']],
   ['tubeline-bridge', '실린더 브리지', 'Tubeline Bridge', 'dungeon', 104, 41, ['unova-route-8', 'unova-route-9']],

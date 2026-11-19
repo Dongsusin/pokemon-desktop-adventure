@@ -306,7 +306,7 @@ function startDesktop(): void {
         break
       case 'travel':
         if (!dispatch(requireGame(), { type: 'travel', locationId: command.locationId })) {
-          throw new Error('지도에서 이동할 수 있는 장소를 골라 주세요.')
+          throw new Error('지도에서 목적지의 이동 조건을 확인해 주세요.')
         }
         saveCurrent()
         break

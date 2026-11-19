@@ -36,7 +36,8 @@ it.each(regionOrder)('lets players discover the named trainers on the %s map and
 it('shows the badge gate, exact payout, available challenge, and first-win status at a villain hideout', () => {
   const game = inRegion('kanto')
   const trainer = fieldTrainersByRegion.kanto.find(t => t.kind === 'villain' && t.requiredBadges > 0)!
-  expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
+  // A save from before route gates can already be at the encounter without its badge.
+  game.locationId = trainer.locationId
   const html = () => renderMap(game)
   expect(html()).toContain('배지 ' + trainer.requiredBadges + '개 필요')
   expect(html()).toContain('disabled="">'+ trainer.name + '에게 도전')
@@ -47,6 +48,15 @@ it('shows the badge gate, exact payout, available challenge, and first-win statu
   game.campaign.fieldWins = [trainer.id]
   expect(html()).toContain('승리 완료')
   expect(html()).not.toContain(trainer.name + '에게 도전</button>')
+})
+
+it('shows which destinations need this win and distinguishes an optional trainer', () => {
+  const game = inRegion('kanto')
+  const ash = renderMap(game, 'viridian-forest')
+  expect(ash).toContain('승리가 필요한 장소')
+  expect(ash).toContain('>3번도로</button>')
+  expect(ash).toContain('>달맞이산</button>')
+  expect(renderMap(game, 'rock-tunnel')).toContain('트레이너 · 게임 · 자유 대결')
 })
 
 it('follows a previewed route encounter through a real challenge and a restored battle', () => {

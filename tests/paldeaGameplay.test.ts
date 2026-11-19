@@ -65,6 +65,8 @@ describe('Paldea campaign and Terastallization', () => {
     expect(game.regionProgress.galar?.champion).toBe(true)
     expect(levelCap(game)).toBe(25)
     expect(effectiveLevel(game)).toBe(25)
+    expect(dispatch(game, { type: 'travel', locationId: square })).toBe(false)
+    game.campaign.fieldWins = ['field-paldea-nemona']
     travel(game, square)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(false)
 
@@ -93,10 +95,15 @@ describe('Paldea campaign and Terastallization', () => {
     defeatOpponent(game)
     expect(game.campaign).toMatchObject({ champion: true, finaleWon: true, leagueIndex: null, battle: null })
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(false)
+    expect(dispatch(game, { type: 'travel', locationId: 'area-zero' })).toBe(false)
+    travel(game, 'naranja-academy')
+    expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: 'field-paldea-penny' })).toBe(true)
+    faceAce(game)
+    defeatOpponent(game)
     travel(game, 'area-zero')
     expect(dispatch(game, { type: 'transfer-region', regionId: 'galar' })).toBe(true)
     game = reload(game)
-    expect(game.regionProgress.paldea).toEqual({ badges, champion: true, finaleWon: true })
+    expect(game.regionProgress.paldea).toEqual({ badges, champion: true, finaleWon: true, fieldWins: ['field-paldea-nemona', 'field-paldea-penny'] })
     expect(dispatch(game, { type: 'transfer-region', regionId: 'paldea' })).toBe(true)
     expect(reload(game).campaign.finaleWon).toBe(true)
     travel(game, 'area-zero')
@@ -106,7 +113,7 @@ describe('Paldea campaign and Terastallization', () => {
     ['squirtle', 'skeledirge'], ['bulbasaur', 'quaquaval'],
   ])('lets a %s partner abandon, lose, and retry the correct rival without replaying the assessment', (starter, expectedAce) => {
     let game = arriveFromGalar(starter)
-    Object.assign(game.campaign, { badges: [...badges], champion: true })
+    Object.assign(game.campaign, { badges: [...badges], champion: true, fieldWins: ['field-paldea-nemona'] })
     travel(game, square)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(true)
     expect(currentTrainer(game)?.team.at(-1)?.speciesId).toBe(expectedAce)
