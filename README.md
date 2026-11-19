@@ -4,7 +4,7 @@ Windows 바탕화면에서 포켓몬과 함께하는 자동 육성 게임입니�
 
 ## 실행
 
-Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.25.0/Pokemon-Desktop-Adventure-0.25.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
+Windows x64에서는 [설치 파일](https://github.com/Dongsusin/pokemon-desktop-adventure/releases/download/v0.26.0/Pokemon-Desktop-Adventure-0.26.0-Setup.exe)을 실행한 뒤 시작 메뉴에서 **Pokémon Desktop Adventure**를 엽니다.
 
 소스 코드로 실행하려면 Windows 10 또는 11의 PowerShell에서 프로젝트 폴더를 엽니다. Node.js 22.12 이상과 npm이 필요합니다.
 
@@ -25,6 +25,12 @@ npm run dev
 《포켓몬스터 레드》 기준 도로 1–25와 주요 거점의 위치, 원작 지형 이미지, 출현 종과 레벨을 제공합니다. 풀숲과 물 위의 일반 출현표를 사용하고, 여러 층이 있는 동굴은 장소 단위로 출현표를 합칩니다. 낚시가 필요한 마을과 도시는 산책 지역으로 사용합니다. 새 모험은 태초마을에서 시작하고, 기존 저장은 업데이트 후 1번도로에서 이어집니다.
 
 프리져는 쌍둥이섬, 썬더는 무인발전소, 파이어는 챔피언로드, 뮤츠는 블루동굴에 출현 판정당 약 0.65% 확률로 나타납니다. 체육관의 실제 위치와 관장, 석영고원 리그 위치를 확인할 수 있습니다. [지도와 지형 이미지 출처](assets/maps/kanto/SOURCES.md)
+
+## 지도에서 만나는 지역 트레이너
+
+9개 지방마다 라이벌·동료·악의 조직 인물이 등장하는 선택 대결이 4개씩 있습니다. **지도 → 지역 트레이너**를 펼치거나 지도 위의 인물 도트를 누르면 장소, 상대 팀과 레벨, 필요한 배지·시련 수, 첫 승리 보상을 확인할 수 있습니다. 해당 장소로 이동한 뒤 **[상대 이름]에게 도전** 버튼을 누르면 실시간 배틀을 시작합니다.
+
+관동에서는 상록숲의 지우와 배지 없이 싸울 수 있습니다. 배지를 얻으면 달맞이산의 로사·로이, 상트앙느호의 그린, 실프주식회사의 비주기에게 차례로 도전할 수 있습니다. 팀과 레벨은 배치 장소와 이 게임의 지방별 레벨 상한에 맞춰 편성했습니다. 승리하면 경험치와 코인을 한 번 받고 지방 지도에 승리가 기록됩니다. 패배하거나 철수한 상대는 다시 도전할 수 있습니다. [9개 지방의 인물·장소·원작 참고 자료](docs/field-trainers.md) · [상록숲 지도 화면](docs/screenshots/field-trainer-map.png) · [실프주식회사 배틀 화면](docs/screenshots/field-trainer-battle.png)
 
 ## 체육관·리그 실시간 배틀
 

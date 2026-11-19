@@ -281,6 +281,12 @@ function startDesktop(): void {
         dispatch(requireGame(), { type: 'set-auto-battle', value: command.enabled })
         saveCurrent()
         break
+      case 'challengeFieldTrainer':
+        if (!dispatch(requireGame(), { type: 'challenge-field-trainer', trainerId: command.trainerId })) {
+          throw new Error('필드 트레이너의 위치와 도전 조건을 확인해 주세요.')
+        }
+        saveCurrent()
+        break
       case 'practiceGym':
       case 'challengeGym':
       case 'challengeFinale':

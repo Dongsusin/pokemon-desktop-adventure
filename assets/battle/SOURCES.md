@@ -19,3 +19,5 @@
 트레이너 측면 도트는 [원본 시트 목록](trainers/SOURCES.md), 기술 효과음은 [Pokémon Reborn 및 PokéRogue 크레딧](audio/SOURCES.md)에 기록했습니다.
 
 **발사 위치**. 방향별 발사점(`mouth`)과 고정 자세(`hold`)를 종과 폼에 맞춰 적용합니다. 갸라도스에는 v3.0.0의 Shoot 4번 프레임 보정값을 사용합니다. 원본 발사점이 없는 방향 도트는 원본 발사 자세의 실루엣에서 위치를 측정했습니다. 도트의 바닥 기준점과 다이맥스 배율은 기술 경로와 화면 표시가 공유합니다. [변환·보완 좌표](../../tools/battle_emitters.py)
+
+**지역 트레이너**. 지도 표식과 필드 배틀의 상대는 실제 인물 도트를 사용하며, 개별 원본과 작가명은 [지역 트레이너 그림 목록](field-trainers/SOURCES.md)에 기록했습니다. 필드 전투용 지형 13종은 이 게임을 위해 ImageGen으로 만든 [원화 시트](../../tools/data/field-venues)에서 내보냅니다. `python tools/build-field-venues.py --check`로 원화와 대조할 수 있습니다.

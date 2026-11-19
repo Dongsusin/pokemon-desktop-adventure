@@ -1,6 +1,9 @@
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
 import type { RegionId } from '../game/regions/world'
 import manifest from './battle-venues.json'
+import { fieldTrainerById } from '../game/regions/fieldTrainers'
+import { worldRegions } from '../game/regions/world'
+import { fieldTrainerGround } from './fieldTrainerArt'
 
 const venueNames: Partial<Record<RegionId, Readonly<Record<string, string>>>> = manifest
 
@@ -24,6 +27,8 @@ function fallbackGround(locationId: string, trainerType: string, league: boolean
 }
 
 export function battleVenue(region: RegionId, trainer: KantoTrainer) {
+  const local = trainer.role === 'field' && fieldTrainerById[trainer.id]
+  if (local) return { name: worldRegions[region].locationById[local.locationId]?.name ?? local.name, image: fieldTrainerGround(local) }
   const name = venueNames[region]?.[trainer.id]
   return {
     name,

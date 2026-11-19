@@ -20,6 +20,9 @@ import type { KantoLocation } from '../game/regions/kanto'
 import { species } from '../game/catalog'
 import { regionalWeather, eligibleLegends, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
 import { formLabel } from '../game/forms'
+import { fieldTrainersByRegion } from '../game/regions/fieldTrainers'
+import { FieldTrainerCard, fieldTeamLevels } from './FieldTrainerCard'
+import { fieldTrainerPortrait } from './fieldTrainerArt'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
 import { Pokemon, types } from './shared'
 import { VenuePreview } from './VenuePreview'
@@ -206,6 +209,9 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
   const [selectedId, setSelected] = useState(() => focus && region.locationById[focus] ? focus : current.id)
   const selected = region.locationById[selectedId] ?? current
   const localTrainer = region.gymTrainerByLocationId[selected.id]
+  const regionalTrainers = fieldTrainersByRegion[region.id]
+  const encounters = regionalTrainers.filter(trainer => trainer.locationId === selected.id)
+  const fieldWins = game.campaign.fieldWins ?? []
   const isHere = selected.id === current.id
   const locked = selected.afterFinale && !game.campaign.finaleWon
   const areaPlaces = zoomArea && areas ? region.locations.filter(place => areas[place.id] === zoomArea) : []
@@ -252,13 +258,21 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
           const earned = group.some(option => game.campaign.badges.includes(region.gymTrainerByLocationId[option.id]?.id ?? ''))
           const atCurrent = group.some(option => option.id === current.id)
           const picked = group.some(option => option.id === selected.id)
-          const names = group.map(option => option.name).join(' · ')
+          const trainers = regionalTrainers.filter(trainer => group.some(option => option.id === trainer.locationId))
+          const featured = trainers.find(trainer => !fieldWins.includes(trainer.id)) ?? trainers[0]
+          const cleared = featured && trainers.every(trainer => fieldWins.includes(trainer.id))
+          const names = [group.map(option => option.name).join(' · '), trainers.map(trainer => trainer.name).join(', ')].filter(Boolean).join(' · ')
           return <button key={place.id}
-            className={'kanto-pin kanto-pin-' + place.kind + (atCurrent ? ' is-current' : '') + (earned ? ' is-earned' : '')}
+            className={'kanto-pin kanto-pin-' + place.kind + (atCurrent ? ' is-current' : '') + (earned ? ' is-earned' : '') +
+              (featured ? ' has-field-trainer' : '') + (cleared ? ' field-cleared' : '')}
             aria-label={names} aria-pressed={picked} title={names}
             style={{ left: (x - viewport.x) / viewport.width * 100 + '%', top: (y - viewport.y) / viewport.height * 100 + '%' }}
-            onClick={() => { if (!picked) choose(place.id) }}>
+            onClick={() => { if (featured) choose(featured.locationId); else if (!picked) choose(place.id) }}>
             {group.length > 1 ? group.length : <span aria-hidden="true" />}
+            {featured && <i className={'field-trainer-marker' + ((y - viewport.y) / viewport.height < .15 ? ' below' : '')} aria-hidden="true">
+              <img src={fieldTrainerPortrait(featured)} alt="" draggable={false} />
+              {cleared && <b>✓</b>}
+            </i>}
           </button>
         })}
       </div>
@@ -274,6 +288,16 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
           </optgroup>)}
         </select>
       </label>
+      {regionalTrainers.length > 0 && <details className="field-trainer-directory">
+        <summary>지역 트레이너 <span>{fieldWins.length}/{regionalTrainers.length} 승리</span></summary>
+        <ul>{regionalTrainers.map(trainer => <li key={trainer.id}>
+          <button type="button" aria-pressed={selected.id === trainer.locationId} onClick={() => choose(trainer.locationId)}>
+            <img src={fieldTrainerPortrait(trainer)} alt="" width={24} height={30} loading="lazy" />
+            <span><strong>{trainer.name}</strong><small>{region.locationById[trainer.locationId].name}</small></span>
+            <small>{fieldWins.includes(trainer.id) ? '✓ 승리' : fieldTeamLevels(trainer)}</small>
+          </button>
+        </li>)}</ul>
+      </details>}
     </section>
     <section className="card kanto-place" aria-label="선택한 장소 정보">
       <div className="kanto-place-top">
@@ -292,6 +316,8 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
       </button>
       {!isHere && (game.campaign.battle || game.campaign.leagueIndex !== null) &&
         <p className="kanto-travel-detail">이동하면 진행 중인 도전이 종료됩니다.</p>}
+      {encounters.map(trainer => <FieldTrainerCard key={trainer.id} game={game} trainer={trainer}
+        busy={busy} challenge={id => begin('field', id)} />)}
       {localTrainer && <div className="kanto-landmark">
         <strong>{localTrainer.type && (types[localTrainer.type] ?? localTrainer.type) + ' '}{challengeName(localTrainer)}</strong>
         <span>{localTrainer.trialKind ? '' : '관장 '}{localTrainer.name} · {localTrainer.badge}</span>

@@ -12,7 +12,7 @@ import { Pokemon, TeraIcon, statNames, types } from './shared'
 import { VenuePreview } from './VenuePreview'
 import './campaign.css'
 
-export type ChallengeKind = 'practice' | 'gym' | 'league' | 'finale'
+export type ChallengeKind = 'practice' | 'gym' | 'league' | 'finale' | 'field'
 
 const frameSize = 32
 
@@ -25,7 +25,7 @@ export function challengeName(trainer: KantoTrainer) {
   return trainer.trialKind === 'totem' ? '시련' : trainer.trialKind === 'kahuna' ? '큰 시련' : '체육관'
 }
 
-function TrainerTeam({ trainer, regionId, active, activeForm }: {
+export function TrainerTeam({ trainer, regionId, active, activeForm }: {
   trainer: KantoTrainer; regionId: RegionId; active?: number; activeForm?: string
 }) {
   return <ul className="trainer-team" aria-label={trainer.name + '의 포켓몬'}>
@@ -43,7 +43,7 @@ function TrainerTeam({ trainer, regionId, active, activeForm }: {
 
 export function ChallengeActions({ game, kind, busy, begin }: {
   game: GameSave
-  kind: ChallengeKind
+  kind: Extract<ChallengeKind, 'gym' | 'league' | 'finale'>
   busy: boolean
   begin: (kind: ChallengeKind, trainerId?: string) => void
 }) {
@@ -103,7 +103,7 @@ export function TrainerBattleCard({ game }: { game: GameSave }) {
   const myPower = battleGimmickStatus(game)
   const theirPower = battleGimmickStatus(game, 'enemy')
   const leagueFinal = game.regionId === 'alola' ? '초대 챔피언 결정전' : '챔피언전'
-  const label = trainer.cupRound ?? (trainer.trialKind ? challengeName(trainer) : { gym: '체육관전', elite: '사천왕전', champion: leagueFinal }[trainer.role])
+  const label = trainer.cupRound ?? (trainer.trialKind ? challengeName(trainer) : { gym: '체육관전', elite: '사천왕전', champion: leagueFinal, field: '지역 트레이너전' }[trainer.role])
   return <section className="card campaign-battle" aria-label="진행 중인 트레이너 배틀">
     <div className="campaign-heading"><h2>{label} · {trainer.name}</h2>
       <span>{battle.opponentIndex + 1}/{trainer.team.length}마리째</span></div>

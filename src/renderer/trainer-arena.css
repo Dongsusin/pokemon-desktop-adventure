@@ -166,3 +166,5 @@
 
 .ring-gimmick-control select { min-width:0; max-width:48%; padding:2px 3px; background:#322c41; color:#fff3e0; border:1px solid #938197;
   border-radius:3px; font:inherit; font-size:clamp(10px,1.12vw,13px); }
+
+.ring-field-opponent { position: absolute; left: 94%; top: 52%; width: 7.5%; height: auto; z-index: 1; transform: translate(-50%, -90%); object-fit: contain; image-rendering: pixelated; pointer-events: none; }

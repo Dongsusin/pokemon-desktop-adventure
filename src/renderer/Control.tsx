@@ -399,12 +399,12 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
   const [mapFocus, setMapFocus] = useState<string>()
   const region = worldRegions[game.regionId]
   const [result, setResult] = useState<TrainerResult | null>(null)
-  const bout = useRef<{ name: string; wins: number; logId: number; speciesId: string; formId?: string } | null>(null)
+  const bout = useRef<{ name: string; returnToMap: boolean; wins: number; logId: number; speciesId: string; formId?: string } | null>(null)
   const trainerId = game.campaign.battle?.trainerId
   useEffect(() => {
     const trainer = currentTrainer(game)
     if (trainer) {
-      bout.current ??= { name: trainer.name, wins: game.wins, logId: game.history[0]?.id ?? 0, speciesId: game.player.speciesId }
+      bout.current ??= { name: trainer.name, returnToMap: trainer.role === 'field', wins: game.wins, logId: game.history[0]?.id ?? 0, speciesId: game.player.speciesId }
       bout.current.speciesId = game.player.speciesId
       bout.current.formId = game.player.formId
     } else if (bout.current) {
@@ -413,7 +413,8 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
       const entry = game.history.find(entry => entry.id > record.logId && entry.kind === 'battle')
       setResult({ ...record, message: entry?.text ?? '', practiceResult: entry?.practiceResult,
         won: entry?.practiceResult === 'win' || game.wins > record.wins })
-      setTab('도전')
+      if (record.returnToMap) showMap(game.locationId)
+      else setTab('도전')
     }
   }, [trainerId, game.player.instanceId, game.player.speciesId, game.player.formId])
   const destinations = regionOrder.filter(id => canTransferRegion(game, id))
@@ -422,6 +423,10 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     setTab('지도')
   }
   function begin(kind: ChallengeKind, trainerId?: string) {
+    if (kind === 'field') {
+      if (trainerId) send({ type: 'challengeFieldTrainer', trainerId })
+      return
+    }
     send(kind === 'practice' ? { type: 'practiceGym' } : kind === 'gym' ? { type: 'challengeGym' } : kind === 'finale' ? { type: 'challengeFinale' } : { type: 'challengeLeague', trainerId })
     setTab('도전')
   }

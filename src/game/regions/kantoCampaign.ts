@@ -18,7 +18,7 @@ export interface KantoTrainer {
   readonly id: string
   readonly locationId: string
   readonly name: string
-  readonly role: 'gym' | 'elite' | 'champion'
+  readonly role: 'gym' | 'elite' | 'champion' | 'field'
   readonly cupRound?: string
   readonly trialKind?: 'totem' | 'kahuna'
   readonly totemAura?: { stat: 'attack' | 'defense' | 'spAttack' | 'spDefense' | 'speed' | 'all'; stages: 1 | 2 }

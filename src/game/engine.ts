@@ -19,6 +19,7 @@ import { defensiveAbility, teraStabBonus, typeMultiplier } from './regions/palde
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
+import { fieldTrainersByRegion } from './regions/fieldTrainers'
 import type { KantoTrainer, KantoTrainerMember } from './regions/kantoCampaign'
 import { isRegionId, regionOrder, worldRegions, type RegionId, type WorldRegion } from './regions/world'
 
@@ -343,6 +344,7 @@ interface TrainerBattle {
 }
 
 export interface RegionProgress {
+  fieldWins?: string[]
   finaleWon?: true
   badges: string[]
   champion: boolean
@@ -354,7 +356,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 18
+const SAVE_SCHEMA_VERSION = 19
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -411,6 +413,7 @@ export type GameAction =
   | { type: 'travel'; locationId: string }
   | { type: 'transfer-region'; regionId: RegionId }
   | { type: 'challenge-gym' }
+  | { type: 'challenge-field-trainer'; trainerId: string }
   | { type: 'practice-gym' }
   | { type: 'challenge-finale' }
   | { type: 'challenge-league'; trainerId?: string }
@@ -1860,6 +1863,7 @@ export function nextGymTrainer(game: GameSave): KantoTrainer | undefined {
 }
 
 function originalTrainer(region: WorldRegion, trainer: KantoTrainer, speciesId: string): KantoTrainer {
+  if (trainer.role === 'field') return trainer
   if (region.trainerForStarter) return region.trainerForStarter(trainer, speciesId)
   return trainer.role === 'champion' ? region.championForStarter?.(speciesId) ?? trainer : trainer
 }
@@ -1917,17 +1921,36 @@ function resetLeagueRun(campaign: Campaign): void {
   delete campaign.eliteWins
 }
 
+function trainerDefinition(region: WorldRegion, id: string): KantoTrainer | undefined {
+  return region.trainerById[id] ?? fieldTrainersByRegion[region.id].find(trainer => trainer.id === id)
+}
+
 export function currentTrainer(game: GameSave): KantoTrainer | undefined {
   const id = game.campaign.battle?.trainerId
   if (!id) return
   const region = worldRegions[game.regionId]
-  const trainer = region.trainerById[id]
+  const trainer = trainerDefinition(region, id)
   return trainer && resolveTrainer(region, trainer, game.starterSpeciesId)
 }
 
 function canChallenge(game: GameSave): boolean {
   return !game.campaign.battle && game.player.currentHP > 0 && isSpeciesMotionSupported(game.player.speciesId, game.player.formId) &&
     (['IDLE', 'WANDER', 'RECOVER'] as Activity[]).includes(activeState(game))
+}
+
+function availableFieldTrainer(region: WorldRegion, campaign: Campaign, locationId: string, trainerId: string) {
+  if (campaign.leagueIndex !== null || campaign.fieldWins?.includes(trainerId)) return undefined
+  return fieldTrainersByRegion[region.id].find(trainer => trainer.id === trainerId &&
+    trainer.locationId === locationId && campaign.badges.length >= trainer.requiredBadges)
+}
+
+export function canChallengeFieldTrainer(game: GameSave, trainerId: string): boolean {
+  return canChallenge(game) && !!availableFieldTrainer(worldRegions[game.regionId], game.campaign, game.locationId, trainerId)
+}
+
+export function fieldTrainerRewards(trainer: KantoTrainer) {
+  const totalLevel = trainer.team.reduce((sum, member) => sum + member.level, 0)
+  return { experience: 12 + totalLevel * 4, coins: 10 + totalLevel }
 }
 
 export function canChallengeGym(game: GameSave): boolean {
@@ -2003,7 +2026,9 @@ function startChallenge(game: GameSave, trainer: KantoTrainer, practice?: Practi
   game.runtime.captureIn = 0
   game.runtime.autoCaptureTargetId = null
   game.runtime.cooldowns = {}
-  if (trainer.role !== 'gym' && trainer.id !== worldRegions[game.regionId].finaleTrainer?.id) game.campaign.leagueIndex ??= 0
+  if ((trainer.role === 'elite' || trainer.role === 'champion') && trainer.id !== worldRegions[game.regionId].finaleTrainer?.id) {
+    game.campaign.leagueIndex ??= 0
+  }
   game.campaign.battle = { trainerId: trainer.id, opponentIndex: 0, ...(practice && { practice }), arena: createArena([game.player.instanceId, ...game.followers.map(member => member.instanceId)]) }
   const { x, y } = game.player.position
   const inward = x > 145 * game.settings.spriteScale ? -1 : 1
@@ -2064,7 +2089,15 @@ function trainerVictory(game: GameSave, trainer: KantoTrainer, opponent: Wild): 
   let result = trainer.name + ' 격파'
   let experience = 0
   let coins = 0
-  if (trainer.role === 'gym') {
+  if (trainer.role === 'field') {
+    const cleared = game.campaign.fieldWins ??= []
+    if (!cleared.includes(trainer.id)) {
+      cleared.push(trainer.id)
+      const reward = fieldTrainerRewards(trainer)
+      experience = reward.experience
+      coins = reward.coins
+    }
+  } else if (trainer.role === 'gym') {
     addUnique(game.campaign.badges, trainer.id)
     result += ' · ' + trainer.badge + ' 획득'
     const combinedLevels = trainer.team.reduce((sum, entry) => sum + entry.level, 0)
@@ -2103,7 +2136,7 @@ function trainerDefeat(game: GameSave, trainer: KantoTrainer, surrendered = fals
   if (practice) return endPractice(game, trainer, practice, surrendered ? 'left' : 'loss')
   game.losses++
   clearChallenge(game)
-  resetLeagueRun(game.campaign)
+  if (trainer.role !== 'field') resetLeagueRun(game.campaign)
   restoreTrainerParty(game, arena, true)
   restAfterChallenge(game)
   const result = trainer.name + (surrendered ? ' 도전 포기' : '에게 패배')
@@ -2335,10 +2368,11 @@ export function canTransferRegion(game: GameSave, regionId: RegionId): boolean {
 function transferRegion(game: GameSave, regionId: RegionId): boolean {
   if (!canTransferRegion(game, regionId)) return false
   const prior = game.regionId
-  const { badges, champion } = game.campaign
+  const { badges, champion, fieldWins } = game.campaign
   const destination = worldRegions[regionId]
   travelTo(game, destination.locationById[destination.startLocationId])
-  game.regionProgress[prior] = { badges: [...badges], champion, ...(game.campaign.finaleWon && { finaleWon: true }) }
+  game.regionProgress[prior] = { badges: [...badges], champion, ...(game.campaign.finaleWon && { finaleWon: true }),
+    ...(fieldWins?.length && { fieldWins: [...fieldWins] }) }
   game.regionId = regionId
   game.campaign = newCampaign(game.regionProgress[regionId])
   delete game.regionProgress[regionId]
@@ -2633,6 +2667,11 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     case 'challenge-gym': {
       const trainer = nextGymTrainer(game)
       return Boolean(trainer && canChallengeGym(game) && startChallenge(game, trainer))
+    }
+    case 'challenge-field-trainer': {
+      const region = worldRegions[game.regionId]
+      const trainer = availableFieldTrainer(region, game.campaign, game.locationId, action.trainerId)
+      return !!trainer && canChallenge(game) && startChallenge(game, resolveTrainer(region, trainer, game.starterSpeciesId))
     }
     case 'practice-gym': {
       const region = worldRegions[game.regionId]
@@ -3005,7 +3044,12 @@ function readRegionProgress(region: WorldRegion, value: unknown): RegionProgress
     ? region.gymTrainers.filter((trainer) => savedBadges.includes(trainer.id)).map((trainer) => trainer.id)
     : []
   const champion = badges.length === region.gymTrainers.length && value.champion === true
-  return { badges, champion, ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }) }
+  const savedWins = value.fieldWins
+  const fieldWins = Array.isArray(savedWins)
+    ? fieldTrainersByRegion[region.id].filter(trainer => savedWins.includes(trainer.id)).map(trainer => trainer.id)
+    : []
+  return { badges, champion, ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }),
+    ...(fieldWins.length && { fieldWins }) }
 }
 
 function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number, practice?: PracticeParty): Campaign {
@@ -3033,13 +3077,14 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   const localGym = region.gymTrainerByLocationId[locationId]
   const finale = region.finaleTrainer
   const availableFinale = finale?.locationId === locationId && campaign.champion && !campaign.finaleWon ? finale : undefined
+  const field = availableFieldTrainer(region, campaign, locationId, savedTrainerId)
   const eligibleTrainer = practice ? (localGym && campaign.badges.includes(localGym.id) ? localGym : undefined)
-    : localGym && !campaign.badges.includes(localGym.id) ? localGym
-    : campaign.leagueIndex !== null ? eligibleLeagueOpponents(region, campaign, speciesId)
-      .find(trainer => trainer.id === savedTrainerId) : availableFinale
+    : field ?? (localGym && !campaign.badges.includes(localGym.id) ? localGym
+      : campaign.leagueIndex !== null ? eligibleLeagueOpponents(region, campaign, speciesId)
+        .find(trainer => trainer.id === savedTrainerId) : availableFinale)
   const index = value.battle.opponentIndex
   if (eligibleTrainer?.id !== savedTrainerId || typeof index !== 'number' || !Number.isInteger(index) || index < 0) return campaign
-  const definition = region.trainerById[savedTrainerId]
+  const definition = trainerDefinition(region, savedTrainerId)
   if (!definition) return campaign
   const team = resolveTrainer(region, definition, speciesId).team
   let opponentIndex = index
@@ -3113,7 +3158,7 @@ function readEncounterGimmicks(raw: unknown, version: number, region: RegionId, 
 function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Campaign, speciesId: string, targetId: number | null, version: number): Wild | undefined {
   const battle = campaign.battle
   if (!battle || !Array.isArray(value) || !targetId) return
-  const definition = region.trainerById[battle.trainerId]
+  const definition = trainerDefinition(region, battle.trainerId)
   if (!definition) return
   const trainer = resolveTrainer(region, definition, speciesId)
   const slot = trainer.team[battle.opponentIndex]

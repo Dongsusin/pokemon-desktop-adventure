@@ -1,4 +1,5 @@
 import { captureBallIds, items, MAX_PARTY_SIZE, shopOffer, type Settings } from '../game/engine'
+import { fieldTrainerById } from '../game/regions/fieldTrainers'
 import { isTrainerAvatar } from '../game/trainerAvatar'
 import { isSlot, type AdventureCommand, type ArenaInput } from '../preload/contracts'
 import { isRegionId, worldLocationById } from '../game/regions/world'
@@ -143,6 +144,9 @@ export function parseCommand(value: unknown): AdventureCommand | null {
     case 'setMoves':
       return Array.isArray(value.moveIds) && value.moveIds.length <= 4 && value.moveIds.every(knownId)
         ? { type: value.type, moveIds: value.moveIds } : null
+    case 'challengeFieldTrainer':
+      return knownId(value.trainerId) && Object.hasOwn(fieldTrainerById, value.trainerId)
+        ? { type: value.type, trainerId: value.trainerId } : null
     case 'challengeLeague':
       if (value.trainerId === undefined) return { type: value.type }
       return knownId(value.trainerId) ? { type: value.type, trainerId: value.trainerId } : null

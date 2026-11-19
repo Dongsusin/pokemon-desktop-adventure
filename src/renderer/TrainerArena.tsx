@@ -254,7 +254,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const cx = crop(arena.player.x,arena.enemy.x), cy = crop(arena.player.y,arena.enemy.y)
   const camera = 'scale('+zoom+') translate('+(-cx*100)+'%, '+(-cy*100)+'%)'
   const label = trainer.cupRound ?? (trainer.trialKind === 'totem' ? '시련' : trainer.trialKind === 'kahuna' ? '큰 시련'
-    : trainer.role === 'gym' ? '체육관전' : trainer.role === 'champion' ? '챔피언전' : '사천왕전')
+    : { gym: '체육관전', field: '지역 트레이너전', champion: '챔피언전', elite: '사천왕전' }[trainer.role])
   const foeMember = trainer.team[battle.opponentIndex]
   const opponentId = foe?.speciesId ?? foeMember.speciesId
   const opponentForm = enemyActive?.formId ?? (foe ? battleForm(foe) : foeMember.formId)
@@ -296,7 +296,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
         {(arena.paused || arena.needsSwitch) && <div className="ring-scrim" onPointerDown={e => e.stopPropagation()}>
           <div className="ring-pause-panel">
             <strong>{confirmExit ? (battle.practice ? '연습을 끝낼까요?' : '이 도전을 포기할까요?') : arena.paused ? '일시정지' : '다음 포켓몬을 선택하세요'}</strong>
-            {confirmExit && <small>{battle.practice ? '입장 전 파티와 체력으로 돌아갑니다.' : trainer.role === 'gym' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
+            {confirmExit && <small>{battle.practice ? '입장 전 파티와 체력으로 돌아갑니다.' : trainer.role === 'gym' || trainer.role === 'field' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
             {confirmExit ? <div><button onClick={() => setConfirmExit(false)}>돌아가기</button>
               <button className="danger" onClick={() => input({ type: 'arena-surrender' })}>{battle.practice ? '연습 종료' : '포기 확정'}</button></div>
               : arena.paused ? <div><button onClick={() => pause(false)}>배틀 재개</button>
@@ -384,7 +384,7 @@ function useBattleSound(enabled: boolean, id: number | undefined, pitch: number,
   useEffect(() => () => { if (context.current) void context.current.close().catch(() => {}) }, [])
 }
 
-export interface TrainerResult { practiceResult?: PracticeResult; name: string; won: boolean; message: string; speciesId: string; formId?: string }
+export interface TrainerResult { returnToMap?: boolean; practiceResult?: PracticeResult; name: string; won: boolean; message: string; speciesId: string; formId?: string }
 
 export function BattleResult({ result, close, sound }: { result: TrainerResult; close: () => void; sound: boolean }) {
   const title = result.practiceResult ? { win: '연습 승리', loss: '연습 패배', left: '연습 종료' }[result.practiceResult]
@@ -394,6 +394,6 @@ export function BattleResult({ result, close, sound }: { result: TrainerResult; 
     <div className="ring-result-top"><span>{result.name} 배틀</span><h1>{title}</h1>
       <Pokemon id={result.speciesId} formId={result.formId} label /></div>
     {result.message && <p>{result.message}</p>}
-    <button className="primary" onClick={close}>도전 화면으로</button>
+    <button className="primary" onClick={close}>{result.returnToMap ? '지도로 돌아가기' : '도전 화면으로'}</button>
   </section>
 }
