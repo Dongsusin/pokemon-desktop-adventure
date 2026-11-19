@@ -271,7 +271,7 @@ describe('Kanto travel and encounters', () => {
     }, 1)!
     expect(stale.wild).toHaveLength(0)
     expect(stale.runtime.targetId).toBeNull()
-    expect(stale.player.state).toBe('IDLE')
+    expect(stale.player.state).toBe('WANDER')
   })
 
   it('migrates existing profiles to Route 1 without refunding balls or losing earned drops', () => {
@@ -287,7 +287,7 @@ describe('Kanto travel and encounters', () => {
     }
     const loaded = hydrateSave(old, 1)!
     expect(loaded).toMatchObject({
-      schemaVersion: 24, locationId: 'route-1', coins: 72,
+      schemaVersion: 25, locationId: 'route-1', coins: 72,
       inventory: { potion: 7, pokeball: 2, greatBall: 1 },
       player: { instanceId: game.player.instanceId, level: 12 },
     })
@@ -439,7 +439,7 @@ describe('autonomous simulation', () => {
 describe('combat, inventory, and save recovery', () => {
   it('migrates existing saves to topmost once while retaining progression and later opt-out', () => {
     const game = makeGame('bulbasaur')
-    expect(game).toMatchObject({ schemaVersion: 24, settings: { alwaysOnTop: true } })
+    expect(game).toMatchObject({ schemaVersion: 25, settings: { alwaysOnTop: true } })
     const legacy = {
       ...game, schemaVersion: 1, settings: { ...game.settings, alwaysOnTop: false },
       player: { ...game.player, level: 10, exp: 22 },
@@ -447,7 +447,7 @@ describe('combat, inventory, and save recovery', () => {
     }
     const migrated = hydrateSave(legacy, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 24, locationId: 'route-1',
+      schemaVersion: 25, locationId: 'route-1',
       settings: { alwaysOnTop: true }, coins: 45, inventory: { potion: 7, pokeball: 8 },
       player: { instanceId: game.player.instanceId, speciesId: 'bulbasaur', level: 10, exp: 22 },
     })
@@ -483,10 +483,11 @@ describe('combat, inventory, and save recovery', () => {
     game.runtime.stateIn = 0
     tick(game, 200, bounds)
     expect(game.runtime.targetId).toBeNull()
-    expect(game.player.state).toBe('IDLE')
+    expect(game.player.state).toBe('WANDER')
     expect(ghost.currentHP).toBe(10)
     game.player.moveIds.push('waterGun')
     game.runtime.cooldowns.waterGun = game.runtime.clock + 900
+    tick(game, 200, bounds)
     tick(game, 200, bounds)
     expect(game.runtime.targetId).toBe(ghost.id)
   })
@@ -520,6 +521,7 @@ describe('combat, inventory, and save recovery', () => {
 
   it('provides attacker, hit, defeat, drop and pickup data for the desktop presentation', () => {
     const game = makeGame('charmander', 12)
+    const before = { ...game.inventory }, finish = { ...game.player.position }
     const target: Wild = {
       id: 100, speciesId: 'bulbasaur', currentHP: 1, maxHP: 20,
       direction: -1, level: 3, position: { x: game.player.position.x + 60, y: game.player.position.y }
@@ -534,16 +536,16 @@ describe('combat, inventory, and save recovery', () => {
       expect.objectContaining({ kind: 'damage', actor: target.id }),
       expect.objectContaining({ kind: 'defeat', actor: target.id, speciesId: target.speciesId })
     ]))
-    const drop = game.runtime.drop!
+    const drop = game.effects.find(effect => effect.kind === 'loot')!
+    const id = drop.itemId!
     expect(drop.position).toEqual(target.position)
-    expect(game.effects).toContainEqual(expect.objectContaining({ kind: 'loot', itemId: drop.itemId }))
-    const previousCount = game.inventory[drop.itemId] ?? 0
-    run(game, 2)
     expect(game.runtime.drop).toBeNull()
-    expect(game.inventory[drop.itemId]).toBe(previousCount + 1)
+    expect(game.inventory[id]).toBe((before[id] ?? 0) + 1)
     expect(game.effects).toContainEqual(expect.objectContaining({
-      kind: 'pickup', actor: 'partner', itemId: drop.itemId, position: target.position, target: game.player.position
+      kind: 'pickup', actor: 'partner', itemId: id, position: target.position, target: finish
     }))
+    run(game, 2)
+    expect(game.inventory[id]).toBe((before[id] ?? 0) + 1)
   })
 
   it('rejects invalid core fields and clamps unsupported setting or inventory values', () => {
@@ -648,24 +650,24 @@ describe('capture and party', () => {
   it('attempts optional automatic capture only once against the same weakened opponent, including after loading', () => {
     const game = makeGame()
     encounter(game, 'mewtwo', 7)
-    expect(game.settings.autoCaptureBall).toBeNull()
-    expect(dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball' } })).toBe(true)
+    expect(game.settings.autoCapture).toBe(false)
+    expect(dispatch(game, { type: 'update-settings', settings: { autoCapture: true } })).toBe(true)
     tick(game, 200, bounds)
     expect(game.inventory.pokeball).toBe(7)
     expect(game.followers).toHaveLength(0)
     const restored = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
-    expect(restored.settings.autoCaptureBall).toBe('pokeball')
+    expect(restored.settings.autoCapture).toBe(true)
     run(restored, 5)
     expect(restored.history.filter((entry) => entry.kind === 'capture')).toHaveLength(1)
     expect(restored.inventory.pokeball).toBe(7)
-    expect(dispatch(restored, { type: 'update-settings', settings: { autoCaptureBall: null } })).toBe(true)
+    expect(dispatch(restored, { type: 'update-settings', settings: { autoCapture: false } })).toBe(true)
   })
 
   it('saves the uncaught-only filter per slot and keeps the all-species default for older saves', () => {
     const game = makeGame()
     const oldSettings = { autoCaptureBall: 'pokeball' }
     expect(hydrateSave({ ...game, settings: oldSettings }, 1)!.settings).toMatchObject({
-      autoCaptureBall: 'pokeball', autoCaptureUncaughtOnly: false,
+      autoCapture: true, autoCaptureUncaughtOnly: false,
     })
     expect(dispatch(game, { type: 'update-settings', settings: { autoCaptureUncaughtOnly: true } })).toBe(true)
     expect(hydrateSave(JSON.parse(JSON.stringify(game)), 1)!.settings.autoCaptureUncaughtOnly).toBe(true)
@@ -675,7 +677,7 @@ describe('capture and party', () => {
   it('auto-catches seen but unregistered species, then spends no ball on a boxed species and keeps battling', () => {
     const game = makeGame()
     game.pokedexSeen.push('caterpie')
-    dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball', autoCaptureUncaughtOnly: true } })
+    dispatch(game, { type: 'update-settings', settings: { autoCapture: true, autoCaptureUncaughtOnly: true } })
     encounter(game, 'caterpie', 2)
     tick(game, 200, bounds)
     expect(game.pokedexCaught).toContain('caterpie')
@@ -703,7 +705,7 @@ describe('capture and party', () => {
 
   it('allows another automatic attempt on a new encounter after an uncaught species escaped the ball', () => {
     const game = makeGame()
-    dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball', autoCaptureUncaughtOnly: true } })
+    dispatch(game, { type: 'update-settings', settings: { autoCapture: true, autoCaptureUncaughtOnly: true } })
     encounter(game, 'mewtwo', 7)
     tick(game, 200, bounds)
     expect(game.pokedexCaught).not.toContain('mewtwo')
@@ -752,7 +754,7 @@ describe('capture and party', () => {
     }
     const migrated = hydrateSave(oldSave, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 24, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
+      schemaVersion: 25, settings: { alwaysOnTop: false, autoCapture: false }, inventory: { potion: 7, pokeball: 8 },
       followers: [], player: { instanceId: game.player.instanceId },
     })
     delete migrated.inventory.pokeball
@@ -840,7 +842,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(false)
     dispatch(game, { type: 'travel', locationId: 'pewter-city' })
     dispatch(game, { type: 'set-auto-battle', value: false })
-    dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball' } })
+    dispatch(game, { type: 'update-settings', settings: { autoCapture: true } })
     expect(canChallengeGym(game)).toBe(true)
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
     expect(canChallengeGym(game)).toBe(false)
@@ -1199,7 +1201,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     const { campaign: _campaign, ...old } = structuredClone(game)
     const restored = hydrateSave({ ...old, schemaVersion: 4 }, 1)!
     expect(restored).toMatchObject({
-      schemaVersion: 24, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
+      schemaVersion: 25, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
       campaign: { badges: [], champion: false, leagueIndex: null, battle: null }
     })
     const stale = hydrateSave({

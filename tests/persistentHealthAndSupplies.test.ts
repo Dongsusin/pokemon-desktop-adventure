@@ -72,8 +72,8 @@ describe('persistent health and battle supplies', () => {
   it('reserves the last capture ball for a manual throw', () => {
     const g = create()
     g.locationId = 'route-1'
-    g.settings.autoCaptureBall = 'master-ball'
-    g.inventory['master-ball'] = 1
+    g.settings.autoCapture = true
+    g.inventory = { 'master-ball': 1 }
     const wild = { id: 90, speciesId: 'pidgey', level: 3, currentHP: 5, maxHP: 24, direction: -1 as const, position: { ...g.player.position } }
     const encounter = () => {
       g.wild = [{ ...wild }]

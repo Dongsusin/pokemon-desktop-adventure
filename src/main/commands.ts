@@ -1,4 +1,4 @@
-import { captureBallIds, items, MAX_PARTY_SIZE, shopOffer, type Settings } from '../game/engine'
+import { captureBallIds, isBattleSupply, items, MAX_PARTY_SIZE, shopOffer, type Settings } from '../game/engine'
 import { fieldTrainerById } from '../game/regions/fieldTrainers'
 import { isTrainerAvatar } from '../game/trainerAvatar'
 import { isSlot, type AdventureCommand, type ArenaInput } from '../preload/contracts'
@@ -9,7 +9,7 @@ function record(value: unknown): value is Record<string, unknown> {
 }
 
 const booleanSettings = [
-  'sound', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoUseAllItems', 'autoEvolve', 'effects', 'hud', 'notifications'
+  'sound', 'autoCapture', 'autoCaptureUncaughtOnly', 'showPartyOnDesktop', 'overlayVisible', 'alwaysOnTop', 'autoUseAllItems', 'autoEvolve', 'effects', 'hud', 'notifications'
 ] as const
 
 function parseSettings(value: unknown): Partial<Settings> | null {
@@ -19,12 +19,13 @@ function parseSettings(value: unknown): Partial<Settings> | null {
     if (typeof value[key] === 'boolean') settings[key] = value[key]
   }
   if (value.fps === 15 || value.fps === 30) settings.fps = value.fps
-  const autoBall = captureBallIds.find(id => id === value.autoCaptureBall)
-  if (value.autoCaptureBall === null || autoBall) settings.autoCaptureBall = autoBall ?? null
-  if (Array.isArray(value.autoUseItems) && value.autoUseItems.length <= Object.keys(items).length && value.autoUseItems.every(knownItem)) {
-    settings.autoUseItems = [...new Set(value.autoUseItems as string[])]
+  if (settings.autoCapture === undefined && (value.autoCaptureBall === null || (typeof value.autoCaptureBall === 'string' && captureBallIds.includes(value.autoCaptureBall)))) {
+    settings.autoCapture = value.autoCaptureBall !== null
   }
-  if (value.autoUseItem === null || knownItem(value.autoUseItem)) {
+  if (Array.isArray(value.autoUseItems) && value.autoUseItems.length <= Object.keys(items).length && value.autoUseItems.every(knownItem)) {
+    settings.autoUseItems = [...new Set(value.autoUseItems.filter(isBattleSupply))]
+  }
+  if (value.autoUseItem === null || isBattleSupply(value.autoUseItem)) {
     settings.autoUseItem = value.autoUseItem
   }
   if (typeof value.spriteScale === 'number' && Number.isFinite(value.spriteScale) && value.spriteScale >= 0.75 && value.spriteScale <= 2) {

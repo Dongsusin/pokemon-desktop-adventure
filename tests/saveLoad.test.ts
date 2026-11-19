@@ -139,7 +139,7 @@ describe('desktop command validation', () => {
       type: 'setFollowerActive', instanceId: 'caught-1', active: false
     })
     expect(parseCommand({ type: 'settings', settings: { autoCaptureBall: 'greatBall', autoCaptureUncaughtOnly: true } })).toEqual({
-      type: 'settings', settings: { autoCaptureBall: 'greatBall', autoCaptureUncaughtOnly: true }
+      type: 'settings', settings: { autoCapture: true, autoCaptureUncaughtOnly: true }
     })
   })
 

@@ -84,8 +84,8 @@ export function figures(game: GameSave, evolution?: Effect, capture?: Effect, ah
   return [{
     id: PARTNER, speciesId: partnerId, formId: partnerId === player.speciesId ? allyActive?.formId ?? player.formId : evolution?.fromFormId, at: player.position, direction: player.direction,
     lookAt: destination ?? undefined, cycleOffset: (player.roamSeed ?? 0) % 97,
-    moving: !!destination && (player.state === 'WANDER' || player.state === 'CHASE' ||
-      (player.state === 'LOOT' && Math.hypot(destination.x - player.position.x, destination.y - player.position.y) > LOOT_RANGE + .01)),
+    moving: player.state === 'WANDER' || (!!destination && (player.state === 'CHASE' ||
+      (player.state === 'LOOT' && Math.hypot(destination.x - player.position.x, destination.y - player.position.y) > LOOT_RANGE + .01))),
     teraType: allyActive?.kind === 'tera' ? allyActive.teraType : undefined, gimmick: allyActive?.kind,
     scale: game.settings.spriteScale * (allyActive?.kind === 'dynamax' ? DYNAMAX_PARTNER_SCALE : 1)
   }, ...followers, ...nearby, ...defeated]

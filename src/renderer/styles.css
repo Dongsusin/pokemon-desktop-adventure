@@ -266,6 +266,7 @@ progress::-webkit-progress-value { background: #71a66e; border-radius: 7px; }
 .history time { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .log-dot { width: 6px; height: 6px; border-radius: 50%; background: #91a794; flex: none; }
 .log-dot.loot, .log-dot.evolution { background: #c89654; }
+.log-dot.learn { background: #368674; }
 .log-dot.level { background: #517a98; }
 .pane-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .pokemon-bio { display: flex; align-items: center; gap: 12px; background: #e7efe1; border-radius: 8px; }
@@ -306,6 +307,8 @@ progress::-webkit-progress-value { background: #71a66e; border-radius: 7px; }
 .effect-damage { color: #ffc0a7; }
 .effect-heal, .effect-reward { color: #c5f6b7; }
 .overlay-hud { position: absolute; right: 24px; bottom: 24px; width: 146px; display: grid; gap: 4px; border: 1px solid #6c8b66; color: #fff9e5; background: #193e32df; border-radius: 9px; padding: 8px 10px; font-size: 12px; }
+.move-learn-notices { position: absolute; right: 18px; top: 18px; display: grid; justify-items: end; gap: 5px; max-width: calc(100% - 36px); pointer-events: none; }
+.move-learn-notices span { padding: 8px 13px; border: 1px solid #89bca4; border-radius: 8px; color: #f3ffec; background: #193e32f2; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
 .overlay-hud span { font-size: 10px; color: #c6ddbf; }
 .overlay-hud progress { height: 4px; }
 

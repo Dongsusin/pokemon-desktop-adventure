@@ -464,7 +464,8 @@ function FieldDrop({ drop }: { drop: NonNullable<GameSave['runtime']['drop']> })
 function Pickup({ effect, height }: { effect: Effect; height: number }) {
   if (!effect.target || !effect.itemId) return null
   const t = phase(effect)
-  const fly = Math.min(1, t * 2.7)
+  if (t < .20) return <FieldDrop drop={{ itemId: effect.itemId, position: effect.position }} />
+  const fly = Math.min(1, (t - .20) * 2.7)
   const end = { x: effect.target.x, y: effect.target.y - height * 0.55 }
   const point = approach(effect.position, end, fly)
   return <div data-cue="pickup" className="pickup-cue">
@@ -545,12 +546,17 @@ export function Overlay() {
     {game && <WildTrainer game={game} viewportWidth={window.innerWidth} />}
     <Stage key={snapshot?.selectedSlot ?? 0} game={game} />
     {game?.settings.overlayVisible && <>
-      {game.settings.effects && <div className="overlay-effects" aria-hidden="true">
-        <BattleMeters game={game} />
-        {game.runtime.drop && <FieldDrop drop={game.runtime.drop} />}
-        {game.effects.map(effect => <EventLabel key={effect.id} effect={effect}
-          height={SPRITE_HEIGHT * game.settings.spriteScale} inBattle={game.player.state === 'BATTLE'} />)}
-      </div>}
+      {game.settings.effects && <>
+        <div className="overlay-effects" aria-hidden="true">
+          <BattleMeters game={game} />
+          {game.runtime.drop && <FieldDrop drop={game.runtime.drop} />}
+          {game.effects.filter(effect => effect.kind !== 'learn').map(effect => <EventLabel key={effect.id} effect={effect}
+            height={SPRITE_HEIGHT * game.settings.spriteScale} inBattle={game.player.state === 'BATTLE'} />)}
+        </div>
+        <div className="move-learn-notices" role="status" aria-label="기술 습득">
+          {game.effects.filter(effect => effect.kind === 'learn').map(effect => <span key={effect.id} data-cue="learn">{effect.text}</span>)}
+        </div>
+      </>}
       {game.settings.hud && <div className="overlay-hud">
         <strong>{species[game.player.speciesId].nameKo} · Lv. {level}</strong>
         <span>{worldLocationById[game.locationId]?.name} · {activityLabels[game.player.state]}</span>

@@ -67,6 +67,63 @@ describe('exploration party experience and desktop visibility', () => {
     expect(g.followers[0].exp).toBe(Math.floor(lead / 2))
   })
 
+  it('announces each new move for its learner, including a hidden reserve, and saves it once', () => {
+    const g = encounter(2)
+    const [reserve, fainted] = g.followers
+    g.settings.showPartyOnDesktop = false
+    reserve.speciesId = 'charmander'
+    fainted.currentHP = 0
+    for (const mon of [g.player, reserve, fainted]) {
+      mon.level = 12
+      mon.exp = requiredExp(12) - 1
+    }
+    tick(g, 40, bounds)
+    const texts = ['꼬부기 · 물의파동 습득', '파이리 · 니트로차지 습득']
+    expect(g.effects.filter(e => e.kind === 'learn').map(e => e.text)).toEqual(texts)
+    expect(g.history.filter(e => e.kind === 'learn').map(e => e.text)).toEqual([...texts].reverse())
+    expect(g.player.moveIds).toContain('waterPulse')
+    expect(reserve.moveIds).toContain('flameCharge')
+    expect(fainted.level).toBe(12)
+    const loaded = hydrateSave(g, 1)!
+    tick(loaded, 100, bounds)
+    expect(loaded.history.filter(e => e.kind === 'learn')).toHaveLength(2)
+    expect(loaded.effects.some(e => e.kind === 'learn')).toBe(false)
+  })
+
+  it('records offline learning with effects disabled and skips levels that unlock no move', () => {
+    const g = encounter(0)
+    g.settings.effects = false
+    g.player.level = 12
+    g.player.exp = requiredExp(12) - 1
+    applyOffline(g, now + 60000, now)
+    expect(g.history.filter(e => e.kind === 'learn').map(e => e.text)).toEqual(['꼬부기 · 물의파동 습득'])
+    expect(g.effects).toHaveLength(0)
+    g.player.exp = requiredExp(13) - 1
+    applyOffline(g, now + 120000)
+    expect(g.player.level).toBe(14)
+    expect(g.history.filter(e => e.kind === 'learn')).toHaveLength(1)
+  })
+
+  it('groups every supported move unlocked across several offline levels', () => {
+    const g = encounter(0)
+    Object.assign(g.player, { level: 1, exp: 0, moveIds: ['tackle'] })
+    applyOffline(g, now + 8 * 60 * 60000, now)
+    expect(g.player.level).toBeGreaterThanOrEqual(13)
+    expect(g.effects.filter(e => e.kind === 'learn').map(e => e.text)).toEqual(['꼬부기 · 물대포, 물의파동 습득'])
+  })
+
+  it('announces only the moves newly available on evolution without replacing a selected loadout', () => {
+    const g = encounter(0)
+    Object.assign(g.player, { speciesId: 'bidoof', level: 15, state: 'IDLE', moveIds: ['tackle'] })
+    g.wild = []
+    g.runtime.targetId = null
+    expect(dispatch(g, { type: 'evolve' })).toBe(true)
+    expect(g.player.speciesId).toBe('bibarel')
+    expect(g.player.moveIds).toEqual(['tackle'])
+    expect(g.history.filter(e => e.kind === 'learn').map(e => e.text)).toEqual(['비버통 · 물대포 습득'])
+    expect(g.effects.find(e => e.kind === 'learn')?.text).toBe('비버통 · 물대포 습득')
+  })
+
   it('renders just the chosen allies, retaining the opponent, the slot setting and old saves', () => {
     const g = encounter(), ids = () => figures(g).map(f => f.id)
     const roster = g.followers.map(m => 'follower:' + m.instanceId)

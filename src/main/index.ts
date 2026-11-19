@@ -489,8 +489,10 @@ function startDesktop(): void {
     if (latest.length > 0) {
       lastNotice = Math.max(...latest.map((entry) => entry.id))
       if (game.settings.notifications && Notification.isSupported()) {
-        const notice = latest.find((entry) => entry.kind === 'evolution' || entry.kind === 'level')
-        if (notice) new Notification({ title: productName, body: notice.text, icon, silent: !game.settings.sound }).show()
+        const messages = latest.filter(entry => entry.kind === 'learn').map(entry => entry.text)
+        const milestone = latest.find(entry => entry.kind === 'evolution' || entry.kind === 'level')
+        if (milestone) messages.push(milestone.text)
+        if (messages.length) new Notification({ title: productName, body: messages.join('\n'), icon, silent: !game.settings.sound }).show()
       }
     }
     controlInterval = (controlInterval + 1) % 3

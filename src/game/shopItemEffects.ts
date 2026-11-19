@@ -149,7 +149,7 @@ function describe(effect: Rule, slug: string): ShopItemEffect {
   let arena: string | undefined
   switch (kind) {
     case 'heal': text = '출전 포켓몬의 최대 HP의 ' + pct + '를 회복합니다.'; break
-    case 'revive': text = '기절한 출전 포켓몬을 최대 HP의 ' + pct + '로 되살립니다.'; break
+    case 'revive': text = '배틀 밖에서 기절한 파티 포켓몬을 최대 HP의 ' + pct + '로 되살립니다.'; break
     case 'attack': text = span + '공격·특수공격이 ' + pct + ' 증가합니다.'; break
     case 'defense': text = span + '방어·특수방어가 ' + pct + ' 증가합니다.'; break
     case 'speed': text = span + '스피드와 이동 속도가 ' + pct + ' 증가합니다.'; break
@@ -164,7 +164,6 @@ function describe(effect: Rule, slug: string): ShopItemEffect {
       break
     case 'capture':
       text = ballDescriptions[slug] ?? '야생 상대에게 던집니다. 기본 포획 보정 ×' + effect.magnitude + '.'
-      arena = '30초 동안 기술 재사용 대기 시간이 15% 줄어듭니다.'
       break
   }
   return { ...effect, description: text + suffix, ...((arena || effect.gimmick) && { arenaDescription: (arena ?? text) + (effect.gimmick ? ' 지방 기믹은 트레이너의 신호로 발동합니다.' : '') }) }

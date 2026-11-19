@@ -95,7 +95,7 @@ describe('Pokémon storage boxes', () => {
     const secondBoxPokemon = game.boxes[1][0]
     game.boxes[0][8] = null
     weakEncounter(game)
-    dispatch(game, { type: 'update-settings', settings: { autoCaptureBall: 'pokeball' } })
+    dispatch(game, { type: 'update-settings', settings: { autoCapture: true } })
     tick(game, 200, bounds)
     expect(game.followers).toHaveLength(5)
     expect(game.boxes[0][8]).toMatchObject({ speciesId: 'caterpie', active: false })

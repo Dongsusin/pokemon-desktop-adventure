@@ -54,16 +54,22 @@ function byEffect(kind: ShopItemEffect['kind'], type?: string) {
 }
 
 describe('Friendly Shop battle items', () => {
-  it.each([false, true])('uses every listed item through the bag or the configured automatic item with observable results (arena=%s)', manual => {
+  it.each([false, true])('enforces the permitted use of every item in combat (arena=%s)', manual => {
     const template = battle(manual)
     for (const row of catalogItems) {
       const g = structuredClone(template), effect = shopItemEffect(row.id)
       const action = supply(g, row.id)
       g.player.currentHP = effect.kind === 'revive' ? 0 : 1
       expect(parseCommand(action), row.id).toEqual(action)
+      if (effect.kind === 'revive' || (manual && effect.kind === 'capture')) {
+        expect(applySupply(g, action), row.id).toBe(false)
+        expect(g.inventory[row.id], row.id).toBe(2)
+        expect(activeBattleItem(g)).toBeUndefined()
+        continue
+      }
       expect(applySupply(g, action), row.id).toBe(true)
       expect(g.inventory[row.id], row.id).toBe(1)
-      if (effect.kind === 'heal' || effect.kind === 'revive') expect(g.player.currentHP, row.id).toBeGreaterThan(1)
+      if (effect.kind === 'heal') expect(g.player.currentHP, row.id).toBeGreaterThan(1)
       else if (effect.kind === 'capture' && !manual) expect(g.runtime.captureIn, row.id).toBeGreaterThan(0)
       else expect(activeBattleItem(g)?.itemId, row.id).toBe(row.id)
       expect(dispatch(g, action), row.id).toBe(false)
@@ -209,9 +215,9 @@ describe('Friendly Shop battle items', () => {
     fainted.runtime.turn = 'wild'
     fainted.player.currentHP = 1
     advanceScripted(fainted, 1, bounds)
-    expect(fainted.inventory.revive).toBe(1)
-    expect(fainted.player.currentHP).toBeGreaterThan(0)
-    expect(fainted.losses).toBe(0)
+    expect(fainted.inventory.revive).toBe(2)
+    expect(fainted.player.currentHP).toBe(0)
+    expect(fainted.losses).toBe(1)
   })
 
   it('applies prepared Mega stones and typed Z crystals only on a trainer signal', () => {
@@ -242,7 +248,7 @@ describe('Friendly Shop battle items', () => {
     expect(z.runtime.gimmick?.player).toMatchObject({ kind: 'z', teraType: 'normal' })
   })
 
-  it('uses specialized balls for wild captures and an actual focus effect in trainer battles', () => {
+  it('uses specialized balls only for wild captures and preserves trainer battle cooldowns', () => {
     const g = battle(false)
     const target = g.wild[0]
     const ball = (slug: string) => catalogItems.find(i => i.slug === slug)!.id
@@ -255,10 +261,14 @@ describe('Friendly Shop battle items', () => {
     expect(g.followers.some(poke => poke.speciesId === target.speciesId)).toBe(true)
     const arena = battle(true)
     const original = structuredClone(arena)
-    expect(applySupply(arena, supply(arena, ball('master-ball')))).toBe(true)
+    arena.inventory = { 'master-ball': 2 }
+    arena.settings.autoUseAllItems = true
+    expect(applySupply(arena, supply(arena, ball('master-ball')))).toBe(false)
+    expect(arena.inventory['master-ball']).toBe(2)
+    expect(activeBattleItem(arena)).toBeUndefined()
     expect(arena.wild[0].trainerId).toBeTruthy()
     expect(performArenaTactic(arena, { type: 'arena-skill', slot: 2 })).toBe(true)
     expect(performArenaTactic(original, { type: 'arena-skill', slot: 2 })).toBe(true)
-    expect(arena.runtime.cooldowns.waterPulse).toBeLessThan(original.runtime.cooldowns.waterPulse)
+    expect(arena.runtime.cooldowns.waterPulse).toBe(original.runtime.cooldowns.waterPulse)
   })
 })

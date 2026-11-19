@@ -364,13 +364,8 @@ function SettingsPane({ game, snapshot, send }: { game: GameSave; snapshot: Adve
       <Switch label="배틀 도구 전부 자동 사용" checked={settings.autoUseAllItems} onChange={autoUseAllItems => change({ autoUseAllItems })}
         note="HP가 낮으면 회복 도구를 우선합니다. 장착 중인 수량과 종류별 마지막 1개는 보관합니다." />
       <Switch label="자동 진화" checked={settings.autoEvolve} onChange={autoEvolve => change({ autoEvolve })} />
-      <label className="select-field"><span><strong>자동 포획</strong><small className="field-note">야생 HP 35% 이하에서 조우당 1회</small></span>
-        <select aria-label="자동 포획" value={settings.autoCaptureBall ?? ''}
-          onChange={e => change({ autoCaptureBall: captureBallIds.find(id => id === e.target.value) ?? null })}>
-          <option value="">끄기</option>
-          {captureBallIds.map(id => <option value={id} key={id}>{items[id].nameKo}</option>)}
-        </select>
-      </label>
+      <Switch label="자동 포획" checked={settings.autoCapture} onChange={autoCapture => change({ autoCapture })}
+        note="야생 HP 35% 이하에서 한 번 던집니다. 2개 이상 가진 볼 중 가격이 낮은 볼부터 사용합니다." />
       <Switch label="미포획 포켓몬만 자동 포획" note="도감에 포획 기록이 없는 종에게만 볼을 던집니다." checked={settings.autoCaptureUncaughtOnly}
         onChange={autoCaptureUncaughtOnly => change({ autoCaptureUncaughtOnly })} />
       <label className="select-field"><strong>탐험 성향</strong><select value={settings.exploration} onChange={e => change({ exploration: e.target.value as Settings['exploration'] })}>
@@ -388,7 +383,7 @@ function SettingsPane({ game, snapshot, send }: { game: GameSave; snapshot: Adve
     <Card title="바탕화면 표시">
       <Switch label="캐릭터 표시" checked={settings.overlayVisible} onChange={overlayVisible => change({ overlayVisible })} />
       <Switch label="항상 위에 표시" checked={settings.alwaysOnTop} onChange={alwaysOnTop => change({ alwaysOnTop })} />
-      <Switch label="전투·포획·아이템·진화 연출" checked={settings.effects} onChange={effects => change({ effects })} />
+      <Switch label="전투·포획·아이템·성장 연출" checked={settings.effects} onChange={effects => change({ effects })} />
       <Switch label="간단 상태 표시" checked={settings.hud} onChange={hud => change({ hud })} />
       <label className="select-field"><strong>프레임 속도</strong><select value={settings.fps} onChange={e => change({ fps: Number(e.target.value) as 15 | 30 })}>
         <option value={30}>30 FPS</option><option value={15}>15 FPS · 저전력</option>
@@ -417,7 +412,8 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
       const record = bout.current
       bout.current = null
       const entry = game.history.find(entry => entry.id > record.logId && entry.kind === 'battle')
-      setResult({ ...record, message: entry?.text ?? '', practiceResult: entry?.practiceResult,
+      const learnedMoves = game.history.filter(entry => entry.id > record.logId && entry.kind === 'learn')
+      setResult({ ...record, learnedMoves, message: entry?.text ?? '', practiceResult: entry?.practiceResult,
         won: entry?.practiceResult === 'win' || game.wins > record.wins })
       if (record.returnToMap) showMap(game.locationId)
       else setTab('도전')

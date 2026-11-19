@@ -77,6 +77,7 @@ export function ItemHeading({ id, count }: { id: string; count?: number }) {
 export function ItemEffects({ id, arena = false }: { id: string; arena?: boolean }) {
   if (!catalogById.has(id)) return null
   const effect = shopItemEffect(id)
+  if (effect.kind === 'capture') return <p className="item-effects"><b>야생 포획</b>{effect.description}</p>
   if (arena) return <p className="item-effects">{effect.arenaDescription ?? effect.description}</p>
   if (!effect.arenaDescription || effect.arenaDescription === effect.description) return <p className="item-effects"><b>배틀</b>{effect.description}</p>
   return <div className="item-effects"><p><b>야생</b>{effect.description}</p><p><b>트레이너전</b>{effect.arenaDescription}</p></div>

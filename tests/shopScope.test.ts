@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { catalogItems } from '../src/game/shopCatalog'
-import { createGame, dispatch, hydrateSave, items, salePrice, shopOffer, tick, type GameSave, type PartyPokemon } from '../src/game/engine'
+import { createGame, dispatch, hydrateSave, items, salePrice, shopOffer, tick, type PartyPokemon } from '../src/game/engine'
 
 const removed = ['rare-candy', 'exp-candy-xl', 'tm01', 'x-attack', 'luckyEgg', 'explorerBadge', 'oldAmber', 'linkingCord', 'waterStone', 'poke-ball-recipe', 'bike--yellow']
 const retained = ['muscleBand', 'guardCharm', 'legend-plate', 'charizardite-x', 'master-ball', 'lapoke-ball', 'superPotion', 'max-revive', 'ether', 'lum-berry', 'fine-remedy']
@@ -64,10 +64,10 @@ describe('playable item scope', () => {
         position: { ...game.player.position }, direction: 1 }]
       Object.assign(game.runtime, { rngState: Math.imul(seed, 0x9e3779b9) >>> 0, targetId: 42, turn: 'player', spawnIn: 120000, stateIn: 0 })
       tick(game, 20, bounds)
-      const drop = (game as GameSave).runtime.drop
-      if (!drop) continue
+      const drop = game.effects.find(fx => fx.kind === 'pickup')
+      if (!drop?.itemId) continue
       expect(shopOffer(drop.itemId), drop.itemId).toBeDefined()
-      const before = game.inventory[drop.itemId] ?? 0
+      const before = original.inventory[drop.itemId] ?? 0
       game.runtime.stateIn = 0
       tick(game, 20, bounds)
       expect(game.inventory[drop.itemId]).toBe(before + 1)

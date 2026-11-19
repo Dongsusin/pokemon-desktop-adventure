@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { REVIVAL_COST, revivalRemaining, battleGimmickStatus, arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
+import { battleGimmickStatus, arenaSkills, currentTrainer, effectiveLevel, playerStats, type GameAction, type GameSave, type Position, type PracticeResult } from '../game/engine'
 import { battleForm } from '../game/forms'
 import { worldRegions } from '../game/regions/world'
 import { Pokemon, pokemonName, types } from './shared'
@@ -12,7 +12,6 @@ import { useMoveSounds } from './useMoveSounds'
 import { battleVenue } from './battleGround'
 import { GimmickControl } from './GimmickControl'
 import { ActiveBattleItem } from './InventoryBag'
-import { revivalTime } from './PokemonCare'
 import './trainer-arena.css'
 
 type Input = Extract<GameAction, { type: `arena-${string}` }>
@@ -197,8 +196,7 @@ export function TrainerArena({ game }: { game: GameSave }) {
             {confirmExit && <small>{battle.practice ? '현재 HP와 도구 수량으로 연습을 마칩니다.' : trainer.role === 'gym' || trainer.role === 'field' || trainer.id === region.finaleTrainer?.id ? '이번 상대와의 전투를 종료합니다.' : '포기하면 이번 리그 도전의 연승 기록이 초기화됩니다.'}</small>}
             {confirmExit ? <div><button onClick={cancelExit}>돌아가기</button>
               <button className="danger" onClick={() => input({ type: 'arena-surrender' })}>{battle.practice ? '연습 종료' : '포기 확정'}</button></div>
-              : <>{arena.needsSwitch && <><small>교체할 포켓몬을 누르거나 자리 번호를 입력하세요. 부활까지 {revivalTime(revivalRemaining(player))}</small>
-                  <button disabled={game.coins < REVIVAL_COST} onClick={() => void window.adventure.dispatch({ type: 'revivePokemon', instanceId: player.instanceId }).catch(() => setHint('부활에 필요한 코인을 확인해 주세요.'))}>즉시 부활 · {REVIVAL_COST}코인</button></>}
+              : <>{arena.needsSwitch && <small>교체할 포켓몬을 누르거나 자리 번호를 입력하세요.</small>}
                 {arena.paused && <div><button onClick={() => pause(false)}>배틀 재개</button>
                   <button onClick={requestExit}>{battle.practice ? '연습 나가기' : '도전 포기'}</button></div>}</>}
           </div></div>}
@@ -273,7 +271,7 @@ function useBattleSound(enabled: boolean, id: number | undefined, pitch: number,
   useEffect(() => () => { if (context.current) void context.current.close().catch(() => {}) }, [])
 }
 
-export interface TrainerResult { returnToMap?: boolean; practiceResult?: PracticeResult; name: string; won: boolean; message: string; speciesId: string; formId?: string }
+export interface TrainerResult { returnToMap?: boolean; learnedMoves: { id: number; text: string }[]; practiceResult?: PracticeResult; name: string; won: boolean; message: string; speciesId: string; formId?: string }
 
 export function BattleResult({ result, close, sound }: { result: TrainerResult; close: () => void; sound: boolean }) {
   const title = result.practiceResult ? { win: '연습 승리', loss: '연습 패배', left: '연습 종료' }[result.practiceResult]
@@ -283,6 +281,9 @@ export function BattleResult({ result, close, sound }: { result: TrainerResult; 
     <div className="ring-result-top"><span>{result.name} 배틀</span><h1>{title}</h1>
       <Pokemon id={result.speciesId} formId={result.formId} label /></div>
     {result.message && <p>{result.message}</p>}
+    {result.learnedMoves.length > 0 && <ul className="ring-learned" aria-label="이번 대전에서 배운 기술">
+      {result.learnedMoves.map(entry => <li key={entry.id}>{entry.text}</li>)}
+    </ul>}
     <button className="primary" onClick={close}>{result.returnToMap ? '지도로 돌아가기' : '도전 화면으로'}</button>
   </section>
 }

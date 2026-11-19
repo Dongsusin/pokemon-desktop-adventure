@@ -46,12 +46,12 @@ export function InventoryBag({ game, busy, send }: {
           const equipped = held && game.player.heldItemId === id
           const assigned = held && availableEquipment(game, id) < 1
           const isBall = entry?.category === 'balls'
-          const battleLabel = isBall ? '던지기' : '배틀 사용'
+          const battleLabel = isBall ? '던지기' : effect?.kind === 'revive' ? '부활 도구 사용' : '배틀 사용'
           return <li key={id} data-item-id={id}>
             <span className={'item-icon ' + item.rarity}><ItemSprite id={id}/></span>
             <div className="catalog-item-body"><ItemHeading id={id} count={count}/>
               <ItemEffects id={id}/>
-              {effect && <small className="catalog-item-meta">배틀 사용 시 1개 소모</small>}
+              {effect && <small className="catalog-item-meta">{isBall ? '던질 때' : '사용 시'} 1개 소모</small>}
               {held && <small className="catalog-item-meta">장착 · {item.description !== effect?.description ? item.description :
                 effect?.kind === 'heal' ? '치료 도구를 받을 때 HP 회복량이 25% 증가합니다.' : '지닌 동안 배틀 보너스를 계속 적용합니다.'}</small>}
             </div>
@@ -62,7 +62,7 @@ export function InventoryBag({ game, busy, send }: {
               {held && <button type="button" className="small-button" disabled={busy || equipped || assigned}
                 aria-label={item.nameKo + ' 장착'} onClick={() => send({ type: 'equip', itemId: id })}>
                 {equipped ? '장착 중' : assigned ? '동료 사용 중' : '장착'}</button>}
-              {effect && <button type="button" className="small-button" disabled={busy || all} aria-pressed={all || autoItems.includes(id)}
+              {effect && !isBall && <button type="button" className="small-button" disabled={busy || all} aria-pressed={all || autoItems.includes(id)}
                 aria-label={item.nameKo + ' 자동 배틀 지정'} onClick={() => chooseAuto(autoItems.includes(id) ? autoItems.filter(entry => entry !== id) : [...autoItems, id])}>
                 {all ? '전체 자동 사용 중' : autoItems.includes(id) ? '자동 지정 중' : '자동 지정'}</button>}
               {id === 'swiftBerry' && <button type="button" className="small-button" disabled={busy}

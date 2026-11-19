@@ -109,6 +109,7 @@
 .ring-result h1 { font-size:32px;line-height:1.05;letter-spacing:-.05em; }
 .ring-result .pokemon-sprite { width:80px;height:72px; }
 .ring-result p { padding:17px 12px 12px;font-size:13px;line-height:1.6; }
+.ring-learned { list-style:none;margin:0 0 15px;padding:0 16px;color:#285b4a;font-size:13px;font-weight:650; }
 .ring-result>button { margin:0 0 14px; }
 @media(max-width:610px) {
   .shell.arena-shell { padding:5px; align-items:start; }
