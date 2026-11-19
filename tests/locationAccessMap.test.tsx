@@ -70,7 +70,11 @@ it('prioritizes the accessible Goldenrod city on its shared pin and keeps the lo
   const marker = (html.match(/<button[^>]*class="kanto-pin [^>]*>/g) ?? []).find(tag => tag.includes(tower))
   expect(marker).toContain('aria-description="' + city + ' 선택"')
   expect(marker).toContain(tower + ' · 이동 잠김')
-  expect(render(game, 'goldenrod-radio-tower').action).toContain('disabled=""')
+  const towerSelection = render(game, 'goldenrod-radio-tower')
+  const selectedPin = (towerSelection.html.match(/<button[^>]*class="kanto-pin [^>]*>/g) ?? []).find(tag => tag.includes(tower))
+  expect(selectedPin).toContain('kanto-pin-dungeon')
+  expect(selectedPin).toContain('is-locked')
+  expect(towerSelection.action).toContain('disabled=""')
   expect(render(game, 'goldenrod-city').action).toContain('이곳으로 이동')
 })
 

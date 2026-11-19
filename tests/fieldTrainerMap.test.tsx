@@ -21,13 +21,15 @@ function inRegion(regionId: RegionId): GameSave {
 const renderMap = (game: GameSave, focus?: string) =>
   renderToStaticMarkup(<RegionMap game={game} focus={focus} busy={false} begin={() => {}} travel={() => {}} />)
 
-it.each(regionOrder)('lets players discover the named trainers on the %s map and inspect their actual teams', regionId => {
+it.each(regionOrder)('keeps trainer art off the %s map and lets players inspect teams in location details', regionId => {
   const game = inRegion(regionId)
   for (const trainer of fieldTrainersByRegion[regionId]) {
     const html = renderMap(game, trainer.locationId)
     const name = renderToStaticMarkup(<>{trainer.name}</>)
-    const marker = html.match(/<button[^>]+class="kanto-pin [^"]*has-field-trainer[^"]*"[^>]+>/g) ?? []
-    expect(marker.some(node => node.includes(name))).toBe(true)
+    const surface = html.slice(html.indexOf('class="kanto-map-image'), html.indexOf('class="kanto-map-key'))
+    expect(surface).toContain('class="kanto-pin ')
+    expect(surface).not.toContain('field-trainer-marker')
+    expect(surface).not.toContain(fieldTrainerPortrait(trainer))
     expect(html).toContain('data-field-trainer="' + trainer.id + '"')
     expect(html).toContain(name + '의 포켓몬')
     expect(html).toContain(fieldTrainerPortrait(trainer))

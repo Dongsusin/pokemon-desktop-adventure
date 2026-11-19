@@ -2,11 +2,9 @@ import { useMemo, useState } from 'react'
 import { worldRegions, type RegionId } from '../game/regions/world'
 import { fieldItems, collectionItems } from '../game/collectionItems'
 import { RESEARCH_VISIT_CHANCE } from '../game/regions/collectionEncounters'
-import { supportedWildForms } from '../game/regions/motionEncounters'
 import { PALDEA_MAP_WIDTH, PALDEA_MAP_HEIGHT, paldeaAreaByLocationId } from '../game/regions/paldea'
 import { GALAR_MAP_WIDTH, GALAR_MAP_HEIGHT, galarAreaByLocationId } from '../game/regions/galar'
 import { ALOLA_MAP_WIDTH, ALOLA_MAP_HEIGHT, alolaIslandByLocationId } from '../game/regions/alola'
-import { galarWildAreaIds } from '../game/regions/galar-encounters'
 import { KALOS_MAP_WIDTH, KALOS_MAP_HEIGHT } from '../game/regions/kalos'
 import { UNOVA_MAP_WIDTH, UNOVA_MAP_HEIGHT } from '../game/regions/unova'
 import { SINNOH_MAP_WIDTH, SINNOH_MAP_HEIGHT } from '../game/regions/sinnoh'
@@ -18,13 +16,13 @@ import {
 } from '../game/regions/kantoIllustratedMap'
 import type { KantoLocation } from '../game/regions/kanto'
 import { species } from '../game/catalog'
-import { regionalWeather, eligibleLegends, nextGymTrainer, resolveTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
-import { formLabel } from '../game/forms'
+import { nextGymTrainer, resolveTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
 import { locationAccess } from '../game/locationAccess'
 import { fieldTrainerById, fieldTrainersByRegion } from '../game/regions/fieldTrainers'
+import { MapLocationTooltip, useMapPreview } from './MapLocationTooltip'
+import { describePlace, levelLabel, locationKinds, placeKind, rareCondition, usePlaceEncounters } from './mapLocationGuide'
 import { FieldTrainerCard } from './FieldTrainerCard'
 import { FieldTrainerDirectory } from './FieldTrainerDirectory'
-import { FieldTrainerPortrait } from './fieldTrainerArt'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
 import { Pokemon, types } from './shared'
 import { TrainerTactics } from './TrainerTactics'
@@ -68,13 +66,6 @@ const maps = {
     path: 'maps/alola/town-map.png', alt: '알로라지방 지도',
     width: ALOLA_MAP_WIDTH, height: ALOLA_MAP_HEIGHT, pixelArt: false
   }
-}
-const locationKinds = {
-  town: '마을',
-  city: '도시',
-  route: '도로',
-  dungeon: '동굴·시설',
-  league: '리그'
 }
 
 function pinFor(regionId: RegionId, location: KantoLocation) {
@@ -127,47 +118,13 @@ function areaViewport(places: readonly KantoLocation[], width: number, height: n
   }
 }
 
-function levelLabel(values: ReadonlySet<number>) {
-  const levels = [...values].sort((a, b) => a - b)
-  if (levels.length === 1) return 'Lv. ' + levels[0]
-  const first = levels[0]
-  const last = levels[levels.length - 1]
-  return 'Lv. ' + (last - first + 1 === levels.length ? first + '–' + last : levels.join(' · '))
-}
-
-function poolSummary(entries: KantoLocation['encounters']) {
-  const grouped = new Map<string, { id: string; levels: Set<number>; weight: number }>()
-  for (const entry of entries) {
-    let current = grouped.get(entry.speciesId)
-    if (!current) {
-      current = { id: entry.speciesId, levels: new Set(), weight: 0 }
-      grouped.set(entry.speciesId, current)
-    }
-    current.levels.add(entry.level)
-    current.weight += entry.weight
-  }
-  const total = entries.reduce((sum, entry) => sum + entry.weight, 0)
-  return [...grouped.values()].sort((a, b) => b.weight - a.weight)
-    .map(entry => ({ ...entry, percent: Math.round(entry.weight * 1000 / total) / 10 }))
-}
-
 function RangeList({ location, game }: { location: KantoLocation; game: GameSave }) {
-  const forecast = regionalWeather(game, location.id)
-  const slots = forecast?.encounters ?? location.encounters
-  const entries = useMemo(() => poolSummary(slots).map(entry => {
-    const forms = new Set([...entry.levels].flatMap(level =>
-      supportedWildForms(game.regionId, location.id, entry.id, level).map(choice => choice.formId)))
-    const formId = [...forms][0]
-    const description = forms.size === 1 ? formLabel(formId) : [...forms].map(id => formLabel(id) ?? '기본 모습').join(' · ')
-    return { ...entry, formId, description }
-  }), [slots, game.regionId, location.id])
-  const rareEntries = eligibleLegends(location, game.starterSpeciesId, true)
-  const available = location.afterFinale && !game.campaign.finaleWon ? [] : eligibleLegends(location, game.starterSpeciesId, game.campaign.champion, game.campaign.badges.length)
+  const { entries, weather, rareEntries, available } = usePlaceEncounters(game, location)
   const rareWeight = available.reduce((total, entry) => total + entry.weight, 0)
   const rarePercent = KANTO_LEGENDARY_ENCOUNTER_CHANCE * 100
   return <section className="kanto-encounters">
     <h3>일반 야생 포켓몬</h3>
-    {forecast && <p className="subtext">오늘의 날씨 · {forecast.weather}</p>}
+    {weather && <p className="subtext">오늘의 날씨 · {weather}</p>}
     {entries.length > 0 ? <ul className="kanto-encounter-list">
       {entries.map(entry => <li key={entry.id}>
         <Pokemon id={entry.id} formId={entry.formId} />
@@ -190,7 +147,7 @@ function RangeList({ location, game }: { location: KantoLocation; game: GameSave
         {rareEntries.map(entry => <li key={entry.speciesId}>
           <Pokemon id={entry.speciesId} />
           <div><strong>{species[entry.speciesId].nameKo}</strong><small>Lv. {entry.level}</small></div>
-          <span>{available.some(choice => choice.speciesId === entry.speciesId) ? (rarePercent * entry.weight / rareWeight).toLocaleString('ko-KR') + '%' : location.afterFinale ? '네모에게 승리 후 출현' : entry.championOnly ? '리그 우승 후 출현' : '배지 ' + entry.minBadges + '개 필요'}</span>
+          <span>{available.some(choice => choice.speciesId === entry.speciesId) ? (rarePercent * entry.weight / rareWeight).toLocaleString('ko-KR') + '%' : rareCondition(game, location, entry)}</span>
         </li>)}
       </ul>
     </div>}
@@ -235,6 +192,8 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
   const [zoomArea, zoom] = useState(() => region.id === 'galar' ? areas?.[focus ?? current.id] ?? '' : '')
   const [selectedId, setSelected] = useState(() => focus && region.locationById[focus] ? focus : current.id)
   const [focusedTrainer, focusTrainer] = useState('')
+  const [trainersOpen, showTrainers] = useState(false)
+  const guide = useMapPreview()
   const selected = region.locationById[selectedId] ?? current
   const localGym = region.gymTrainerByLocationId[selected.id]
   const localTrainer = localGym && resolveTrainer(region, localGym, game.starterSpeciesId)
@@ -256,6 +215,9 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
     : markerGroups[region.id]
   const viewport = zoomed ? areaViewport(areaPlaces, map.width, map.height) : { x: 0, y: 0, width: map.width, height: map.height }
   function choose(id: string) {
+    guide.dismiss()
+    focusTrainer('')
+    showTrainers(false)
     setSelected(id)
     if (zoomed && areas) zoom(areas[id])
   }
@@ -276,11 +238,12 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
         <span className="kanto-current">현재 위치 · {current.name}</span>
       </div>
       {areas && <div className="filter-row island-zoom" role="group" aria-label={region.id === 'alola' ? '섬 확대' : '지역 확대'}>
-        <button aria-pressed={!zoomed} onClick={() => zoom('')}>전체 지도</button>
+        <button aria-pressed={!zoomed} onClick={() => { guide.dismiss(); zoom('') }}>전체 지도</button>
         {placeGroups.filter(group => group.places.length > 1).map(({ label, places }) => <button key={label}
           aria-pressed={label === zoomArea} onClick={() => {
+            if (areas[selected.id] !== label) choose(places.find(place => place.id === current.id)?.id ?? places[0].id)
+            guide.dismiss()
             zoom(label)
-            if (areas[selected.id] !== label) setSelected(places.find(place => place.id === current.id)?.id ?? places[0].id)
           }}>{label}</button>)}
       </div>}
       <div className={'kanto-map-image' + (map.pixelArt ? ' is-pixel-art' : '') + (region.id === 'galar' && !zoomed ? ' galar-overview' : '')}
@@ -294,28 +257,19 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
           const earned = group.some(option => game.campaign.badges.includes(region.gymTrainerByLocationId[option.id]?.id ?? ''))
           const atCurrent = group.some(option => option.id === current.id)
           const picked = group.some(option => option.id === selected.id)
-          const trainers = regionalTrainers.filter(trainer => group.some(option => option.id === trainer.locationId))
-          const openPlaces = group.filter(option => accessByPlace[option.id].unlocked)
-          const openTrainers = trainers.filter(trainer => accessByPlace[trainer.locationId].unlocked)
-          const candidates = openTrainers.length ? openTrainers : trainers
-          const featured = candidates.find(trainer => !fieldWins.includes(trainer.id)) ?? candidates[0]
-          const cleared = featured && trainers.every(trainer => fieldWins.includes(trainer.id))
-          const groupLocked = openPlaces.length === 0
-          const defaultId = [featured?.locationId, selected.id, current.id].find(id => openPlaces.some(option => option.id === id))
-            ?? openPlaces[0]?.id ?? featured?.locationId ?? (picked ? selected.id : place.id)
-          const names = [group.map(placeLabel).join(' · '), trainers.map(trainer => trainer.name).join(', ')].filter(Boolean).join(' · ')
+          const firstOpen = group.find(option => accessByPlace[option.id].unlocked)
+          const destination = picked ? selected : atCurrent ? current : firstOpen ?? place
+          const lockedDestination = !accessByPlace[destination.id].unlocked
+          const names = group.map(placeLabel).join(' · ')
           return <button key={place.id}
-            className={'kanto-pin kanto-pin-' + place.kind + (atCurrent ? ' is-current' : '') + (earned ? ' is-earned' : '') +
-              (featured ? ' has-field-trainer' : '') + (cleared ? ' field-cleared' : '') + (groupLocked ? ' is-locked' : '')}
-            aria-label={names} aria-pressed={picked} title={names}
-            aria-description={group.length > 1 ? region.locationById[defaultId].name + ' 선택' : undefined}
+            className={'kanto-pin kanto-pin-' + destination.kind + (atCurrent ? ' is-current' : '') + (earned ? ' is-earned' : '') +
+              (lockedDestination ? ' is-locked' : '')}
+            aria-label={names} aria-pressed={picked} data-place={destination.id}
+            {...guide.trigger(destination, place.id, group)}
+            aria-description={group.length > 1 ? destination.name + ' 선택' : undefined}
             style={{ left: (x - viewport.x) / viewport.width * 100 + '%', top: (y - viewport.y) / viewport.height * 100 + '%' }}
-            onClick={() => choose(defaultId)}>
-            {groupLocked ? <i className="map-lock-icon" aria-hidden="true" /> : group.length > 1 ? group.length : <span aria-hidden="true" />}
-            {featured && <i className={'field-trainer-marker' + ((y - viewport.y) / viewport.height < .15 ? ' below' : '')} aria-hidden="true">
-              <FieldTrainerPortrait trainer={featured} />
-              {cleared && <b>✓</b>}
-            </i>}
+            onClick={() => choose(destination.id)}>
+            {lockedDestination ? <i className="map-lock-icon" aria-hidden="true" /> : group.length > 1 ? group.length : <span aria-hidden="true" />}
           </button>
         })}
       </div>
@@ -324,6 +278,7 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
           <span key={kind}><i className={'kanto-pin-' + kind} aria-hidden="true" />{kind === 'route' && game.regionId === 'paldea' ? '야생 구역' : kind === 'route' && game.regionId === 'galar' ? '도로·야생 구역' : name}</span>)}
         <span><i className="map-lock-icon" aria-hidden="true" />이동 잠김</span>
       </div>
+      <p className="kanto-map-hint">표식에 마우스를 올려 장소를 살펴보고, 클릭해 이동할 곳을 고르세요.</p>
       <label className="select-field kanto-picker"><strong>장소 목록</strong>
         <select aria-label={region.name.replace(/지방$/, '') + ' 장소'} value={selected.id} onChange={e => choose(e.target.value)}>
           {placeGroups.map(({ label, places }) => <optgroup key={label} label={label}>
@@ -333,15 +288,18 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
         </select>
       </label>
       <FieldTrainerDirectory regionId={region.id} trainers={regionalTrainers} wins={fieldWins} selectedId={selected.id}
-        placeLabel={id => placeLabel(region.locationById[id])} select={trainer => { choose(trainer.locationId); focusTrainer(trainer.id) }} />
+        placeLabel={id => placeLabel(region.locationById[id])} select={trainer => { choose(trainer.locationId); focusTrainer(trainer.id); showTrainers(true) }} />
     </section>
     <section className="card kanto-place" aria-label="선택한 장소 정보">
       <div className="kanto-place-top">
-        <div><small>{[area, (game.regionId === 'paldea' && selected.kind === 'route') || (game.regionId === 'galar' && galarWildAreaIds.has(selected.id)) ? '야생 구역' : locationKinds[selected.kind]].filter(Boolean).join(' · ')}</small><h2>{selected.name}</h2></div>
+        <div><small>{[area, placeKind(region.id, selected)].filter(Boolean).join(' · ')}</small><h2>{selected.name}</h2></div>
         {isHere && <span className="kanto-current">현재 위치</span>}
       </div>
+      <p className="kanto-place-description">{describePlace(game, selected)}</p>
       {overlap.length > 1 && <div className="filter-row kanto-links" aria-label="가까운 지도 지점의 장소">
+        <strong>같은 지점</strong>
         {overlap.map(place => <button key={place.id} aria-pressed={place.id === selected.id}
+          {...guide.trigger(place, 'nearby-' + place.id, overlap)}
           onClick={() => choose(place.id)}>{placeLabel(place)}</button>)}
       </div>}
       {areaImage && <figure className="kanto-area-preview">
@@ -354,8 +312,7 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
       </button>
       {!isHere && !locked && (game.campaign.battle || game.campaign.leagueIndex !== null) &&
         <p className="kanto-travel-detail">이동하면 진행 중인 도전이 종료됩니다.</p>}
-      {encounters.map(trainer => <FieldTrainerCard key={trainer.id} game={game} trainer={trainer}
-        busy={busy} locationLocked={locked} challenge={(id, number) => begin('field', id, number)} choose={choose} />)}
+
       {localTrainer && <div className="kanto-landmark">
         <strong>{localTrainer.type && (types[localTrainer.type] ?? localTrainer.type) + ' '}{challengeName(localTrainer)}</strong>
         <span>{localTrainer.trialKind ? '' : '관장 '}{localTrainer.name} · {localTrainer.badge}</span>
@@ -365,13 +322,21 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
       {isHere && region.finaleTrainer?.locationId === selected.id && <ChallengeActions game={game} kind="finale" busy={busy} begin={begin} />}
       {isHere && localTrainer && <ChallengeActions game={game} kind="gym" busy={busy} begin={begin} />}
       {isHere && selected.kind === 'league' && <ChallengeActions game={game} kind="league" busy={busy} begin={begin} />}
+      {encounters.length > 0 && <details className="kanto-local-trainers" open={trainersOpen}>
+        <summary onClick={event => { event.preventDefault(); showTrainers(!trainersOpen) }}>
+          지역 트레이너 대결 <span>{encounters.map(trainer => trainer.name).join(' · ')}</span>
+        </summary>
+        {encounters.map(trainer => <FieldTrainerCard key={trainer.id} game={game} trainer={trainer}
+          busy={busy} locationLocked={locked} challenge={(id, number) => begin('field', id, number)} choose={choose} />)}
+      </details>}
       {adjacent.length > 0 && <div className="filter-row kanto-links" aria-label="이어지는 장소">
         {adjacent.map(id => {
           const place = region.locationById[id]
-          return place ? <button key={id} onClick={() => choose(id)}>{placeLabel(place)}</button> : null
+          return place ? <button key={id} {...guide.trigger(place, 'link-' + id)} onClick={() => choose(id)}>{placeLabel(place)}</button> : null
         })}
       </div>}
       <RangeList location={selected} game={game} />
     </section>
+    <MapLocationTooltip game={game} guide={guide} />
   </div>
 }
