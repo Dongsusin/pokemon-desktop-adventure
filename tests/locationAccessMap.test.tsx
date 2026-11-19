@@ -22,6 +22,16 @@ function render(game: GameSave, focus: string) {
   return { html, action }
 }
 
+it('shows the regional map and location description without loading a terrain inset for any Kanto destination', () => {
+  const game = opening('kanto')
+  for (const place of worldRegions.kanto.locations) {
+    const { html } = render(game, place.id)
+    expect(html).toContain('maps/kanto/illustrated-map.png')
+    expect(html).toContain('class="kanto-place-description"')
+    expect(html.includes('maps/kanto/areas/'), place.id).toBe(false)
+  }
+})
+
 it.each(regionOrder)('keeps locked %s destinations selectable and shows where to earn entry', id => {
   const game = opening(id)
   const region = worldRegions[id]

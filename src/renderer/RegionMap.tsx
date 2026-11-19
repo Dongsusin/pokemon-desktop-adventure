@@ -215,8 +215,6 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
     ? [...new Set(Object.values(areas))]
       .map(label => ({ label, places: region.locations.filter(place => areas[place.id] === label) }))
     : Object.entries(locationKinds).map(([kind, label]) => ({ label, places: region.locations.filter(place => place.kind === kind) }))
-  const areaImage = game.regionId === 'kanto'
-    ? new URL('maps/kanto/areas/' + selected.id + '.png', document.baseURI).href : undefined
 
   return <div className="kanto-layout">
     <section className="card kanto-map-card" aria-label={region.name + ' 지도'}>
@@ -289,9 +287,6 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
           {...guide.trigger(place, 'nearby-' + place.id, overlap)}
           onClick={() => choose(place.id)}>{placeLabel(place)}</button>)}
       </div>}
-      {areaImage && <figure className="kanto-area-preview">
-        <img src={areaImage} alt={selected.name + ' 원작 지형'} draggable={false} />
-      </figure>}
       {locked && <TravelRequirements game={game} access={access} here={isHere} choose={choose} />}
       <button className="primary kanto-travel" disabled={isHere || busy || locked}
         aria-describedby={locked ? 'map-travel-requirements' : undefined} onClick={() => travel(selected.id)}>

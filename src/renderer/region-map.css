@@ -82,17 +82,6 @@
 .gate-destination:hover, .gate-destination:focus-visible { border-color: #816947; }
 .kanto-picker { margin-top: 6px; }
 .kanto-picker select { width: min(58%, 180px); }
-.kanto-area-preview {
-  display: grid;
-  place-items: center;
-  margin: 0 0 9px;
-  min-height: 95px;
-  overflow: hidden;
-  background: #e7eee0;
-  border: 1px solid #dae4d4;
-  border-radius: 7px;
-}
-.kanto-area-preview img { display: block; max-width: 100%; max-height: 138px; object-fit: contain; image-rendering: pixelated; }
 .kanto-travel { width: 100%; min-height: 33px; }
 .kanto-travel:disabled { background: #e4ecde; color: #435d4b; border-color: #d5dfd0; cursor: default; opacity: 1; }
 .kanto-landmark { margin-top: 9px; padding: 6px 8px; border-radius: 6px; background: #eee7d4; color: #715830; font-size: 11px; }
