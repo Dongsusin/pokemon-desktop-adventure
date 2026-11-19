@@ -8,7 +8,6 @@ import { regionOrder, worldRegions } from '../src/game/regions/world'
 import { battleVenue } from '../src/renderer/battleGround'
 import { ArenaTrainers } from '../src/renderer/ArenaTrainers'
 import { FieldTrainerPortrait } from '../src/renderer/fieldTrainerArt'
-import { VenuePreview } from '../src/renderer/VenuePreview'
 
 const directory = 'assets/battle/field-trainers'
 const rows = readFileSync(join(directory, 'SOURCES.md'), 'utf8').split(/\r?\n/)
@@ -51,7 +50,6 @@ it('renders the same original opponent portraits in the map and battle and resol
       const stage = battleVenue(region, trainer)
       expect(stage.name).toBe(worldRegions[region].locationById[trainer.locationId].name)
       expect(stage.image).toBe('battle/field-venues/' + trainer.venue + '.png')
-      expect(renderToStaticMarkup(<VenuePreview region={region} trainer={trainer} />)).toContain(stage.image)
       if (!checkedStages.has(stage.image)) {
         const ground = readFileSync(join('assets', stage.image))
         expect([ground.readUInt32BE(16), ground.readUInt32BE(20)]).toEqual([600, 380])

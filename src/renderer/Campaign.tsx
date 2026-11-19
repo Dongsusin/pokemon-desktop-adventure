@@ -1,16 +1,13 @@
 import {
-  arenaSpriteRefs, canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, battleGimmickStatus, currentTrainer, leagueOpponents, levelCap, nextGymTrainer, resolveTrainer,
+  arenaSpriteRefs, canChallengeFinale, canChallengeGym, canPracticeGym, canChallengeLeague, battleGimmickStatus, currentTrainer, leagueOpponents, levelCap, nextGymTrainer,
   type GameSave
 } from '../game/engine'
 import type { KantoTrainer } from '../game/regions/kantoCampaign'
-import { locationForm } from '../game/forms'
 import { megaFormFor, regionGimmick } from '../game/battleGimmicks'
 import { gimmickLabels } from '../game/gimmickCombat'
-import { worldRegions, type RegionId } from '../game/regions/world'
+import { worldRegions } from '../game/regions/world'
 import { species } from '../game/catalog'
-import { Pokemon, TeraIcon, statNames, types } from './shared'
-import { TrainerTactics } from './TrainerTactics'
-import { VenuePreview } from './VenuePreview'
+import { Pokemon, statNames, types } from './shared'
 import './campaign.css'
 
 export type ChallengeKind = 'practice' | 'gym' | 'league' | 'finale' | 'field'
@@ -24,23 +21,6 @@ function gymHeading(locationName: string, trainer: KantoTrainer) {
 
 export function challengeName(trainer: KantoTrainer) {
   return trainer.trialKind === 'totem' ? '시련' : trainer.trialKind === 'kahuna' ? '큰 시련' : '체육관'
-}
-
-export function TrainerTeam({ trainer, regionId, active, activeForm, benchHP }: {
-  trainer: KantoTrainer; regionId: RegionId; active?: number; activeForm?: string; benchHP?: readonly (number | null)[]
-}) {
-  return <><ul className="trainer-team" aria-label={trainer.name + '의 포켓몬'}>
-    {trainer.team.map((member, index) => {
-      const name = species[member.speciesId].nameKo
-      const form = member.formId ?? (trainer.role === 'field' ? undefined : locationForm(regionId, trainer.locationId, member.speciesId))
-      const state = active === undefined ? '' : (benchHP ? benchHP[index] === 0 : index < active) ? ' is-defeated' : index === active ? ' is-battling' : ''
-      return <li key={index} className={state} aria-current={index === active ? 'step' : undefined}>
-        <Pokemon id={member.speciesId} formId={index === active ? activeForm : form} />
-        <strong>{name}</strong>
-        <small>Lv. {member.level} {member.teraType && <TeraIcon type={member.teraType} />}</small>
-      </li>
-    })}
-  </ul>{active === undefined && <TrainerTactics trainer={trainer} />}</>
 }
 
 export function ChallengeActions({ game, kind, busy, begin }: {
@@ -85,10 +65,8 @@ export function ChallengeActions({ game, kind, busy, begin }: {
       {candidates.map(trainer => <div key={trainer.id} className="league-opponent">
         <button className="small-button" disabled={busy || !canChallengeLeague(game)}
           aria-label={trainer.name + '에게 도전'} onClick={() => begin('league', trainer.id)}>
-          {trainer.name}에게 도전 {trainer.type && <small>{types[trainer.type]}</small>}
+          {trainer.name}에게 도전
         </button>
-        <VenuePreview region={region.id} trainer={trainer} />
-        <TrainerTactics trainer={trainer} />
       </div>)}
     </div>
   }
@@ -108,13 +86,15 @@ export function TrainerBattleCard({ game }: { game: GameSave }) {
   const leagueFinal = game.regionId === 'alola' ? '초대 챔피언 결정전' : '챔피언전'
   const label = trainer.cupRound ?? (trainer.trialKind ? challengeName(trainer) : { gym: '체육관전', elite: '사천왕전', champion: leagueFinal, field: '지역 트레이너전' }[trainer.role])
   return <section className="card campaign-battle" aria-label="진행 중인 트레이너 배틀">
-    <div className="campaign-heading"><h2>{label} · {trainer.name}</h2>
-      <span>{battle.fieldAI ? '남은 포켓몬 ' + battle.fieldAI.benchHP.filter(hp=>hp!==0).length + '/' + trainer.team.length : (battle.opponentIndex + 1) + '/' + trainer.team.length + '마리째'}</span></div>
+    <div className="campaign-heading"><h2>{label} · {trainer.name}</h2></div>
     {([{ side: '선두', power: myPower }, { side: '상대', power: theirPower }]).map(({ side, power }) =>
       power?.phase === 'active' && <p key={side} className="campaign-subtitle">{side} · {power.label}
         {power.teraType ? ' · ' + types[power.teraType] : ''} · {power.detail}</p>)}
     {trainer.totemAura && <p className="campaign-subtitle">주인 오라 · {trainer.totemAura.stat === 'all' ? '모든 능력' : statNames[trainer.totemAura.stat]} {trainer.totemAura.stages}랭크 상승</p>}
-    <TrainerTeam trainer={trainer} regionId={game.regionId} active={battle.opponentIndex} benchHP={battle.fieldAI?.benchHP} activeForm={arenaSpriteRefs(game, opponent)?.enemy?.formId} />
+    {opponent && <p className="campaign-active-foe">
+      <Pokemon id={opponent.speciesId} formId={arenaSpriteRefs(game, opponent)?.enemy?.formId ?? opponent.formId} />
+      <strong>{species[opponent.speciesId].nameKo}</strong> · Lv. {opponent.level}
+    </p>}
     {opponent && <div className="campaign-hp">
       <span>상대 HP <strong>{opponent.currentHP}/{opponent.maxHP}</strong></span>
       <progress aria-label="상대 HP" value={opponent.currentHP} max={opponent.maxHP} />
@@ -134,14 +114,13 @@ export function Campaign({ game, busy, begin, locate }: {
   const leagueTitle = regionName + (region.id === 'paldea' ? ' 챔피언 테스트' : region.id === 'galar' ? ' 챔피언컵' : ' 리그')
   const progressTitle = regionName + (region.id === 'alola' ? ' 섬 순례' : ' 배지')
   const badgeSheet = new URL('maps/' + region.id + '/gym-badges.png', document.baseURI).href
-  const localGym = region.gymTrainerByLocationId[game.locationId]
-  const gym = localGym && resolveTrainer(region, localGym, game.starterSpeciesId)
+  const gym = region.gymTrainerByLocationId[game.locationId]
   const atLeague = game.locationId === region.leagueLocationId
   const stage = game.campaign.leagueIndex
   const inBattle = Boolean(game.campaign.battle)
   const options = atLeague && !inBattle ? leagueOpponents(game) : []
   const next = options.length === 1 ? options[0] : undefined
-  const finale = region.finaleTrainer && resolveTrainer(region, region.finaleTrainer, game.starterSpeciesId)
+  const finale = region.finaleTrainer
 
   return <div className="campaign-layout">
     <section className="card campaign-badges" aria-label={progressTitle}>
@@ -181,11 +160,8 @@ export function Campaign({ game, busy, begin, locate }: {
           : '출전 포켓몬의 첫 번째 타입으로 테라스탈합니다. 기술 상성 표시에 바뀐 방어 타입이 반영됩니다.'}</p>
       </section>}
       {gym && !inBattle && <section className="card campaign-gym">
-        <div className="campaign-heading"><h2>{gymHeading(region.locationById[gym.locationId].name, gym)}</h2>
-          <span>{gym.type ? types[gym.type] : ''}</span></div>
+        <div className="campaign-heading"><h2>{gymHeading(region.locationById[gym.locationId].name, gym)}</h2></div>
         <p className="campaign-subtitle">{gym.trialKind === 'totem' ? gym.name : (gym.trialKind === 'kahuna' ? '섬의 대표' : '관장') + ' · ' + gym.name}</p>
-        <VenuePreview region={region.id} trainer={gym} />
-        <TrainerTeam trainer={gym} regionId={region.id} />
         <ChallengeActions game={game} kind="gym" busy={busy} begin={begin} />
       </section>}
       <section className="card campaign-league" aria-label={leagueTitle}>
@@ -205,18 +181,11 @@ export function Campaign({ game, busy, begin, locate }: {
             </li>
           })}
         </ol>
-        {next && <div className="league-next"><p className="campaign-subtitle">다음 상대 · {next.name}</p>
-          <VenuePreview region={region.id} trainer={next} />
-          <TrainerTeam trainer={next} regionId={region.id} /></div>}
         {atLeague || game.campaign.champion ? <ChallengeActions game={game} kind="league" busy={busy} begin={begin} />
           : <button className="small-button" onClick={() => locate(region.leagueLocationId)}>{region.locationById[region.leagueLocationId].name} 지도에서 보기</button>}
       </section>
       {finale && game.campaign.champion && <section className="card campaign-finale" aria-label="챔피언 로드 최종전">
         <div className="campaign-heading"><h2>네모와의 결전</h2><span>{region.locationById[finale.locationId].name}</span></div>
-        {!game.campaign.finaleWon && !inBattle && <>
-          <VenuePreview region={region.id} trainer={finale} />
-          <TrainerTeam trainer={finale} regionId={region.id} />
-        </>}
         {game.campaign.finaleWon || game.locationId === finale.locationId
           ? <ChallengeActions game={game} kind="finale" busy={busy} begin={begin} />
           : <button className="small-button" onClick={() => locate(finale.locationId)}>네모를 지도에서 찾기</button>}

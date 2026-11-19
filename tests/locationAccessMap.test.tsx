@@ -1,7 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { createGame, nextGymTrainer, type GameSave } from '../src/game/engine'
-import { fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { locationGateRules } from '../src/game/regions/locationGates'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
 import { RegionMap } from '../src/renderer/RegionMap'
@@ -26,21 +25,14 @@ function render(game: GameSave, focus: string) {
 it.each(regionOrder)('keeps locked %s destinations selectable and shows where to earn entry', id => {
   const game = opening(id)
   const region = worldRegions[id]
-  const [destination, rule] = Object.entries(locationGateRules[id]).find(([place, gate]) =>
-    gate.trainerId && !region.locationById[place].afterFinale)!
-  const trainer = fieldTrainerById[rule.trainerId!]!
+  const [destination, required] = Object.entries(locationGateRules[id]).find(([, count]) => count > 0)!
   const locked = render(game, destination)
   expect(locked.action).toContain('disabled=""')
   expect(locked.action).toContain('aria-describedby="map-travel-requirements"')
   expect(locked.html).toContain(region.locationById[destination].name + ' · 이동 잠김</option>')
-  expect(locked.html).toContain(renderToStaticMarkup(<>{trainer.name}에게 승리</>))
-  expect(locked.html).toContain('aria-label="' + region.locationById[trainer.locationId].name + ' 지도에서 보기"')
+  expect(locked.html).toContain('0/' + required + ' 완료')
   expect(locked.html).toMatch(/class="kanto-pin [^"]*is-locked[^"]*"/)
-  if (rule.badges) {
-    game.campaign.badges = region.gymTrainers.slice(0, rule.badges).map(gym => gym.id)
-    expect(render(game, destination).action).toContain('disabled=""')
-  }
-  game.campaign.fieldWins = [trainer.id]
+  game.campaign.badges = region.gymTrainers.slice(0, required).map(gym => gym.id)
   const open = render(game, destination)
   expect(open.action).toContain('이곳으로 이동')
   expect(open.action).not.toContain('disabled=')
@@ -50,12 +42,12 @@ it.each(regionOrder)('keeps locked %s destinations selectable and shows where to
 it.each(['kanto', 'alola'] as const)('names the next %s gym or trial and shows local progress', id => {
   const game = opening(id), region = worldRegions[id]
   const [destination, gate] = Object.entries(locationGateRules[id]).find(([place, rule]) =>
-    (rule.badges ?? 0) > 1 && !region.locationById[place].afterFinale)!
+    rule > 1 && !region.locationById[place].afterFinale)!
   game.campaign.badges = [region.gymTrainers[0].id]
   const next = nextGymTrainer(game)!
   const { html } = render(game, destination)
-  expect(html).toContain((id === 'alola' ? '시련·큰 시련 ' : '배지 ') + gate.badges + '개')
-  expect(html).toContain('1/' + gate.badges + ' 완료')
+  expect(html).toContain((id === 'alola' ? '시련·큰 시련 ' : '배지 ') + gate + '개')
+  expect(html).toContain('1/' + gate + ' 완료')
   expect(html).toContain(next.name)
   expect(html).toContain('aria-label="' + region.locationById[next.locationId].name + ' 지도에서 보기"')
 })
@@ -78,29 +70,13 @@ it('prioritizes the accessible Goldenrod city on its shared pin and keeps the lo
   expect(render(game, 'goldenrod-city').action).toContain('이곳으로 이동')
 })
 
-it('shows a champion the required field opponent when the old save has no local win', () => {
-  const game = opening('kanto')
-  game.campaign.champion = true
-  game.campaign.badges = worldRegions.kanto.gymTrainers.map(gym => gym.id)
-  const { action, html } = render(game, 'mt-moon')
-  expect(action).toContain('disabled=""')
-  expect(html).toContain('지우에게 승리')
-  expect(html).not.toContain('다음 체육관')
-  game.campaign.fieldWins = ['field-kanto-ash']
-  expect(render(game, 'mt-moon').action).toContain('이곳으로 이동')
-})
-
-it('distinguishes the Paldea finale from the early Nemona battle', () => {
-  const game = opening('paldea')
-  game.campaign.champion = true
-  game.campaign.badges = worldRegions.paldea.gymTrainers.map(gym => gym.id)
-  game.campaign.fieldWins = fieldTrainersByRegion.paldea.map(trainer => trainer.id)
-  const { html, action } = render(game, 'area-zero')
-  expect(action).toContain('disabled=""')
-  expect(html).toContain('챔피언 로드 최종전')
-  expect(html).toContain('aria-label="' + worldRegions.paldea.locationById.mesagoza.name + ' 지도에서 보기"')
-  game.campaign.finaleWon = true
-  expect(render(game, 'area-zero').action).toContain('이곳으로 이동')
+it.each([['kanto', 'mt-moon'], ['paldea', 'area-zero']] as const)('shows an open %s destination with badges alone', (id, location) => {
+  const game = opening(id)
+  game.campaign.badges = worldRegions[id].gymTrainers.map(gym => gym.id)
+  const { action, html } = render(game, location)
+  expect(action).toContain('이곳으로 이동')
+  expect(action).not.toContain('disabled=')
+  expect(html).not.toContain('id="map-travel-requirements"')
 })
 
 it('shows the current place and the conditions for returning to a legacy save location', () => {

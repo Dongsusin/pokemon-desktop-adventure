@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { fieldTrainersByRegion, type FieldTrainer } from '../game/regions/fieldTrainers'
 import { regionOrder, worldRegions, type RegionId } from '../game/regions/world'
 import { FieldTrainerPortrait } from './fieldTrainerArt'
-import { fieldTeamLevels } from './FieldTrainerCard'
 
 function searchKey(value: string) {
   return value.toLowerCase().replace(/[\s·&/]/g, '')
@@ -29,7 +28,7 @@ export function FieldTrainerDirectory({ regionId, trainers, wins, selectedId, pl
       <button type="button" aria-pressed={selectedId === trainer.locationId} onClick={() => select(trainer)}>
         <FieldTrainerPortrait trainer={trainer} width={24} height={30} loading="lazy" />
         <span><strong>{trainer.name}</strong><small>{placeLabel(trainer.locationId)}</small></span>
-        <small>{wins.includes(trainer.id) ? '✓ 승리' : fieldTeamLevels(trainer)}</small>
+        {wins.includes(trainer.id) && <small>✓ 승리</small>}
       </button>
     </li>)}</ul>}
     {other.length > 0 && <section className="field-other-regions"><h3>다른 지방</h3>

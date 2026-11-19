@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { battleGimmickStatus, createGame, currentTrainer, dispatch, fieldMemberMoves, hydrateSave, movesFor, playerStats, tick, type GameSave } from '../src/game/engine'
 import { championsMoves, damaging } from '../src/game/championsMoves'
 import { isMoveMotionSupported } from '../src/game/motionEligibility'
-import { fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
+import { fieldTrainerById, fieldTrainersByRegion, fieldTeamVariant } from '../src/game/regions/fieldTrainers'
 import { worldRegions } from '../src/game/regions/world'
 import { castSkill } from './trainerArenaDriver'
 
@@ -16,11 +16,14 @@ function enter(id: string, lead: string, level: number, slot = 0, teamNumber = 1
   Object.assign(g.player,{ speciesId:lead, level, moveIds:movesFor(lead,level).map(m=>m.id) })
   g.player.currentHP = playerStats(g).hp
   expect(dispatch(g,{type:'challenge-field-trainer',trainerId:id,teamNumber})).toBe(true)
-  const member = currentTrainer(g)!.team[slot], battle = g.campaign.battle!
+  // Replay these recorded tactical positions at their original relative HP and levels.
+  const previousLevels: Record<string, number> = { [ash]: 5, 'field-kanto-blue': 19,
+    'field-kanto-giovanni': 39, 'field-kanto-c-106': 14, 'field-kanto-d-238': 6 }
+  const member = fieldTeamVariant(trainer, teamNumber, previousLevels[id])!.team[slot], battle = g.campaign.battle!
   battle.opponentIndex = slot
   battle.fieldAI!.benchHP = trainer.teams[teamNumber-1].map((_,i) => i === slot || withBench ? null : 0)
   Object.assign(g.wild[0],{speciesId:member.speciesId, formId:member.formId, level:member.level, currentHP:9999})
-  const game = hydrateSave(g,1)!
+  const game = hydrateSave({ ...g, schemaVersion: 22 },1)!
   expect(dispatch(game,{type:'arena-pause',paused:false})).toBe(true)
   const arena = game.campaign.battle!.arena
   arena.player = {x:.42,y:.5}
@@ -34,7 +37,7 @@ const reload = (game: GameSave) => hydrateSave(JSON.parse(JSON.stringify(game)),
 
 describe('Champions Arena field decisions', () => {
   it('uses the selected set and a dedicated actor pose for each of the 3,983 playable slots', () => {
-    const members = Object.values(fieldTrainersByRegion).flat().flatMap(t=>t.teams.flat())
+    const members = Object.values(fieldTrainersByRegion).flat().flatMap(t=>t.teams.slice(0,t.arenaTeamCount).flat())
     expect(members).toHaveLength(3983)
     for (const m of members) {
       const skills = fieldMemberMoves(m)

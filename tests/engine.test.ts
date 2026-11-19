@@ -5,8 +5,7 @@ import { species, starterIds, wildIds } from '../src/game/catalog'
 import { kantoLocationById, kantoLocations } from '../src/game/regions/kanto'
 import { kantoGymTrainers, kantoLeagueTrainers } from '../src/game/regions/kantoCampaign'
 import { regionOrder, worldRegions } from '../src/game/regions/world'
-import { fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
-import { locationAccess } from '../src/game/locationAccess'
+import { fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import {
   applyOffline,
   calculateDamage,
@@ -288,7 +287,7 @@ describe('Kanto travel and encounters', () => {
     }
     const loaded = hydrateSave(old, 1)!
     expect(loaded).toMatchObject({
-      schemaVersion: 22, locationId: 'route-1', coins: 72,
+      schemaVersion: 23, locationId: 'route-1', coins: 72,
       inventory: { potion: 7, pokeball: 2, greatBall: 1 },
       player: { instanceId: game.player.instanceId, level: 12 },
     })
@@ -438,7 +437,7 @@ describe('autonomous simulation', () => {
 describe('combat, inventory, and save recovery', () => {
   it('migrates existing saves to topmost once while retaining progression and later opt-out', () => {
     const game = makeGame('bulbasaur')
-    expect(game).toMatchObject({ schemaVersion: 22, settings: { alwaysOnTop: true } })
+    expect(game).toMatchObject({ schemaVersion: 23, settings: { alwaysOnTop: true } })
     const legacy = {
       ...game, schemaVersion: 1, settings: { ...game.settings, alwaysOnTop: false },
       player: { ...game.player, level: 10, exp: 22 },
@@ -446,7 +445,7 @@ describe('combat, inventory, and save recovery', () => {
     }
     const migrated = hydrateSave(legacy, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 22, locationId: 'route-1',
+      schemaVersion: 23, locationId: 'route-1',
       settings: { alwaysOnTop: true }, coins: 45, inventory: { potion: 7, pokeball: 8 },
       player: { instanceId: game.player.instanceId, speciesId: 'bulbasaur', level: 10, exp: 22 },
     })
@@ -697,7 +696,7 @@ describe('capture and party', () => {
     }
     const migrated = hydrateSave(oldSave, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 22, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
+      schemaVersion: 23, settings: { alwaysOnTop: false, autoCaptureBall: null }, inventory: { potion: 7, pokeball: 8 },
       followers: [], player: { instanceId: game.player.instanceId },
     })
     delete migrated.inventory.pokeball
@@ -764,25 +763,6 @@ describe('offline progression', () => {
 })
 
 describe('regional gyms and Pokémon Leagues', () => {
-  function clearRouteTrainers(game: GameSave, destination: string) {
-    const { missingTrainerId } = locationAccess(game, destination)
-    if (!missingTrainerId) return
-    const trainer = fieldTrainerById[missingTrainerId]!
-    clearRouteTrainers(game, trainer.locationId)
-    // Long campaign runs face six-member tactical teams. Take type coverage on the journey.
-    if (!game.followers.length) {
-      game.followers = ['blastoise','venusaur','charizard'].map((id,i) => ({
-        instanceId:'route-reserve-'+i, speciesId:id, level:game.player.level,
-        currentHP:statsFor(id,game.player.level).hp, moveIds:movesFor(id,game.player.level).map(m=>m.id),
-        position:{...game.player.position}, direction:1, state:'IDLE', active:true, destination:null, restMs:0, roamSeed:i+1,
-      }))
-    }
-    expect(dispatch(game, { type: 'travel', locationId: trainer.locationId }), trainer.name).toBe(true)
-    expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: trainer.id }), trainer.name).toBe(true)
-    finishChallenge(game)
-    expect(game.campaign.fieldWins, trainer.name).toContain(trainer.id)
-  }
-
   function train(game: GameSave, speciesId: string, level: number) {
     game.player.speciesId = speciesId
     game.player.level = level
@@ -834,7 +814,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(levelCap(game)).toBe(caps[0])
     for (const [index, trainer] of kantoGymTrainers.entries()) {
       train(game, partners[index], 80)
-      clearRouteTrainers(game, trainer.locationId)
+
       expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
       expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
       finishChallenge(game)
@@ -857,7 +837,8 @@ describe('regional gyms and Pokémon Leagues', () => {
     }
     expect(game.losses).toBe(0)
     expect(game.campaign).toMatchObject({ champion: true, leagueIndex: null, battle: null })
-    expect(game.wins).toBe(13 + game.campaign.fieldWins!.length)
+    expect(game.wins).toBe(13)
+    expect(game.campaign.fieldWins).toBeUndefined()
     expect(game.coins).toBeGreaterThan(beforeLeague)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
     const restored = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -935,7 +916,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     for (const [index, trainer] of johto.gymTrainers.entries()) {
       expect(nextGymTrainer(veteran)?.id).toBe(trainer.id)
       train(veteran, ['blastoise', 'charizard', 'blastoise', 'blastoise', 'charizard', 'charizard', 'charizard', 'blastoise'][index], 80)
-      clearRouteTrainers(veteran, trainer.locationId)
+
       expect(dispatch(veteran, { type: 'travel', locationId: trainer.locationId })).toBe(true)
       expect(dispatch(veteran, { type: 'challenge-gym' })).toBe(true)
       if (index === 0) {
@@ -1010,7 +991,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(levelCap(game)).toBe(25)
     expect(effectiveLevel(game)).toBe(25)
     expect(game.player.instanceId).toBe(previous.player.instanceId)
-    clearRouteTrainers(game, route)
+
     expect(dispatch(game, { type: 'travel', locationId: route })).toBe(true)
     game.runtime.spawnIn = 0
     tick(game, 200, bounds)
@@ -1023,7 +1004,7 @@ describe('regional gyms and Pokémon Leagues', () => {
 
     for (const [index, trainer] of region.gymTrainers.entries()) {
       expect(nextGymTrainer(game)?.id).toBe(trainer.id)
-      clearRouteTrainers(game, trainer.locationId)
+
       expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
       expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
       game = hydrateSave(JSON.parse(JSON.stringify(game)), 1)!
@@ -1032,7 +1013,7 @@ describe('regional gyms and Pokémon Leagues', () => {
       expect(game.campaign.badges).toHaveLength(index + 1)
       expect(levelCap(game)).toBe(region.levelCaps[index + 1])
     }
-    clearRouteTrainers(game, region.leagueLocationId)
+
     expect(dispatch(game, { type: 'travel', locationId: region.leagueLocationId })).toBe(true)
     const elites = region.leagueTrainers.filter(trainer => trainer.role === 'elite')
     const champion = region.leagueTrainers.find(trainer => trainer.role === 'champion')!
@@ -1141,7 +1122,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     const { campaign: _campaign, ...old } = structuredClone(game)
     const restored = hydrateSave({ ...old, schemaVersion: 4 }, 1)!
     expect(restored).toMatchObject({
-      schemaVersion: 22, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
+      schemaVersion: 23, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
       campaign: { badges: [], champion: false, leagueIndex: null, battle: null }
     })
     const stale = hydrateSave({

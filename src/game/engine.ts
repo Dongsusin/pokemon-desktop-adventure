@@ -23,8 +23,7 @@ import { defensiveAbility, teraStabBonus, typeMultiplier } from './regions/palde
 import { paldeaWildForms } from './regions/paldea-encounters'
 import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
-import { fieldTeamVariant, fieldTrainersByRegion } from './regions/fieldTrainers'
-import { replacedGatekeepers } from './regions/locationGates'
+import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from './regions/fieldTrainers'
 import { locationAccess } from './locationAccess'
 import type { KantoTrainer, KantoTrainerMember } from './regions/kantoCampaign'
 import { isRegionId, regionOrder, worldRegions, type RegionId, type WorldRegion } from './regions/world'
@@ -348,6 +347,7 @@ interface TrainerBattle {
   // Keep the serialized key used by schema 21 field battles.
   fieldAI?: TrainerBattleAI
   teamNumber?: number
+  legacyFieldAceLevel?: number
   practice?: PracticeParty
   arena: TrainerArena
   trainerId: string
@@ -355,7 +355,6 @@ interface TrainerBattle {
 }
 
 export interface RegionProgress {
-  legacyGatePasses?: string[]
   fieldWins?: string[]
   finaleWon?: true
   badges: string[]
@@ -368,7 +367,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 22
+const SAVE_SCHEMA_VERSION = 23
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -1685,6 +1684,11 @@ export function eligibleLegends(location: KantoLocation, partnerId: string, cham
     (!entry.championOnly || champion) && (champion || badgeCount >= (entry.minBadges ?? 0))) ?? []
 }
 
+export function activeLegends(location: KantoLocation, partnerId: string, campaign: RegionProgress) {
+  if (location.afterFinale && !campaign.finaleWon) return []
+  return eligibleLegends(location, partnerId, campaign.champion, campaign.badges.length)
+}
+
 function encounterLevelLimit(game: GameSave): number {
   return effectiveLevel(game) + { cautious: -1, balanced: 1, bold: 3 }[game.settings.exploration]
 }
@@ -1711,7 +1715,7 @@ export function regionalWeather(game: GameSave, locationId: string, date = new D
 }
 
 function nextEncounter(game: GameSave, location: KantoLocation): KantoEncounter | undefined {
-  const legends = eligibleLegends(location, game.starterSpeciesId, game.campaign.champion, game.campaign.badges.length)
+  const legends = activeLegends(location, game.starterSpeciesId, game.campaign)
   if (legends.length && random(game) < KANTO_LEGENDARY_ENCOUNTER_CHANCE) {
     const rare = weightedEncounter(game, legends)
     if (rare && !game.wild.some((entry) => entry.speciesId === rare.speciesId)) return rare
@@ -2118,16 +2122,16 @@ function resetLeagueRun(campaign: Campaign): void {
   delete campaign.eliteWins
 }
 
-function trainerDefinition(region: WorldRegion, id: string, teamNumber?: number): KantoTrainer | undefined {
+function trainerDefinition(region: WorldRegion, id: string, teamNumber?: number, legacyFieldAceLevel?: number): KantoTrainer | undefined {
   const field = fieldTrainersByRegion[region.id].find(trainer => trainer.id === id)
-  return field ? fieldTeamVariant(field, teamNumber) : region.trainerById[id]
+  return field ? fieldTeamVariant(field, teamNumber, legacyFieldAceLevel) : region.trainerById[id]
 }
 
 export function currentTrainer(game: GameSave): KantoTrainer | undefined {
   const id = game.campaign.battle?.trainerId
   if (!id) return
   const region = worldRegions[game.regionId]
-  const trainer = trainerDefinition(region, id, game.campaign.battle?.teamNumber)
+  const trainer = trainerDefinition(region, id, game.campaign.battle?.teamNumber, game.campaign.battle?.legacyFieldAceLevel)
   return trainer && resolveTrainer(region, trainer, game.starterSpeciesId)
 }
 
@@ -2139,7 +2143,7 @@ function canChallenge(game: GameSave): boolean {
 function availableFieldTrainer(region: WorldRegion, campaign: Campaign, locationId: string, trainerId: string) {
   if (campaign.leagueIndex !== null) return undefined
   return fieldTrainersByRegion[region.id].find(trainer => trainer.id === trainerId &&
-    trainer.locationId === locationId && campaign.badges.length >= trainer.requiredBadges)
+    trainer.locationId === locationId)
 }
 
 export function canChallengeFieldTrainer(game: GameSave, trainerId: string): boolean {
@@ -2613,11 +2617,11 @@ export function canTransferRegion(game: GameSave, regionId: RegionId): boolean {
 function transferRegion(game: GameSave, regionId: RegionId): boolean {
   if (!canTransferRegion(game, regionId)) return false
   const prior = game.regionId
-  const { badges, champion, fieldWins, legacyGatePasses } = game.campaign
+  const { badges, champion, fieldWins } = game.campaign
   const destination = worldRegions[regionId]
   travelTo(game, destination.locationById[destination.startLocationId])
   game.regionProgress[prior] = { badges: [...badges], champion, ...(game.campaign.finaleWon && { finaleWon: true }),
-    ...(fieldWins?.length && { fieldWins: [...fieldWins] }), ...(legacyGatePasses?.length && { legacyGatePasses: [...legacyGatePasses] }) }
+    ...(fieldWins?.length && { fieldWins: [...fieldWins] }) }
   game.regionId = regionId
   game.campaign = newCampaign(game.regionProgress[regionId])
   delete game.regionProgress[regionId]
@@ -2916,7 +2920,7 @@ export function dispatch(game: GameSave, action: GameAction): boolean {
     case 'challenge-field-trainer': {
       const region = worldRegions[game.regionId]
       if (!canChallengeFieldTrainer(game, action.trainerId)) return false
-      const teamNumber = action.teamNumber === undefined ? 1 : action.teamNumber
+      const teamNumber = action.teamNumber ?? fieldTrainerById[action.trainerId]!.defaultTeamNumber
       const trainer = trainerDefinition(region, action.trainerId, teamNumber)
       if (!trainer) return false
       const practice = game.campaign.fieldWins?.includes(trainer.id) ? structuredClone(practiceParty(game)) : undefined
@@ -3090,7 +3094,7 @@ function readPokedex(value: unknown): string[] {
 
 function readWild(value: unknown, clock: number, regionId: RegionId, location: KantoLocation, partnerId: string, campaign: Campaign): Wild[] {
   if (!Array.isArray(value)) return []
-  const legends = eligibleLegends(location, partnerId, campaign.champion, campaign.badges.length)
+  const legends = activeLegends(location, partnerId, campaign)
   const results: Wild[] = []
   for (const entry of value.slice(0, MAX_WILD)) {
     if (!isRecord(entry) || entry.trainerId !== undefined || typeof entry.speciesId !== 'string' ||
@@ -3286,7 +3290,7 @@ for (const starterId of starterIds) {
   }
 }
 
-function readRegionProgress(region: WorldRegion, value: unknown, version: number): RegionProgress {
+function readRegionProgress(region: WorldRegion, value: unknown): RegionProgress {
   if (!isRecord(value)) return { badges: [], champion: false }
   const savedBadges = value.badges
   const badges = Array.isArray(savedBadges)
@@ -3297,11 +3301,7 @@ function readRegionProgress(region: WorldRegion, value: unknown, version: number
   const fieldWins = Array.isArray(savedWins)
     ? fieldTrainersByRegion[region.id].filter(trainer => savedWins.includes(trainer.id)).map(trainer => trainer.id)
     : []
-  const savedPasses = version < 20 ? savedWins : value.legacyGatePasses
-  const legacyGatePasses = Object.entries(replacedGatekeepers[region.id] ?? {})
-    .filter(([oldId, activeId]) => Array.isArray(savedPasses) && savedPasses.includes(version < 20 ? oldId : activeId))
-    .map(([, activeId]) => activeId)
-  return { badges, champion, ...(legacyGatePasses.length && { legacyGatePasses }), ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }),
+  return { badges, champion, ...(champion && region.finaleTrainer && value.finaleWon === true && { finaleWon: true }),
     ...(fieldWins.length && { fieldWins }) }
 }
 
@@ -3326,8 +3326,8 @@ function readTrainerAI(raw: unknown, team: readonly KantoTrainerMember[], active
   return ai
 }
 
-function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number, clock: number, practice?: PracticeParty): Campaign {
-  const campaign = newCampaign(readRegionProgress(region, value, version))
+function readCampaign(region: WorldRegion, value: unknown, locationId: string, speciesId: string, version: number, clock: number, practice?: PracticeParty, priorFoe?: unknown): Campaign {
+  const campaign = newCampaign(readRegionProgress(region, value))
   if (!isRecord(value)) return campaign
   const gym = remainingGym(region, campaign.badges)
   const atLeague = locationId === region.leagueLocationId
@@ -3357,7 +3357,7 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   let teamNumber: number | undefined
   if (field) {
     const selected = value.battle.teamNumber === undefined ? 1 : value.battle.teamNumber
-    if (typeof selected !== 'number' || !Number.isInteger(selected) || !!practice !== !!campaign.fieldWins?.includes(field.id)) return campaign
+    if (typeof selected !== 'number' || !Number.isInteger(selected) || (version < 23 && selected > field.arenaTeamCount) || !!practice !== !!campaign.fieldWins?.includes(field.id)) return campaign
     teamNumber = selected
   }
   let eligibleTrainer: KantoTrainer | undefined = field
@@ -3368,7 +3368,15 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   }
   const index = value.battle.opponentIndex
   if (eligibleTrainer?.id !== savedTrainerId || typeof index !== 'number' || !Number.isInteger(index) || index < 0) return campaign
-  const definition = trainerDefinition(region, savedTrainerId, teamNumber)
+  // Old arena-format battles keep their original level spread until this attempt ends.
+  let legacyFieldAceLevel: number | undefined
+  if (field && teamNumber && teamNumber >= 1 && teamNumber <= field.arenaTeamCount) {
+    const length = field.teams[teamNumber - 1].length
+    const oldLevel = version < 23 && isRecord(priorFoe) && typeof priorFoe.level === 'number'
+      ? priorFoe.level + Math.min(3, length - 1 - index) : value.battle.legacyFieldAceLevel
+    if (typeof oldLevel === 'number' && Number.isInteger(oldLevel) && oldLevel >= 1 && oldLevel <= MAX_LEVEL) legacyFieldAceLevel = oldLevel
+  }
+  const definition = trainerDefinition(region, savedTrainerId, teamNumber, legacyFieldAceLevel)
   if (!definition) return campaign
   const team = resolveTrainer(region, definition, speciesId).team
   let opponentIndex = index
@@ -3383,7 +3391,7 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
     opponentIndex = team.findIndex(slot => sameMember(slot) && occurrence-- === 0)
   }
   if (opponentIndex >= 0 && opponentIndex < team.length) {
-    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(teamNumber && { teamNumber }), ...(practice && { practice }), arena: createArena([]) }
+    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(teamNumber && { teamNumber }), ...(legacyFieldAceLevel && { legacyFieldAceLevel }), ...(practice && { practice }), arena: createArena([]) }
     if (team[opponentIndex].plan) {
       const stored = version >= (field ? 21 : 22) ? value.battle.fieldAI : undefined
       campaign.battle.fieldAI = readTrainerAI(stored, team, opponentIndex, clock)
@@ -3457,7 +3465,7 @@ function readEncounterGimmicks(raw: unknown, version: number, region: RegionId, 
 function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Campaign, speciesId: string, targetId: number | null, version: number): Wild | undefined {
   const battle = campaign.battle
   if (!battle || !Array.isArray(value) || !targetId) return
-  const definition = trainerDefinition(region, battle.trainerId, battle.teamNumber)
+  const definition = trainerDefinition(region, battle.trainerId, battle.teamNumber, battle.legacyFieldAceLevel)
   if (!definition) return
   const trainer = resolveTrainer(region, definition, speciesId)
   const slot = trainer.team[battle.opponentIndex]
@@ -3589,21 +3597,21 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
     const active = id === savedRegion
     const record = active ? value.campaign : savedProgress[id]
     if (!active && !isRecord(record)) break
-    const progress = readRegionProgress(worldRegions[id], record, value.schemaVersion)
+    const progress = readRegionProgress(worldRegions[id], record)
     if (active) regionId = id
     else regionProgress[id] = progress
     if (!progress.champion) break
   }
   const region = worldRegions[regionId]
-  const proposedLocation = value.schemaVersion >= 4 && savedRegion === regionId
+  const savedLocation = value.schemaVersion >= 4 && savedRegion === regionId
     ? readLocation(region, value.locationId) : undefined
   const savedCampaign = savedRegion === regionId ? value.campaign : regionProgress[regionId]
   // Keep legacy players at their saved location. New route requirements apply when entering a destination.
-  const savedLocation = proposedLocation?.afterFinale && !readRegionProgress(region, savedCampaign, value.schemaVersion).finaleWon ? undefined : proposedLocation
   const fallbackLocationId = regionId === 'kanto' ? LEGACY_LOCATION_ID : region.startLocationId
   const location = savedLocation ?? region.locationById[fallbackLocationId]
   delete regionProgress[regionId]
-  const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId, value.schemaVersion, runtime.clock, practice) : newCampaign()
+  const priorFoe = value.schemaVersion < 23 && Array.isArray(value.wild) ? value.wild.find(entry => isRecord(entry) && entry.id === runtime.targetId) : undefined
+  const campaign = value.schemaVersion >= 5 ? readCampaign(region, savedCampaign, location.id, starterSpeciesId, value.schemaVersion, runtime.clock, practice, priorFoe) : newCampaign()
   const effective = Math.min(level, region.levelCaps[campaign.badges.length])
   const baseHP = statsFor(speciesId, effective, heldItemId, formId).hp
   let trainerEnemy = campaign.battle
@@ -3624,7 +3632,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const { followers, boxes } = readOwnedPokemon(value, leaderId, position, runtime, inventory, heldItemId)
   const lead = { instanceId: leaderId, speciesId, formId }
   const target = wild.find(mon => mon.id === runtime.targetId)
-  const savedTrainer = campaign.battle?.fieldAI && trainerDefinition(region, campaign.battle.trainerId, campaign.battle.teamNumber)
+  const savedTrainer = campaign.battle?.fieldAI && trainerDefinition(region, campaign.battle.trainerId, campaign.battle.teamNumber, campaign.battle.legacyFieldAceLevel)
   const savedTeam = savedTrainer && resolveTrainer(region, savedTrainer, starterSpeciesId).team
   const gimmicks = readEncounterGimmicks(isRecord(value.runtime) ? value.runtime.gimmick : undefined,
     value.schemaVersion, regionId, target, [lead, ...followers],savedTeam)

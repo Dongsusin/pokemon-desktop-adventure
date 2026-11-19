@@ -84,8 +84,6 @@ describe('Paldea campaign and Terastallization', () => {
     expect(game.regionProgress.galar?.champion).toBe(true)
     expect(levelCap(game)).toBe(25)
     expect(effectiveLevel(game)).toBe(25)
-    expect(dispatch(game, { type: 'travel', locationId: square })).toBe(false)
-    game.campaign.fieldWins = ['field-paldea-nemona']
     travel(game, square)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(false)
 
@@ -99,7 +97,7 @@ describe('Paldea campaign and Terastallization', () => {
     expect(game.campaign.finaleWon).toBeUndefined()
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(false)
-    expect(dispatch(game, { type: 'travel', locationId: 'area-zero' })).toBe(false)
+    expect(dispatch(game, { type: 'travel', locationId: 'area-zero' })).toBe(true)
 
     travel(game, square)
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(true)
@@ -114,7 +112,7 @@ describe('Paldea campaign and Terastallization', () => {
     finishTeam(game)
     expect(game.campaign).toMatchObject({ champion: true, finaleWon: true, leagueIndex: null, battle: null })
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(false)
-    expect(dispatch(game, { type: 'travel', locationId: 'area-zero' })).toBe(false)
+    expect(dispatch(game, { type: 'travel', locationId: 'area-zero' })).toBe(true)
     travel(game, 'naranja-academy')
     expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: 'field-paldea-penny' })).toBe(true)
     for (let i = 0; i < 20 && game.campaign.battle; i++) defeatOpponent(game)
@@ -122,7 +120,7 @@ describe('Paldea campaign and Terastallization', () => {
     travel(game, 'area-zero')
     expect(dispatch(game, { type: 'transfer-region', regionId: 'galar' })).toBe(true)
     game = reload(game)
-    expect(game.regionProgress.paldea).toEqual({ badges, champion: true, finaleWon: true, fieldWins: ['field-paldea-nemona', 'field-paldea-penny'] })
+    expect(game.regionProgress.paldea).toEqual({ badges, champion: true, finaleWon: true, fieldWins: ['field-paldea-penny'] })
     expect(dispatch(game, { type: 'transfer-region', regionId: 'paldea' })).toBe(true)
     expect(reload(game).campaign.finaleWon).toBe(true)
     travel(game, 'area-zero')
@@ -151,7 +149,7 @@ describe('Paldea campaign and Terastallization', () => {
     expect(currentTrainer(game)?.team.at(-1)?.speciesId).toBe(expectedAce)
   })
 
-  it('rejects crater travel and discards forged location and finale records before eligibility', () => {
+  it('checks crater badge eligibility when traveling and discards invalid finale progress', () => {
     const game = arriveFromGalar()
     const restricted = paldea.locations.filter(location => location.afterFinale)
     expect(restricted.map(location => location.id)).toEqual(expect.arrayContaining(['area-zero', 'zero-lab']))
@@ -162,7 +160,7 @@ describe('Paldea campaign and Terastallization', () => {
         campaign: { ...game.campaign, champion: false, finaleWon: true },
       }
       const restored = hydrateSave(forged, 1)!
-      expect(restored.locationId).toBe(paldea.startLocationId)
+      expect(restored.locationId).toBe(place.id)
       expect(restored.campaign.finaleWon).toBeUndefined()
       expect(restored.wild).toEqual([])
     }

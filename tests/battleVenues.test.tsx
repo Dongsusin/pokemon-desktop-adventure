@@ -9,7 +9,6 @@ import { battleVenue } from '../src/renderer/battleGround'
 import manifest from '../src/renderer/battle-venues.json'
 import { TrainerArena } from '../src/renderer/TrainerArena'
 import { ChallengeActions } from '../src/renderer/Campaign'
-import { VenuePreview } from '../src/renderer/VenuePreview'
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -39,7 +38,7 @@ it('ships one named, distinct 600 by 380 arena for every playable gym, trial and
   expect([gyms, otherBattles]).toEqual([75, 48])
 })
 
-it.each([false, true])('renders the previewed venue in the live and resumed battle (practice %s)', practice => {
+it.each([false, true])('renders the correct venue in the live and resumed battle (practice %s)', practice => {
   vi.stubGlobal('document', { baseURI: 'http://localhost/' })
   const game = createGame('squirtle', 1, { width: 1280, height: 720 }, 4000, 25)
   const trainer = worldRegions.kanto.gymTrainers[0]
@@ -47,9 +46,6 @@ it.each([false, true])('renders the previewed venue in the live and resumed batt
   expect(dispatch(game, { type: 'travel', locationId: trainer.locationId })).toBe(true)
   expect(dispatch(game, { type: practice ? 'practice-gym' : 'challenge-gym' })).toBe(true)
   const venue = battleVenue('kanto', trainer)
-  const preview = renderToStaticMarkup(<VenuePreview region="kanto" trainer={trainer} />)
-  expect(preview).toContain(venue.image)
-  expect(preview).toContain(venue.name!)
   for (const save of [game, hydrateSave(game, 1)!]) {
     const arena = renderToStaticMarkup(<TrainerArena game={save} />)
     expect(arena).toContain(venue.image)
@@ -58,7 +54,7 @@ it.each([false, true])('renders the previewed venue in the live and resumed batt
   }
 })
 
-it('pairs each freely selectable Elite Four opponent with their own arena preview', () => {
+it('offers each freely selectable Elite Four opponent a challenge button', () => {
   const game = createGame('squirtle', 1, { width: 1280, height: 720 }, 4000, 25)
   const region = worldRegions.unova
   game.regionId = region.id
@@ -67,6 +63,6 @@ it('pairs each freely selectable Elite Four opponent with their own arena previe
   const html = renderToStaticMarkup(<ChallengeActions game={game} kind="league" busy={false} begin={() => {}} />)
   for (const trainer of region.leagueTrainers.filter(trainer => trainer.role === 'elite')) {
     expect(html).toContain(trainer.name + '에게 도전')
-    expect(html).toContain(battleVenue(region.id, trainer).image)
+    expect(html).not.toContain(battleVenue(region.id, trainer).image)
   }
 })

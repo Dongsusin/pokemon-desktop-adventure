@@ -16,17 +16,15 @@ import {
 } from '../game/regions/kantoIllustratedMap'
 import type { KantoLocation } from '../game/regions/kanto'
 import { species } from '../game/catalog'
-import { nextGymTrainer, resolveTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
+import { nextGymTrainer, KANTO_LEGENDARY_ENCOUNTER_CHANCE, type GameSave } from '../game/engine'
 import { locationAccess } from '../game/locationAccess'
-import { fieldTrainerById, fieldTrainersByRegion } from '../game/regions/fieldTrainers'
+import { fieldTrainersByRegion } from '../game/regions/fieldTrainers'
 import { MapLocationTooltip, useMapPreview } from './MapLocationTooltip'
 import { describePlace, levelLabel, locationKinds, placeKind, rareCondition, usePlaceEncounters } from './mapLocationGuide'
 import { FieldTrainerCard } from './FieldTrainerCard'
 import { FieldTrainerDirectory } from './FieldTrainerDirectory'
 import { ChallengeActions, challengeName, type ChallengeKind } from './Campaign'
-import { Pokemon, types } from './shared'
-import { TrainerTactics } from './TrainerTactics'
-import { VenuePreview } from './VenuePreview'
+import { Pokemon } from './shared'
 import './region-map.css'
 
 const maps = {
@@ -159,8 +157,6 @@ function TravelRequirements({ game, access, here, choose }: {
 }) {
   const region = worldRegions[game.regionId]
   const next = access.missingBadges > 0 ? nextGymTrainer(game) : undefined
-  const trainer = access.missingTrainerId ? fieldTrainerById[access.missingTrainerId] : undefined
-  const finale = access.needsFinale ? region.finaleTrainer : undefined
   function locate(id: string) {
     const name = region.locationById[id].name
     return <button type="button" className="gate-destination" aria-label={name + ' 지도에서 보기'}
@@ -172,8 +168,6 @@ function TravelRequirements({ game, access, here, choose }: {
       {access.missingBadges > 0 && <li><span>{region.id === 'alola' ? '시련·큰 시련' : '배지'} {access.requiredBadges}개
         <small>{game.campaign.badges.length}/{access.requiredBadges} 완료{next && ' · 다음 ' + challengeName(next) + ' ' + next.name}</small></span>
         {next && locate(next.locationId)}</li>}
-      {trainer && <li><span>{trainer.name}에게 승리<small>지역 트레이너전</small></span>{locate(trainer.locationId)}</li>}
-      {finale && <li><span>{finale.name}에게 승리<small>{finale.cupRound}</small></span>{locate(finale.locationId)}</li>}
     </ul>
   </section>
 }
@@ -183,7 +177,7 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
   focus?: string
   travel: (id: string) => void
   busy: boolean
-  begin: (kind: ChallengeKind, trainerId?: string, teamNumber?: number) => void
+  begin: (kind: ChallengeKind, trainerId?: string) => void
 }) {
   const region = worldRegions[game.regionId]
   const map = maps[game.regionId]
@@ -191,18 +185,13 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
   const areas = region.id === 'alola' ? alolaIslandByLocationId : region.id === 'galar' ? galarAreaByLocationId : region.id === 'paldea' ? paldeaAreaByLocationId : undefined
   const [zoomArea, zoom] = useState(() => region.id === 'galar' ? areas?.[focus ?? current.id] ?? '' : '')
   const [selectedId, setSelected] = useState(() => focus && region.locationById[focus] ? focus : current.id)
-  const [focusedTrainer, focusTrainer] = useState('')
-  const [trainersOpen, showTrainers] = useState(false)
   const guide = useMapPreview()
   const selected = region.locationById[selectedId] ?? current
-  const localGym = region.gymTrainerByLocationId[selected.id]
-  const localTrainer = localGym && resolveTrainer(region, localGym, game.starterSpeciesId)
+  const localTrainer = region.gymTrainerByLocationId[selected.id]
   const regionalTrainers = useMemo(() => [...fieldTrainersByRegion[region.id]].sort((first, second) =>
-    first.requiredBadges - second.requiredBadges ||
-    Math.min(...first.team.map(member => member.level)) - Math.min(...second.team.map(member => member.level))
+    first.name.localeCompare(second.name, 'ko')
   ), [region.id])
   const encounters = regionalTrainers.filter(trainer => trainer.locationId === selected.id)
-    .sort((a, b) => Number(b.id === focusedTrainer) - Number(a.id === focusedTrainer))
   const fieldWins = game.campaign.fieldWins ?? []
   const isHere = selected.id === current.id
   const accessByPlace = Object.fromEntries(region.locations.map(place => [place.id, locationAccess(game, place.id)]))
@@ -216,8 +205,6 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
   const viewport = zoomed ? areaViewport(areaPlaces, map.width, map.height) : { x: 0, y: 0, width: map.width, height: map.height }
   function choose(id: string) {
     guide.dismiss()
-    focusTrainer('')
-    showTrainers(false)
     setSelected(id)
     if (zoomed && areas) zoom(areas[id])
   }
@@ -288,7 +275,7 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
         </select>
       </label>
       <FieldTrainerDirectory regionId={region.id} trainers={regionalTrainers} wins={fieldWins} selectedId={selected.id}
-        placeLabel={id => placeLabel(region.locationById[id])} select={trainer => { choose(trainer.locationId); focusTrainer(trainer.id); showTrainers(true) }} />
+        placeLabel={id => placeLabel(region.locationById[id])} select={trainer => choose(trainer.locationId)} />
     </section>
     <section className="card kanto-place" aria-label="선택한 장소 정보">
       <div className="kanto-place-top">
@@ -314,21 +301,15 @@ export function RegionMap({ game, focus, travel, busy, begin }: {
         <p className="kanto-travel-detail">이동하면 진행 중인 도전이 종료됩니다.</p>}
 
       {localTrainer && <div className="kanto-landmark">
-        <strong>{localTrainer.type && (types[localTrainer.type] ?? localTrainer.type) + ' '}{challengeName(localTrainer)}</strong>
+        <strong>{challengeName(localTrainer)}</strong>
         <span>{localTrainer.trialKind ? '' : '관장 '}{localTrainer.name} · {localTrainer.badge}</span>
       </div>}
       {selected.kind === 'league' && <div className="kanto-landmark"><strong>{region.id === 'galar' ? '가라르 챔피언컵' : region.id === 'paldea' ? '팔데아 챔피언 테스트' : region.name.replace(/지방$/, '') + ' 포켓몬 리그'}</strong></div>}
-      {localTrainer && <><VenuePreview region={region.id} trainer={localTrainer} /><TrainerTactics trainer={localTrainer} /></>}
       {isHere && region.finaleTrainer?.locationId === selected.id && <ChallengeActions game={game} kind="finale" busy={busy} begin={begin} />}
       {isHere && localTrainer && <ChallengeActions game={game} kind="gym" busy={busy} begin={begin} />}
       {isHere && selected.kind === 'league' && <ChallengeActions game={game} kind="league" busy={busy} begin={begin} />}
-      {encounters.length > 0 && <details className="kanto-local-trainers" open={trainersOpen}>
-        <summary onClick={event => { event.preventDefault(); showTrainers(!trainersOpen) }}>
-          지역 트레이너 대결 <span>{encounters.map(trainer => trainer.name).join(' · ')}</span>
-        </summary>
-        {encounters.map(trainer => <FieldTrainerCard key={trainer.id} game={game} trainer={trainer}
-          busy={busy} locationLocked={locked} challenge={(id, number) => begin('field', id, number)} choose={choose} />)}
-      </details>}
+      {encounters.map(trainer => <FieldTrainerCard key={trainer.id} game={game} trainer={trainer}
+        busy={busy} challenge={id => begin('field', id)} />)}
       {adjacent.length > 0 && <div className="filter-row kanto-links" aria-label="이어지는 장소">
         {adjacent.map(id => {
           const place = region.locationById[id]

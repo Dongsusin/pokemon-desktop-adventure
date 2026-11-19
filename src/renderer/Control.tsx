@@ -422,9 +422,9 @@ function Dashboard({ game, snapshot, send, busy }: { game: GameSave; snapshot: A
     setMapFocus(locationId)
     setTab('지도')
   }
-  function begin(kind: ChallengeKind, trainerId?: string, teamNumber?: number) {
+  function begin(kind: ChallengeKind, trainerId?: string) {
     if (kind === 'field') {
-      if (trainerId) send({ type: 'challengeFieldTrainer', trainerId, teamNumber })
+      if (trainerId) send({ type: 'challengeFieldTrainer', trainerId })
       return
     }
     send(kind === 'practice' ? { type: 'practiceGym' } : kind === 'gym' ? { type: 'challengeGym' } : kind === 'finale' ? { type: 'challengeFinale' } : { type: 'challengeLeague', trainerId })

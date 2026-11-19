@@ -7,39 +7,32 @@ import { finishChallenge } from './trainerArenaDriver'
 
 const bounds = { width: 1280, height: 800 }
 const ash = 'field-kanto-ash'
-const rocketDuo = 'field-kanto-rocket-duo'
 const opening = () => createGame('squirtle', 1, bounds, Date.UTC(2026, 10, 19), 19)
 const travel = (game: GameSave, locationId: string) => dispatch(game, { type: 'travel', locationId })
 
 describe('regional map travel', () => {
-  it('unlocks Mt. Moon only after both Ash and Brock are defeated, then opens Cerulean after the Rocket duo', () => {
+  it('opens Mt. Moon and Cerulean with the Boulder Badge and no field victories', () => {
     const game = opening()
     game.player.level = 55
     game.player.moveIds = ['tackle', 'waterGun', 'waterPulse']
     game.player.currentHP = playerStats(game).hp
-    expect(locationAccess(game, 'mt-moon')).toMatchObject({ unlocked: false, requiredBadges: 1, missingBadges: 1, missingTrainerId: ash })
-    expect(travel(game, 'viridian-forest')).toBe(true)
-    expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: ash })).toBe(true)
-    finishChallenge(game)
-    expect(game.campaign.fieldWins).toEqual([ash])
+    expect(locationAccess(game, 'mt-moon')).toMatchObject({ unlocked: false, requiredBadges: 1, missingBadges: 1 })
+    game.campaign.fieldWins = [ash]
     expect(travel(game, 'mt-moon')).toBe(false)
-    expect(locationAccess(game, 'mt-moon')).toMatchObject({ missingBadges: 1, missingTrainerId: undefined })
+    delete game.campaign.fieldWins
     expect(travel(game, 'pewter-city')).toBe(true)
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
     finishChallenge(game)
     expect(game.campaign.badges).toEqual(['brock'])
     expect(travel(game, 'mt-moon')).toBe(true)
-    expect(locationAccess(game, 'cerulean-city')).toMatchObject({ unlocked: false, missingBadges: 0, missingTrainerId: rocketDuo })
-    expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: rocketDuo })).toBe(true)
-    finishChallenge(game)
     const restored = hydrateSave(structuredClone(game), 1)!
     expect(travel(restored, 'cerulean-city')).toBe(true)
+    expect(restored.campaign.fieldWins).toBeUndefined()
     expect(travel(restored, 'indigo-plateau')).toBe(false)
   })
 
   it('rejects direct travel without interrupting the current battle or changing any save state', () => {
     const game = opening()
-    game.campaign.badges = ['brock']
     expect(travel(game, 'viridian-forest')).toBe(true)
     expect(dispatch(game, { type: 'challenge-field-trainer', trainerId: ash })).toBe(true)
     const before = structuredClone(game)
@@ -71,8 +64,7 @@ describe('regional map travel', () => {
       expect(locationAccess(game, id).unlocked).toBe(false)
       expect(travel(game, id)).toBe(false)
     }
-    expect(travel(game, 'cerulean-city')).toBe(false)
-    expect(locationAccess(game, 'cerulean-city').missingTrainerId).toBe(rocketDuo)
+    expect(travel(game, 'cerulean-city')).toBe(true)
     game.campaign.fieldWins = [ash]
     expect(dispatch(game, { type: 'transfer-region', regionId: 'johto' })).toBe(true)
     expect(game.locationId).toBe(worldRegions.johto.startLocationId)
@@ -81,7 +73,7 @@ describe('regional map travel', () => {
     expect(dispatch(game, { type: 'transfer-region', regionId: 'kanto' })).toBe(true)
     expect(travel(game, 'mt-moon')).toBe(true)
     expect(game.campaign.fieldWins).toEqual([ash])
-    expect(travel(game, 'cerulean-city')).toBe(false)
+    expect(travel(game, 'cerulean-city')).toBe(true)
   })
 
   it.each([
@@ -97,31 +89,29 @@ describe('regional map travel', () => {
       game.regionProgress[region.id] = { badges: region.gymTrainers.map(t => t.id), champion: true }
     }
     game.campaign.badges = worldRegions[id].gymTrainers.map(trainer => trainer.id)
-    const legacy = { ...game, schemaVersion: 19, campaign: { ...game.campaign, fieldWins: [former, former] } }
+    const legacy = { ...game, schemaVersion: 19, campaign: { ...game.campaign, fieldWins: [former, former], legacyGatePasses: [successor] } }
     const upgraded = hydrateSave(legacy, 1)!
     expect(upgraded.regionId).toBe(id)
     expect(upgraded.campaign.fieldWins).toBeUndefined()
-    expect(upgraded.campaign.legacyGatePasses).toEqual([successor])
+    expect(upgraded.campaign).not.toHaveProperty('legacyGatePasses')
     expect(travel(upgraded, place)).toBe(true)
     const savedAgain = hydrateSave(upgraded, 1)!
     expect(locationAccess(savedAgain, place).unlocked).toBe(true)
     expect(savedAgain.coins).toBe(game.coins)
     expect(dispatch(savedAgain, { type: 'transfer-region', regionId: 'kanto' })).toBe(true)
-    expect(hydrateSave(savedAgain, 1)?.regionProgress[id]?.legacyGatePasses).toEqual([successor])
+    expect(hydrateSave(savedAgain, 1)?.regionProgress[id]).not.toHaveProperty('legacyGatePasses')
   })
 
-  it('requires the Paldea finale for the crater even with Champion Rank', () => {
+  it('opens the crater at eight Paldea badges before the league and the finale', () => {
     const game = opening()
     game.regionId = 'paldea'
     game.locationId = worldRegions.paldea.startLocationId
-    game.campaign.badges = worldRegions.paldea.gymTrainers.map(trainer => trainer.id)
-    game.campaign.champion = true
-    expect(locationAccess(game, 'zero-lab')).toMatchObject({ unlocked: false, needsFinale: true, missingBadges: 0 })
+    const badges = worldRegions.paldea.gymTrainers.map(t => t.id)
+    game.campaign.badges = badges.slice(0, 7)
     expect(travel(game, 'zero-lab')).toBe(false)
-    game.campaign.finaleWon = true
-    expect(locationAccess(game, 'zero-lab')).toMatchObject({ needsFinale: false, missingTrainerId: 'field-paldea-penny' })
-    expect(travel(game, 'zero-lab')).toBe(false)
-    game.campaign.fieldWins = ['field-paldea-penny']
+    game.campaign.badges = badges
     expect(travel(game, 'zero-lab')).toBe(true)
+    expect(game.campaign.champion).toBe(false)
+    expect(game.campaign.finaleWon).toBeUndefined()
   })
 })

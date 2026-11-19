@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { eligibleLegends, regionalWeather, type GameSave } from '../game/engine'
+import { activeLegends, eligibleLegends, regionalWeather, type GameSave } from '../game/engine'
 import { formLabel } from '../game/forms'
 import { fieldTrainersByRegion } from '../game/regions/fieldTrainers'
 import type { KantoLocation, LegendaryEncounter } from '../game/regions/kanto'
@@ -67,8 +67,7 @@ export function placeTrainers(region: WorldRegion, place: KantoLocation) {
   for (const t of fieldTrainersByRegion[region.id]) {
     if (t.locationId === place.id) add(t.name, '지역 대결')
   }
-  return [...names].map(([name, roles]) => roles.size === 1 && roles.has('지역 대결')
-    ? name : name + '(' + [...roles].join('·') + ')')
+  return [...names].map(([name, roles]) => name + '(' + [...roles].join('·') + ')')
 }
 
 export function rareCondition(game: GameSave, place: KantoLocation, entry: LegendaryEncounter) {
@@ -112,7 +111,6 @@ export function usePlaceEncounters(game: GameSave, place: KantoLocation) {
     return { ...entry, formId, description }
   }), [slots, game.regionId, place.id])
   const rareEntries = eligibleLegends(place, game.starterSpeciesId, true)
-  const available = place.afterFinale && !game.campaign.finaleWon ? [] :
-    eligibleLegends(place, game.starterSpeciesId, game.campaign.champion, game.campaign.badges.length)
+  const available = activeLegends(place, game.starterSpeciesId, game.campaign)
   return { entries, weather: forecast?.weather, rareEntries, available }
 }

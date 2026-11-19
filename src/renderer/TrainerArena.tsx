@@ -36,15 +36,15 @@ function effectivenessLabel(value: number | 'absorb' | null) {
 }
 
 function Health({ id, formId, level, hp, max, rival, remaining }: {
-  id: string; formId?: string; level: number; hp: number; max: number; rival?: boolean; remaining: boolean[]
+  id: string; formId?: string; level: number; hp: number; max: number; rival?: boolean; remaining?: boolean[]
 }) {
   const ratio = Math.max(0,Math.min(1,hp/Math.max(1,max)))
   return <div className={'ring-health ' + (rival ? 'rival' : 'ally')}>
     <div className="ring-portrait"><Pokemon id={id} formId={formId}/></div>
     <div className="ring-health-body">
       <div className="ring-health-heading"><strong>{pokemonName(id,formId)}</strong><small>Lv.{level}</small>
-        <span className="ring-reserves" aria-label={'남은 포켓몬 ' + remaining.filter(Boolean).length + '마리'}>
-          {remaining.map((available,index)=><i key={index} className={available ? '' : 'down'}/>)}</span>
+        {remaining && <span className="ring-reserves" aria-label={'남은 포켓몬 ' + remaining.filter(Boolean).length + '마리'}>
+          {remaining.map((available,index)=><i key={index} className={available ? '' : 'down'}/>)}</span>}
       </div>
       <div className="ring-hp-row"><span className="ring-hp-track" role="progressbar" aria-label={(rival ? '상대' : '내 포켓몬') + ' HP'}
         aria-valuemin={0} aria-valuemax={max} aria-valuenow={hp}>
@@ -267,16 +267,14 @@ export function TrainerArena({ game }: { game: GameSave }) {
   const venue = battleVenue(region.id, trainer)
   const location = region.locationById[trainer.locationId].name
   const venueLabel = venue.name?.startsWith(location) ? venue.name : [location, venue.name].filter(Boolean).join(' · ')
-  const special = [trainer.totemAura && '주인 포켓몬의 오라', enemyActive && ('상대 ' + enemyActive.label + ' · ' + enemyActive.detail),
-    foe?.abilityId && '특성 ' + (foe.abilityId === 'levitate' ? '부유' : '저수')].filter(Boolean).join(' · ')
+  const special = [trainer.totemAura && '주인 포켓몬의 오라', enemyActive && ('상대 ' + enemyActive.label + ' · ' + enemyActive.detail)].filter(Boolean).join(' · ')
   return <section className="trainer-arena" data-has-gimmick={playerGimmick ? true : undefined} aria-label="실시간 도전 배틀">
     <div className="ring-frame">
       <header className="ring-scoreboard">
         <Health id={player.speciesId} formId={playerForm} hp={player.currentHP} max={maxHP} level={effectiveLevel(game)}
           remaining={roster.map(mon=>mon.currentHP>0)}/>
         <div className="ring-match"><span>{battle.practice ? '연습 재대결' : label}</span><h1>VS {trainer.name}</h1></div>
-        <Health rival id={opponentId} formId={opponentForm} hp={foe?.currentHP ?? 0} max={foe?.maxHP ?? 1} level={foeMember.level}
-          remaining={trainer.team.map((_,i)=>battle.fieldAI ? battle.fieldAI.benchHP[i] !== 0 : i>=battle.opponentIndex)}/>
+        <Health rival id={opponentId} formId={opponentForm} hp={foe?.currentHP ?? 0} max={foe?.maxHP ?? 1} level={foeMember.level}/>
       </header>
       <div className={'ring-floor' + (isPlaying ? '' : ' stopped')} data-terrain={terrain} data-venue={region.id + '/' + trainer.id} style={{backgroundImage: 'url("' + venue.image + '")'}}
         ref={surface} tabIndex={0} role="group" aria-label="배틀 경기장 · 방향키 또는 Alt와 바닥 클릭으로 이동" onPointerDown={pointAndWalk} onContextMenu={event => event.preventDefault()}>

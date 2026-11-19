@@ -4,7 +4,7 @@
 .campaign-heading h2 { margin: 0 0 7px; }
 .campaign-heading > span { align-self: start; color: var(--muted); font-size: 11px; font-weight: 700; }
 .campaign-heading .campaign-count { border: 1px solid #dacba8; color:#6c542b; border-radius: 6px; padding: 4px 7px; background: #efe8d6; }
-.badge-grid, .trainer-team, .league-steps { list-style: none; padding: 0; margin: 0; }
+.badge-grid, .league-steps { list-style: none; padding: 0; margin: 0; }
 .badge-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 6px; }
 .badge-tile { width: 100%; min-height: 61px; display: flex; align-items: center; gap: 5px; border: 1px solid #dce5d9; border-radius: 7px; background: #eef2e9; color: var(--ink); text-align: left; padding: 5px; }
 .badge-tile:hover { border-color: #859a81; }
@@ -19,27 +19,17 @@
 .campaign-subtitle, .campaign-requirement, .campaign-result { font-size: 12px; margin: 5px 0 8px; }
 .campaign-subtitle, .campaign-requirement { color: var(--muted); }
 .campaign-result { padding: 7px; border-radius: 6px; color: #6f5326; background: #efe5ce; font-weight: 800; }
-.trainer-team { display: grid; grid-template-columns: repeat(auto-fit,minmax(64px,1fr)); gap: 4px; }
-.trainer-team li { display: grid; justify-items: center; min-width: 0; padding: 3px; border: 1px solid transparent; border-radius: 6px; background: #edf2e9; }
-.trainer-team .pokemon-sprite { height: 48px; width: 54px; }
-.trainer-team strong { font-size: 10px; text-align: center; overflow-wrap: anywhere; }
-.trainer-team small { font-size: 9px; color: var(--muted); }
-.trainer-team .is-battling { background: #f4ebd7; border-color: #c5a568; }
-.trainer-team .is-defeated { opacity: .52; }
 .campaign-hp { margin-top: 7px; display: grid; gap: 4px; }
 .campaign-hp > span { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
 .league-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 .league-choices small { color: var(--muted); }
 .league-opponent { min-width: 0; }
 .league-opponent > button { width: 100%; }
-.league-opponent .venue-preview { margin: 3px 0 0; }
-.league-opponent .venue-preview > summary > img { width: 44px; height: 28px; }
 .league-steps { display: grid; gap: 4px; margin-bottom: 8px; }
 .league-steps li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 5px; background: #edf2e9; font-size: 12px; }
 .league-steps li > span, .league-steps li > small { color: var(--muted); font-size: 10px; }
 .league-steps .is-next { background: #f5edd8; }
 .league-steps .is-complete { color: #3e644d; }
-.league-next { margin: 5px 0; }
 .kanto-pin.is-earned { border: 2px solid #f7ce75; }
 .kanto-travel-detail { margin-top: 6px; color: var(--muted); font-size: 10px; }
 .log-dot.trainer, .log-dot.badge, .log-dot.league { background: #aa8241; }
@@ -51,14 +41,6 @@
 .tera-match, .tera-match span { display: flex; align-items: center; gap: 5px; }
 .tera-match { flex-wrap: wrap; gap: 8px; }
 
-.venue-preview { margin: 8px 0; border: 1px solid #cbd4c9; border-radius: 7px; overflow: hidden; background: #f3f5ee; }
-.venue-preview > summary { padding: 4px; display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none; }
-.venue-preview > summary::-webkit-details-marker { display: none; }
-.venue-preview > summary:focus-visible { outline-offset: -3px; }
-.venue-preview > summary::after { content: ''; margin: 0 10px 0 auto; width: 6px; height: 6px; border: solid #536553; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
-.venue-preview[open] > summary::after { transform: rotate(225deg); }
-.venue-preview > summary > img { flex: none; width: 76px; height: 48px; border-radius: 3px; image-rendering: pixelated; }
-.venue-preview > summary > span { display: grid; gap: 2px; min-width: 0; }
-.venue-preview small { color: var(--muted); font-size: 10px; }
-.venue-preview strong { color: var(--ink); font-size: 12px; }
-.venue-overview { display: block; width: 100%; height: auto; image-rendering: pixelated; border-top: 1px solid #cbd4c9; }
+
+.campaign-active-foe { display: flex; align-items: center; gap: 6px; }
+.campaign-active-foe .pokemon-sprite { width: 48px; height: 48px; }

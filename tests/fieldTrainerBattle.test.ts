@@ -8,7 +8,7 @@ import { parseCommand } from '../src/main/commands'
 import { finishChallenge, playFrame } from './trainerArenaDriver'
 
 const bounds = { width: 1280, height: 720 }
-const first = fieldTrainerById['field-kanto-ash']!
+const first = fieldTrainerById['field-kanto-rocket-duo']!
 const challenge = (id: string) => ({ type: 'challenge-field-trainer' as const, trainerId: id })
 
 function opening(id: RegionId = 'kanto') {
@@ -26,7 +26,7 @@ function opening(id: RegionId = 'kanto') {
 }
 
 describe('regional field trainer battles', () => {
-  it('admits each opponent at their own location and badge milestone; validates the IPC id', () => {
+  it('admits each opponent at their own location with zero badges; validates the IPC id', () => {
     for (const regionId of regionOrder) {
       const region = worldRegions[regionId]
       for (const opponent of fieldTrainersByRegion[regionId]) {
@@ -37,11 +37,7 @@ describe('regional field trainer battles', () => {
         game.locationId = opponent.locationId
         const otherRegion = regionId === 'kanto' ? 'johto' : 'kanto'
         expect(dispatch(game, challenge(fieldTrainersByRegion[otherRegion][0].id))).toBe(false)
-        if (opponent.requiredBadges > 0) {
-          game.campaign.badges = region.gymTrainers.slice(0, opponent.requiredBadges - 1).map(trainer => trainer.id)
-          expect(dispatch(game, challenge(opponent.id))).toBe(false)
-        }
-        game.campaign.badges = region.gymTrainers.slice(0, opponent.requiredBadges).map(trainer => trainer.id)
+        game.campaign.badges = []
         game.campaign.leagueIndex = 1
         expect(dispatch(game, challenge(opponent.id))).toBe(false)
         expect(game.campaign.leagueIndex).toBe(1)
@@ -50,7 +46,8 @@ describe('regional field trainer battles', () => {
         const command = { type: 'challengeFieldTrainer', trainerId: opponent.id }
         expect(parseCommand(command)).toEqual(command)
         expect(dispatch(game, challenge(opponent.id))).toBe(true)
-        expect(currentTrainer(game)).toMatchObject({ id: opponent.id, role: 'field' })
+        expect(currentTrainer(game)).toMatchObject({ id: opponent.id, role: 'field', team: opponent.team })
+        expect(game.campaign.battle?.teamNumber).toBe(opponent.defaultTeamNumber)
         expect(game.campaign.leagueIndex).toBeNull()
         expect(dispatch(game, challenge(opponent.id))).toBe(false)
       }
@@ -60,7 +57,7 @@ describe('regional field trainer battles', () => {
     }
   })
 
-  it('starts and reloads every source team with exactly the roster and forms displayed on its map', () => {
+  it('starts and reloads every canonical and archived Arena team with the same slots and forms', () => {
     for (const regionId of regionOrder) {
       const game = opening(regionId)
       for (const trainer of fieldTrainersByRegion[regionId]) {
@@ -202,6 +199,27 @@ describe('regional field trainer battles', () => {
       expect(dispatch(game, { type: 'arena-surrender' })).toBe(true)
     }
     expect(game.campaign.fieldWins).toBeUndefined()
+  })
+
+  it('keeps an ongoing v22 alternate team at its former levels, then uses the new default on the next challenge', () => {
+    const ash = fieldTrainerById['field-kanto-ash']!
+    const game = opening()
+    game.locationId = ash.locationId
+    expect(dispatch(game, { ...challenge(ash.id), teamNumber: 2 })).toBe(true)
+    const saved = structuredClone(game)
+    const old = fieldTeamVariant(ash, 2, 5)!
+    saved.wild[0].level = old.team[0].level
+    saved.wild[0].currentHP = 3
+    const loaded = hydrateSave({ ...saved, schemaVersion: 22 }, 1)!
+    expect(loaded.campaign.battle).toMatchObject({ teamNumber: 2, legacyFieldAceLevel: 5 })
+    expect(currentTrainer(loaded)?.team).toEqual(old.team)
+    expect(loaded.wild[0].currentHP).toBe(3)
+    const again = hydrateSave(loaded, 1)!
+    expect(currentTrainer(again)?.team).toEqual(old.team)
+    expect(dispatch(again, { type: 'arena-surrender' })).toBe(true)
+    expect(dispatch(again, challenge(ash.id))).toBe(true)
+    expect(again.campaign.battle?.teamNumber).toBe(ash.defaultTeamNumber)
+    expect(currentTrainer(again)?.team.every(m => m.level === 65)).toBe(true)
   })
 
   it('ends a retired legacy lineup in place, without awarding a loss, a win or coins', () => {
