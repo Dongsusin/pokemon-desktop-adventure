@@ -86,7 +86,7 @@ describe('Champions Arena campaign trainers', () => {
   })
 
   it.each([
-    ['lorelei', 'kanto', 'charizard', 'slowbro'], ['lorelei', 'kanto', 'pikachu', 'lapras'],
+    ['lorelei', 'kanto', 'charizard', 'lapras'], ['lorelei', 'kanto', 'magneton', 'jynx'],
     ['sinnoh-cynthia', 'sinnoh', 'pikachu', 'garchomp'], ['sinnoh-cynthia', 'sinnoh', 'garchomp', 'milotic'],
   ] as const)('%s chooses a replacement against %s / %s using its remaining party', (id, region, player, replacement) => {
     const game = challenge(region, id, player, 60)
@@ -95,6 +95,29 @@ describe('Champions Arena campaign trainers', () => {
     expect(saved.wild[0].speciesId).toBe(replacement)
     expect(saved.campaign.battle!.fieldAI!.benchHP[0]).toBe(1)
     expect(saved.campaign.battle!.fieldAI!.switchReadyAt).toBeGreaterThan(saved.runtime.clock)
+  })
+
+  it('spends the last recovery use on Dragonite and remembers it when the fight resumes', () => {
+    const g = resumeWithLastOpponent(challenge('kanto', 'lance', 'blastoise', 100))
+    const battle = g.campaign.battle!, ai = battle.fieldAI!, slot = battle.opponentIndex
+    expect(ai.recoveryUses[slot]).toBe(0)
+    ai.recoveryUses[slot] = 4
+    g.wild[0].currentHP = Math.floor(g.wild[0].maxHP * .45)
+    align(g)
+    for (let f = 0; f < 100 && ai.recoveryUses[slot] === 4; f++) advanceScripted(g, 40, bounds)
+    expect(ai.recoveryUses[slot]).toBe(5)
+    expect(battle.arena.casts.some(c => c.side === 'enemy' && c.moveId === 'roost')).toBe(true)
+    const saved = reload(g)
+    const restored = saved.campaign.battle!
+    expect(restored.fieldAI!.recoveryUses[slot]).toBe(5)
+    dispatch(saved, { type: 'arena-pause', paused: false })
+    for (let f = 0; f < 100 && restored.arena.casts.some(c => c.moveId === 'roost'); f++) advanceScripted(saved, 40, bounds)
+    saved.wild[0].currentHP = Math.floor(saved.wild[0].maxHP * .45)
+    restored.fieldAI!.supportReadyAt = 0
+    restored.fieldAI!.decideAt = 0
+    align(saved)
+    advanceScripted(saved, 20, bounds)
+    expect(restored.fieldAI!.moveId).not.toBe('roost')
   })
 
   it('lets the champion send the ace early and grants the title only after the entire team faints', () => {
@@ -136,6 +159,8 @@ describe('Champions Arena campaign trainers', () => {
     const g = resumeWithLastOpponent(challenge('paldea', 'paldea-nemona', 'blastoise', 65, 'charmander'))
     const fixture = JSON.parse(JSON.stringify(g)), foe = fixture.wild[0], b = fixture.campaign.battle
     fixture.schemaVersion = 21
+    b.opponentIndex = 4
+    foe.level = 66
     delete b.fieldAI
     delete foe.fieldSlot
     foe.teraType = 'grass'
@@ -157,6 +182,7 @@ describe('Champions Arena campaign trainers', () => {
     b.arena.nextCastId = 2
     const fixture = JSON.parse(JSON.stringify(g))
     fixture.schemaVersion = 21
+    fixture.wild[0].level = 12
     delete fixture.campaign.battle.fieldAI
     delete fixture.wild[0].fieldSlot
     const resumed = hydrateSave(fixture, 1)!, arena = resumed.campaign.battle!.arena

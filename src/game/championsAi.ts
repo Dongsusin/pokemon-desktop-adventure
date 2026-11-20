@@ -8,6 +8,7 @@ import type { KantoTrainerMember } from './regions/kantoCampaign'
 export interface TrainerBattleAI {
   // The active Pokémon's live HP is on the opponent. Null is an untouched reserve.
   benchHP: (number | null)[]
+  recoveryUses: number[]
   switchReadyAt: number
   supportReadyAt: number
   guardUntil: number

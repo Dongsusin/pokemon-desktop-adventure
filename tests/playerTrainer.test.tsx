@@ -36,7 +36,7 @@ it('lets an old save choose a trainer and resume the same in-progress fight and 
   expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
   const { trainerAvatar, ...old } = game
   expect(trainerAvatar).toBeNull()
-  for (const raw of [{ ...old, schemaVersion: 17 }, { ...old, trainerAvatar: 'unknown' }]) {
+  for (const raw of [{ ...old, schemaVersion: 17, wild: [{ ...old.wild[0], level: 12 }] }, { ...old, trainerAvatar: 'unknown' }]) {
     const restored = hydrateSave(raw, 1)!
     expect(restored.trainerAvatar).toBeNull()
     expect(restored.player.instanceId).toBe(game.player.instanceId)

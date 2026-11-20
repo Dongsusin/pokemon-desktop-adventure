@@ -4,6 +4,11 @@ import type { RegionId } from './world'
 // Local map positions and venues. Old keys identify returning opponents in v0.27 saves.
 type Placement = readonly [sourceId: string, locationId: string, venue: FieldVenue, kind: FieldTrainer['kind'], series: FieldTrainer['series'], existingKey?: string]
 
+// Active pre-v26 encounters can finish at the original site after an update.
+export const previousFieldLocations: Readonly<Record<string, string | undefined>> = {
+  'field-kanto-b-040': 'pallet-town', 'field-kalos-d-215': 'santalune-forest', 'field-paldea-s-025': 'mesagoza',
+}
+
 export const arenaPlacements: Readonly<Record<RegionId, readonly Placement[]>> = {
   kanto: [
     ['a-038', 'viridian-forest', 'forest', 'ally', 'anime', 'ash'], // 지우
@@ -14,7 +19,7 @@ export const arenaPlacements: Readonly<Record<RegionId, readonly Placement[]>> =
     ['c-106', 'cerulean-city', 'city', 'trainer', 'game'], // 이슬
     ['a-026', 'ss-anne', 'ship', 'rival', 'game', 'blue'], // 그린
     ['c-107', 'vermilion-city', 'city', 'trainer', 'game'], // 마티스
-    ['b-040', 'pallet-town', 'city', 'ally', 'game'], // 오박사
+    ['b-040', 'indigo-plateau', 'arena', 'ally', 'game'], // 오박사
     ['b-042', 'rock-tunnel', 'cave', 'trainer', 'game'], // 시바
     ['c-108', 'celadon-city', 'city', 'trainer', 'game'], // 민화
     ['b-043', 'pokemon-tower', 'ruins', 'trainer', 'game'], // 국화
@@ -153,7 +158,7 @@ export const arenaPlacements: Readonly<Record<RegionId, readonly Placement[]>> =
   ],
   kalos: [
     ['d-207', 'aquacorde-town', 'city', 'rival', 'game', 'shauna'], // 사나
-    ['d-215', 'santalune-forest', 'forest', 'ally', 'game'], // 안샤
+    ['d-215', 'chamber-of-emptiness', 'ruins', 'ally', 'game'], // 안샤
     ['c-150', 'santalune-city', 'city', 'trainer', 'game'], // 비올라
     ['d-208', 'kalos-route-5', 'route', 'ally', 'game', 'tierno'], // 티에르노
     ['d-214', 'parfum-palace', 'ruins', 'ally', 'game'], // 이노
@@ -254,7 +259,7 @@ export const arenaPlacements: Readonly<Record<RegionId, readonly Placement[]>> =
     ['b-094', 'dalizapa-passage', 'cave', 'trainer', 'game'], // 칠리
     ['b-103', 'medali', 'city', 'trainer', 'game'], // 청목
     ['s-024', 'poco-path-lighthouse', 'coast', 'rival', 'game'], // 보민
-    ['s-025', 'mesagoza', 'city', 'rival', 'game'], // 푸름
+    ['s-025', 'area-zero', 'ruins', 'rival', 'game'], // 푸름
     ['c-190', 'alfornada', 'city', 'trainer', 'game'], // 리파
     ['b-101', 'north-province-area-one', 'route', 'trainer', 'game'], // 네리네
     ['a-039', 'los-platos', 'city', 'rival', 'anime'], // 리코

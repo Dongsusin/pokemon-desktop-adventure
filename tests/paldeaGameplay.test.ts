@@ -92,7 +92,7 @@ describe('Paldea campaign and Terastallization', () => {
     travel(game, league)
     game.campaign.leagueIndex = 4
     expect(dispatch(game, { type: 'challenge-league', trainerId: 'paldea-geeta' })).toBe(true)
-    expect(faceAce(game)).toMatchObject({ speciesId: 'glimmora', level: 62 })
+    expect(faceAce(game)).toMatchObject({ speciesId: 'glimmora', level: 96 })
     finishTeam(game)
     expect(game.campaign.champion).toBe(true)
     expect(game.campaign.finaleWon).toBeUndefined()
@@ -104,7 +104,7 @@ describe('Paldea campaign and Terastallization', () => {
     expect(dispatch(game, { type: 'challenge-finale' })).toBe(true)
     expect(currentTrainer(game)?.id).toBe('paldea-nemona')
     expect(game.campaign.leagueIndex).toBeNull()
-    expect(faceAce(game)).toMatchObject({ speciesId: 'meowscarada', level: 66 })
+    expect(faceAce(game)).toMatchObject({ speciesId: 'meowscarada', level: 100 })
     game.wild[0].currentHP -= 1
     const before = structuredClone(game.wild)
     game = reload(game)

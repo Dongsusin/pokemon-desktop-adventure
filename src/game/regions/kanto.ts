@@ -34,6 +34,7 @@ export interface KantoLocation {
   x: number
   y: number
   encounters: readonly KantoEncounter[]
+  regionalHabitats?: readonly KantoEncounter[]
   visitors?: readonly KantoEncounter[]
   legends?: readonly LegendaryEncounter[]
   afterFinale?: boolean

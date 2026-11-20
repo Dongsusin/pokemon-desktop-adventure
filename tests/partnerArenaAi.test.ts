@@ -106,7 +106,11 @@ describe('autonomous Resonance trainer battles', () => {
   it.each(['field', 'league', 'practice'] as const)('fights a %s challenge through settlement without player commands', mode => {
     const g = challenge('kanto', 'blastoise'), region = worldRegions.kanto
     g.campaign.badges = region.gymTrainers.map(gym => gym.id)
-    g.player.level = 90
+    if (mode === 'league') {
+      g.player.speciesId = 'luxray'
+      g.player.moveIds = ['tackle', 'thunderShock']
+    }
+    g.player.level = 100
     g.player.currentHP = playerStats(g).hp
     const exp = g.player.exp
     if (mode === 'field') {

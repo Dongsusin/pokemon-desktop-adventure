@@ -1,3 +1,4 @@
+import { regionalHabitats, withRegionalHabitats } from './regionalHabitats'
 import { postgameRare, postgameVisitors } from './collectionEncounters'
 import { supportedEncounters } from './motionEncounters'
 import { kantoLocations, kantoLocationById, kantoRegion, type KantoLocation } from './kanto'
@@ -186,12 +187,17 @@ const regionalData: Readonly<Record<RegionId, WorldRegion>> = {
 // Every map lookup shares the same playable encounter tables, including offline exploration.
 export const worldRegions = Object.fromEntries<WorldRegion>(regionOrder.map(id => {
   const region = regionalData[id]
-  const locations = region.locations.map(location => ({
-    ...location,
-    encounters: supportedEncounters(id, location.id, location.encounters),
-    visitors: postgameVisitors[location.id] && supportedEncounters(id, location.id, postgameVisitors[location.id]),
-    legends: supportedEncounters(id, location.id, [...(location.legends ?? []), ...(postgameRare[location.id] ?? [])]),
-  }))
+  const locations = region.locations.map(location => {
+    const native = supportedEncounters(id, location.id, location.encounters)
+    const local = supportedEncounters(id, location.id, regionalHabitats[location.id] ?? [])
+    return {
+      ...location,
+      regionalHabitats: local,
+      encounters: withRegionalHabitats(native, local),
+      visitors: postgameVisitors[location.id] && supportedEncounters(id, location.id, postgameVisitors[location.id]),
+      legends: supportedEncounters(id, location.id, [...(location.legends ?? []), ...(postgameRare[location.id] ?? [])]),
+    }
+  })
   return [id, { ...region, locations, locationById: Object.fromEntries(locations.map(location => [location.id, location])) }]
 })) as Readonly<Record<RegionId, WorldRegion>>
 

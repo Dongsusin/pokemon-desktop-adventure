@@ -10,6 +10,7 @@ import {
   applyOffline,
   calculateDamage,
   canEvolve,
+  battleGimmickStatus,
   canChallengeGym,
   canChallengeLeague,
   currentTrainer,
@@ -19,6 +20,7 @@ import {
   nextGymTrainer,
   nextLeagueTrainer,
   playerStats,
+  memberMaxHP,
   movesFor,
   canThrowBall,
   captureChance,
@@ -142,7 +144,7 @@ describe('Kanto travel and encounters', () => {
   })
 
   it('uses each area’s actual regular species and levels independently of the player level', () => {
-    const regularLocations = kantoLocations.filter((location) => location.encounters.length && !location.legends?.length)
+    const regularLocations = worldRegions.kanto.locations.filter((location) => location.encounters.length && !location.legends?.length)
     expect(regularLocations.length).toBeGreaterThan(15)
     const game = makeGame()
     game.player.level = 90
@@ -158,7 +160,7 @@ describe('Kanto travel and encounters', () => {
     }
     dispatch(game, { type: 'travel', locationId: 'route-1' })
     const routeOne = Array.from({ length: 80 }, () => encounter(game)!)
-    expect(new Set(routeOne.map((wild) => wild.speciesId))).toEqual(new Set(['rattata', 'pidgey']))
+    expect(new Set(routeOne.map((wild) => wild.speciesId))).toEqual(new Set(['rattata', 'pidgey', 'nidoran-f', 'spearow', 'caterpie']))
     expect(routeOne.every((wild) => wild.level >= 2 && wild.level <= 5)).toBe(true)
   })
 
@@ -170,7 +172,7 @@ describe('Kanto travel and encounters', () => {
       const id = encounter(game)!.speciesId
       counts.set(id, (counts.get(id) ?? 0) + 1)
     }
-    const local = kantoLocationById['route-1'].encounters
+    const local = worldRegions.kanto.locationById['route-1'].encounters
     const pidgeyChance = local.filter((slot) => slot.speciesId === 'pidgey').reduce((sum, slot) => sum + slot.weight, 0) /
       local.reduce((sum, slot) => sum + slot.weight, 0)
     expect(Math.abs(counts.get('pidgey')! / trials - pidgeyChance)).toBeLessThan(0.05)
@@ -287,7 +289,7 @@ describe('Kanto travel and encounters', () => {
     }
     const loaded = hydrateSave(old, 1)!
     expect(loaded).toMatchObject({
-      schemaVersion: 25, locationId: 'route-1', coins: 72,
+      schemaVersion: 26, locationId: 'route-1', coins: 72,
       inventory: { potion: 7, pokeball: 2, greatBall: 1 },
       player: { instanceId: game.player.instanceId, level: 12 },
     })
@@ -439,7 +441,7 @@ describe('autonomous simulation', () => {
 describe('combat, inventory, and save recovery', () => {
   it('migrates existing saves to topmost once while retaining progression and later opt-out', () => {
     const game = makeGame('bulbasaur')
-    expect(game).toMatchObject({ schemaVersion: 25, settings: { alwaysOnTop: true } })
+    expect(game).toMatchObject({ schemaVersion: 26, settings: { alwaysOnTop: true } })
     const legacy = {
       ...game, schemaVersion: 1, settings: { ...game.settings, alwaysOnTop: false },
       player: { ...game.player, level: 10, exp: 22 },
@@ -447,7 +449,7 @@ describe('combat, inventory, and save recovery', () => {
     }
     const migrated = hydrateSave(legacy, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 25, locationId: 'route-1',
+      schemaVersion: 26, locationId: 'route-1',
       settings: { alwaysOnTop: true }, coins: 45, inventory: { potion: 7, pokeball: 8 },
       player: { instanceId: game.player.instanceId, speciesId: 'bulbasaur', level: 10, exp: 22 },
     })
@@ -754,7 +756,7 @@ describe('capture and party', () => {
     }
     const migrated = hydrateSave(oldSave, 1)!
     expect(migrated).toMatchObject({
-      schemaVersion: 25, settings: { alwaysOnTop: false, autoCapture: false }, inventory: { potion: 7, pokeball: 8 },
+      schemaVersion: 26, settings: { alwaysOnTop: false, autoCapture: false }, inventory: { potion: 7, pokeball: 8 },
       followers: [], player: { instanceId: game.player.instanceId },
     })
     delete migrated.inventory.pokeball
@@ -821,12 +823,48 @@ describe('offline progression', () => {
 })
 
 describe('regional gyms and Pokémon Leagues', () => {
+  function finishLeagueRound(game: GameSave) {
+    dispatch(game, { type: 'update-settings', settings: { autoUseItems: ['max-potion'] } })
+    for (let frame = 0; frame < 5000 && game.campaign.battle; frame++) {
+      const arena = game.campaign.battle.arena
+      if (arena.paused) dispatch(game, { type: 'arena-pause', paused: false })
+      if (arena.needsSwitch || arena.noProgressMs >= 8000) {
+        const foe = species[game.wild[0].speciesId]
+        const next = game.followers.filter(m => m.currentHP > 0).map(member => {
+          const known = member.moveIds?.map(id => moves[id]) ?? movesFor(member.speciesId, member.level, member.formId)
+          const attacks = known.filter(move => move.category !== 'healing')
+          const power = Math.max(0, ...attacks.map(move => move.power * typeMultiplier(move.type, foe.types)))
+          return { member, power }
+        }).sort((a, b) => b.power - a.power)[0]
+        if (next) dispatch(game, { type: 'arena-switch', instanceId: next.member.instanceId })
+      }
+      if (battleGimmickStatus(game)?.phase === 'ready') dispatch(game, { type: 'arena-gimmick' })
+      tick(game, 150, bounds)
+    }
+    expect(game.campaign.battle?.trainerId).toBeUndefined()
+  }
+
+  function prepareReserves(game: GameSave) {
+    game.inventory['max-potion'] = 100
+    game.inventory['max-revive'] = 50
+    game.followers = ['garchomp', 'gardevoir', 'venusaur', 'luxray', 'charizard'].map((id, index) => ({
+      instanceId: 'caught-' + (index + 30), speciesId: id, level: 100,
+      currentHP: statsFor(id, 100).hp, moveIds: movesFor(id, 100).map(m => m.id),
+      position: { ...game.player.position }, direction: 1, state: 'IDLE', active: true,
+      destination: null, restMs: 0, roamSeed: index + 1,
+    }))
+  }
+
   function healBetweenChallenges(game: GameSave) {
-    if (game.player.currentHP === playerStats(game).hp) return
-    const owned = game.inventory['max-potion']
-    expect(dispatch(game, { type: 'useBattleItem', itemId: 'max-potion', expectedOwned: owned })).toBe(true)
-    expect(game.inventory['max-potion'] ?? 0).toBe(owned - 1)
-    expect(game.player.currentHP).toBe(playerStats(game).hp)
+    for (const member of [game.player, ...game.followers]) {
+      const max = memberMaxHP(game, member)
+      if (member.currentHP >= max) continue
+      const itemId = member.currentHP === 0 ? 'max-revive' : 'max-potion'
+      const owned = game.inventory[itemId]
+      expect(dispatch(game, { type: 'useBattleItem', itemId, expectedOwned: owned, targetId: member.instanceId })).toBe(true)
+      expect(game.inventory[itemId] ?? 0).toBe(owned - 1)
+      expect(member.currentHP).toBe(max)
+    }
   }
 
   function train(game: GameSave, speciesId: string, level: number) {
@@ -838,7 +876,7 @@ describe('regional gyms and Pokémon Leagues', () => {
 
   it('runs a complete first gym at low level without consuming balls or requiring auto-hunt', () => {
     const game = makeGame('squirtle', 1)
-    train(game, 'squirtle', 12)
+    train(game, 'squirtle', 19)
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(false)
     dispatch(game, { type: 'travel', locationId: 'pewter-city' })
     dispatch(game, { type: 'set-auto-battle', value: false })
@@ -848,7 +886,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(canChallengeGym(game)).toBe(false)
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(false)
     expect(currentTrainer(game)?.id).toBe('brock')
-    expect(game.wild).toMatchObject([{ trainerId: 'brock', speciesId: 'geodude', level: 12 }])
+    expect(game.wild).toMatchObject([{ trainerId: 'brock', speciesId: 'geodude', level: 18 }])
     expect(canThrowBall(game, 'pokeball')).toBe(false)
     expect(dispatch(game, { type: 'throw-ball', itemId: 'pokeball' })).toBe(false)
     finishChallenge(game)
@@ -892,15 +930,16 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'transfer-region', regionId: 'johto' })).toBe(false)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
     dispatch(game, { type: 'travel', locationId: 'indigo-plateau' })
+    train(game, 'blastoise', 100)
     const beforeLeague = game.coins
-    game.inventory['max-potion'] = 8
+    prepareReserves(game)
     for (const trainer of kantoLeagueTrainers) {
       healBetweenChallenges(game)
       expect(nextLeagueTrainer(game)?.id).toBe(trainer.id)
       expect(dispatch(game, { type: 'challenge-league' })).toBe(true)
       expect(currentTrainer(game)?.id).toBe(trainer.id)
-      finishChallenge(game)
-      expect(game.player.currentHP).toBeGreaterThan(0)
+      finishLeagueRound(game)
+      expect([game.player, ...game.followers].some(member => member.currentHP > 0), trainer.id).toBe(true)
       expect(game.player.currentHP).toBeLessThanOrEqual(playerStats(game).hp)
       if (trainer.role === 'elite') expect(game.coins).toBe(beforeLeague)
     }
@@ -983,7 +1022,9 @@ describe('regional gyms and Pokémon Leagues', () => {
     dispatch(veteran, { type: 'set-auto-battle', value: false })
     dispatch(veteran, { type: 'travel', locationId: johto.leagueLocationId })
     expect(dispatch(veteran, { type: 'challenge-league' })).toBe(false)
+    prepareReserves(veteran)
     for (const [index, trainer] of johto.gymTrainers.entries()) {
+      healBetweenChallenges(veteran)
       expect(nextGymTrainer(veteran)?.id).toBe(trainer.id)
       train(veteran, ['blastoise', 'charizard', 'blastoise', 'blastoise', 'charizard', 'charizard', 'charizard', 'blastoise'][index], 80)
 
@@ -1008,14 +1049,14 @@ describe('regional gyms and Pokémon Leagues', () => {
       expect(levelCap(veteran)).toBe(johto.levelCaps[index + 1])
     }
     expect(levelCap(veteran)).toBe(100)
+    train(veteran, 'blastoise', 100)
     dispatch(veteran, { type: 'travel', locationId: johto.leagueLocationId })
-    veteran.inventory['max-potion'] = 8
     for (const trainer of johto.leagueTrainers) {
       healBetweenChallenges(veteran)
       expect(nextLeagueTrainer(veteran)?.id).toBe(trainer.id)
       expect(dispatch(veteran, { type: 'challenge-league' })).toBe(true)
       expect(currentTrainer(veteran)?.id).toBe(trainer.id)
-      finishChallenge(veteran)
+      finishLeagueRound(veteran)
     }
     expect(veteran.campaign.champion).toBe(true)
     expect(veteran.history.some(entry => entry.text.includes('성도 포켓몬 리그 우승'))).toBe(true)
@@ -1074,7 +1115,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'travel', locationId: region.leagueLocationId })).toBe(false)
     expect(dispatch(game, { type: 'challenge-league' })).toBe(false)
 
-    game.inventory['max-potion'] = 24
+    prepareReserves(game)
     for (const [index, trainer] of region.gymTrainers.entries()) {
       healBetweenChallenges(game)
       expect(nextGymTrainer(game)?.id).toBe(trainer.id)
@@ -1159,6 +1200,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
     const old = structuredClone(game)
     old.campaign.badges = []
+    old.wild[0].level = 18
     const restored = hydrateSave({ ...old, schemaVersion: 5 }, 1)!
     expect(nextGymTrainer(restored)?.id).toBe('brock')
     expect(currentTrainer(restored)?.id).toBe('misty')
@@ -1201,7 +1243,7 @@ describe('regional gyms and Pokémon Leagues', () => {
     const { campaign: _campaign, ...old } = structuredClone(game)
     const restored = hydrateSave({ ...old, schemaVersion: 4 }, 1)!
     expect(restored).toMatchObject({
-      schemaVersion: 25, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
+      schemaVersion: 26, locationId: 'saffron-city', coins: 93, inventory: { greatBall: 6 },
       campaign: { badges: [], champion: false, leagueIndex: null, battle: null }
     })
     const stale = hydrateSave({

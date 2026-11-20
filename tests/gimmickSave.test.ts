@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arenaSkills, createGame, currentTrainer, dispatch, hydrateSave, playerStats, statsFor } from '../src/game/engine'
+import { arenaSkills, createGame, dispatch, hydrateSave, playerStats, statsFor } from '../src/game/engine'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
 
 const screen = { width: 1280, height: 720 }
@@ -19,7 +19,7 @@ function localGym(id: RegionId) {
 
 function oldAce(id: 'paldea' | 'galar') {
   const game = localGym(id)
-  const team = currentTrainer(game)!.team
+  const team = worldRegions[id].gymTrainers[0].team
   const ace = team[team.length - 1]
   const original = { ...structuredClone(game), schemaVersion: 16 }
   original.campaign.battle!.opponentIndex = team.length - 1

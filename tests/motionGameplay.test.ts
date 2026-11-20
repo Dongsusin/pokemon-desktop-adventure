@@ -63,8 +63,8 @@ describe('playable motion roster', () => {
     game.regionId = 'alola'
     const trial = nextGymTrainer(game)!
     game.locationId = trial.locationId
-    expect(trial.team).toEqual([{ speciesId: 'raticate', level: 12 }])
+    expect(trial.team).toEqual([{ speciesId: 'raticate', level: 19 }])
     expect(dispatch(game, { type: 'challenge-gym' })).toBe(true)
-    expect(game.wild[0]).toMatchObject({ speciesId: 'raticate', formId: 'raticate-alola', level: 12 })
+    expect(game.wild[0]).toMatchObject({ speciesId: 'raticate', formId: 'raticate-alola', level: 19 })
   })
 })

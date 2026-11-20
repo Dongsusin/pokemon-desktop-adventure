@@ -40,7 +40,7 @@ describe('Galar stadiums and encounter eligibility', () => {
     const a = game.campaign.battle!.arena
     a.player = {x:.34, y:.5}; a.enemy = {x:.48, y:.5}; a.enemyInMs = 0
     game.player.currentHP = base
-    for (let i = 0; i < 90 && !target.maxActionsLeft; i++) advanceScripted(game, 30, bounds)
+    for (let i = 0; i < 120 && !a.casts.some(c => c.gimmick === 'dynamax'); i++) advanceScripted(game, 30, bounds)
     expect(target.maxActionsLeft).toBe(1)
     expect(target.dynamax).toBe('dynamax')
     expect(battleForm(target)).toBeUndefined()

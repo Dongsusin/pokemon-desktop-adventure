@@ -64,7 +64,7 @@ describe('National Pokédex collection paths', () => {
     game.runtime.spawnIn = 0
     game.runtime.rngState = firstRareRoll
     tick(game, 1, bounds)
-    expect(['aerodactyl', 'omanyte', 'kabuto']).toContain(game.wild[0]?.speciesId)
+    expect(['aerodactyl', 'omanyte', 'kabuto', 'omastar', 'kabutops']).toContain(game.wild[0]?.speciesId)
     expect(reload(game).wild[0]?.speciesId).toBe(game.wild[0].speciesId)
     for (const [site, id] of [['blush-mountain', 'golem'], ['mount-lanakila', 'ninetales'], ['mount-lanakila', 'sandslash']]) {
       const visitor = worldLocationById[site].visitors!.find(mon => mon.speciesId === id)!

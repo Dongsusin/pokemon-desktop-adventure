@@ -1,7 +1,7 @@
 import { advanceScripted } from './arenaSimulation'
 import { describe, expect, it } from 'vitest'
 import {
-  tick, canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, hydrateSave, playerStats,
+  tick, canChallengeFieldTrainer, createGame, currentTrainer, dispatch, fieldTrainerRewards, resolveTrainer, hydrateSave, playerStats,
 } from '../src/game/engine'
 import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from '../src/game/regions/fieldTrainers'
 import { regionOrder, worldRegions, type RegionId } from '../src/game/regions/world'
@@ -47,7 +47,7 @@ describe('regional field trainer battles', () => {
         const command = { type: 'challengeFieldTrainer', trainerId: opponent.id }
         expect(parseCommand(command)).toEqual(command)
         expect(dispatch(game, challenge(opponent.id))).toBe(true)
-        expect(currentTrainer(game)).toMatchObject({ id: opponent.id, role: 'field', team: opponent.team })
+        expect(currentTrainer(game)).toMatchObject({ id: opponent.id, role: 'field', team: resolveTrainer(region, opponent, game.starterSpeciesId).team })
         expect(game.campaign.battle?.teamNumber).toBe(opponent.defaultTeamNumber)
         expect(game.campaign.leagueIndex).toBeNull()
         expect(dispatch(game, challenge(opponent.id))).toBe(false)
@@ -63,8 +63,9 @@ describe('regional field trainer battles', () => {
       const game = opening(regionId)
       for (const trainer of fieldTrainersByRegion[regionId]) {
         game.locationId = trainer.locationId
-        for (const [index, team] of trainer.teams.entries()) {
+        for (const index of trainer.teams.keys()) {
           const teamNumber = index + 1
+          const team = resolveTrainer(worldRegions[regionId], fieldTeamVariant(trainer, teamNumber)!, game.starterSpeciesId).team
           expect(dispatch(game, { ...challenge(trainer.id), teamNumber }), trainer.id).toBe(true)
           const restored = hydrateSave(game, 1)!
           expect(restored.campaign.battle?.teamNumber).toBe(teamNumber)
@@ -102,7 +103,7 @@ describe('regional field trainer battles', () => {
     expect(restored.campaign.battle?.practice).toBeDefined()
     const reopened = hydrateSave(restored, 1)!
     expect(reopened.campaign.battle?.teamNumber).toBe(teamNumber)
-    expect(currentTrainer(reopened)?.team).toEqual(variant.team)
+    expect(currentTrainer(reopened)?.team).toEqual(resolveTrainer(worldRegions.kanto, variant, restored.starterSpeciesId).team)
     expect(reopened.wild[0].speciesId).toBe(variant.team[0].speciesId)
     finishChallenge(reopened)
     expect(reopened.history[0].practiceResult).toBe('win')
@@ -200,7 +201,7 @@ describe('regional field trainer battles', () => {
       const trainer = fieldTeamVariant(first, teamNumber)!
       expect(dispatch(game, { ...challenge(first.id), teamNumber })).toBe(true)
       const saved = hydrateSave(game, 1)!
-      expect(currentTrainer(saved)?.team).toEqual(trainer.team)
+      expect(currentTrainer(saved)?.team).toEqual(resolveTrainer(worldRegions.kanto, trainer, game.starterSpeciesId).team)
       expect(saved.wild[0].speciesId).toBe(trainer.team[0].speciesId)
       expect(dispatch(game, { type: 'arena-surrender' })).toBe(true)
     }
@@ -225,7 +226,7 @@ describe('regional field trainer battles', () => {
     expect(dispatch(again, { type: 'arena-surrender' })).toBe(true)
     expect(dispatch(again, challenge(ash.id))).toBe(true)
     expect(again.campaign.battle?.teamNumber).toBe(ash.defaultTeamNumber)
-    expect(currentTrainer(again)?.team.every(m => m.level === 65)).toBe(true)
+    expect(currentTrainer(again)?.team.map(m => m.level)).toEqual([20, 21])
   })
 
   it('ends a retired legacy lineup in place, without awarding a loss, a win or coins', () => {

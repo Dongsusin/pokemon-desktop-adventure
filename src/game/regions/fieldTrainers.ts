@@ -1,7 +1,7 @@
 import type { KantoTrainer, KantoTrainerMember } from './kantoCampaign'
 import type { RegionId } from './world'
 import source from './champions-arena-roster.json'
-import { isSpeciesMotionSupported } from '../motionEligibility'
+import { isMoveMotionSupported, isSpeciesMotionSupported } from '../motionEligibility'
 import type { TrainerSet } from '../championsMoves'
 import canonicalData from './canonical-field-teams.json'
 import { arenaPlacements } from './championsArenaPlacements'
@@ -45,6 +45,13 @@ const canonicalParties = canonicalData as Readonly<Record<string, CanonicalParty
 const speciesSets = new Map<string, ArenaOpponent['teams'][number][number]>()
 for (const opponent of opponents.values()) {
   for (const member of opponent.teams.flat()) speciesSets.set(member.formId ?? member.speciesId, member)
+}
+
+// Regional reserves borrow an existing species-specific set. The original ace keeps its gimmick.
+export function fieldReservePlan(speciesId: string): TrainerSet {
+  const plan = speciesSets.get(speciesId)?.plan
+  if (!plan) throw new Error('Missing reserve moves for ' + speciesId)
+  return { role: plan.role, moves: plan.moves.filter(id => isMoveMotionSupported(speciesId, undefined, id)) }
 }
 
 function canonicalTeam(party: CanonicalParty, opponent: ArenaOpponent, level: number) {

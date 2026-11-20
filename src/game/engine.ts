@@ -1,3 +1,6 @@
+import { withRegionalHabitats } from './regions/regionalHabitats'
+import { previousFieldLocations } from './regions/championsArenaPlacements'
+import { balanceTrainerTeam } from './regions/trainerBalance'
 import { planPartner } from './partnerArenaAi'
 import { evaluateMatchup, shouldWithdraw, powerMerit, type TrainerBattleAI, type Matchup, type TacticalSide, type Tactics } from './championsAi'
 import campaignSets from './regions/campaign-sets.json'
@@ -21,7 +24,7 @@ import { battleForm, formStats, locationForm, validForm, wildEncounterForm } fro
 import type { KantoEncounter, KantoLocation, LegendaryEncounter } from './regions/kanto'
 import { defensiveAbility, teraStabBonus, typeMultiplier } from './regions/paldeaTera'
 import { paldeaWildForms } from './regions/paldea-encounters'
-import { getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
+import { galarWildAreaIds, getGalarWeatherEncounters, isGalarWildEncounter } from './regions/galar-encounters'
 import { captureRates } from './catchRates'
 import { fieldTeamVariant, fieldTrainerById, fieldTrainersByRegion } from './regions/fieldTrainers'
 import { locationAccess } from './locationAccess'
@@ -344,6 +347,7 @@ interface TrainerBattle {
   fieldAI?: TrainerBattleAI
   teamNumber?: number
   legacyFieldAceLevel?: number
+  legacyRoster?: true
   practice?: PracticeParty
   arena: TrainerArena
   trainerId: string
@@ -363,7 +367,7 @@ export interface Campaign extends RegionProgress {
   battle: TrainerBattle | null
 }
 
-const SAVE_SCHEMA_VERSION = 25
+const SAVE_SCHEMA_VERSION = 26
 const LEGACY_LOCATION_ID = 'route-1'
 export const KANTO_LEGENDARY_ENCOUNTER_CHANCE = 0.0065
 
@@ -1675,7 +1679,8 @@ function updateTrainerArena(game: GameSave, elapsed: number, decide: typeof plan
     const tactics = decide(arena, () => arenaMatchupSides(game, opponent), () => arenaSkills(game))
     for (const tactic of tactics) performArenaTactic(game, tactic)
   }
-  const skills = trainerTechniques(opponent, foeBattleForm(game, opponent), currentSet(game,opponent))
+  const skills = trainerTechniques(opponent, foeBattleForm(game, opponent), currentSet(game,opponent),
+    committed ? 0 : ai?.recoveryUses[battle.opponentIndex])
   // A committed cast keeps its own technique through movement, switches and beam clashes.
   const castMove = (cast: ArenaCast) => boostedMove(cast.side === 'enemy'
     ? skills.find(move => move.id === cast.moveId) ?? moves[cast.moveId] : moves[cast.moveId], cast.gimmick)
@@ -1702,6 +1707,7 @@ function updateTrainerArena(game: GameSave, elapsed: number, decide: typeof plan
   })
   if (arena.casts.some(cast => cast.side === 'enemy' && cast.id >= nextCast)) {
     commitPoweredMove(game, opponent, 'enemy', selected)
+    if (ai && selected.category === 'healing') ai.recoveryUses[battle.opponentIndex]++
     if (ai && !damaging(selected)) ai.supportReadyAt = game.runtime.clock + 6500
   }
   if (arena.lastClash && arena.lastClash !== outcome) {
@@ -1825,7 +1831,9 @@ export function regionalWeather(game: GameSave, locationId: string, date = new D
   if (!forecast) return
   const cached = playableWeather.get(forecast)
   if (cached) return cached
-  const filtered = { ...forecast, encounters: supportedEncounters('galar', locationId, forecast.encounters) }
+  const native = supportedEncounters('galar', locationId, forecast.encounters)
+  const local = worldRegions.galar.locationById[locationId].regionalHabitats
+  const filtered = { ...forecast, encounters: withRegionalHabitats(native, local, game.campaign.champion ? 60 : 1) }
   playableWeather.set(forecast, filtered)
   return filtered
 }
@@ -1971,6 +1979,7 @@ function wildMove(wild: Wild, formId = battleForm(wild)): Move {
   return candidates.find(candidate => candidate && isMoveMotionSupported(wild.speciesId, formId, candidate.id)) ?? moves.tackle
 }
 
+const MAX_TRAINER_RECOVERIES = 5
 const trainerSkills = new WeakMap<Wild, { formId?: string; moves: Move[] }>()
 
 const trainerSkillCache = new WeakMap<TrainerSet, Map<string, Move[]>>()
@@ -2003,8 +2012,11 @@ export function fieldPowerOptions(member: KantoTrainerMember) {
   }) ?? []
 }
 
-function trainerTechniques(foe: Wild, formId = battleForm(foe), set?: TrainerSet): Move[] {
-  if (set) return fieldMemberMoves({ speciesId:foe.speciesId, plan:set },formId)
+function trainerTechniques(foe: Wild, formId = battleForm(foe), set?: TrainerSet, recoveryUses = 0): Move[] {
+  if (set) {
+    const skills = fieldMemberMoves({ speciesId:foe.speciesId, plan:set },formId)
+    return recoveryUses < MAX_TRAINER_RECOVERIES ? skills : skills.filter(move => move.category !== 'healing')
+  }
   const cached = trainerSkills.get(foe)
   if (cached && cached.formId === formId) return cached.moves
   const { types } = formStats(foe.speciesId, formId)
@@ -2043,7 +2055,7 @@ function chooseTrainerMove(game: GameSave, foe: Wild, arena: TrainerArena, skill
 }
 
 function newTrainerAI(team: readonly KantoTrainerMember[], active: number, clock: number): TrainerBattleAI {
-  return { benchHP:team.map((_,i) => i < active ? 0 : null), switchReadyAt:clock + 2300,
+  return { benchHP:team.map((_,i) => i < active ? 0 : null), recoveryUses:team.map(() => 0), switchReadyAt:clock + 2300,
     supportReadyAt:0, guardUntil:0, stages:{}, decideAt:0 }
 }
 
@@ -2058,10 +2070,10 @@ function playerTactics(game: GameSave, opponent: Wild): TacticalSide {
     tera:power?.kind === 'tera' ? power.teraType : undefined, moves:attacks }
 }
 
-function trainerTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmick | undefined, stages?: TrainerStages): TacticalSide {
+function trainerTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmick | undefined, stages?: TrainerStages, recoveryUses = 0): TacticalSide {
   const form = power?.formId ?? battleForm(foe)
   const maxHP = power?.kind === 'dynamax' && !foe.maxActionsLeft ? dynamaxHP(foe.maxHP) : foe.maxHP
-  const skills = trainerTechniques(foe,form,member.plan)
+  const skills = trainerTechniques(foe,form,member.plan,recoveryUses)
   return { hp:resizeHP(foe.currentHP,foe.maxHP,maxHP), maxHP, stats:trainerStats(foe,power,stages),
     level:foe.level, types:formStats(foe.speciesId,form).types, ability:foe.abilityId,
     tera:power?.kind === 'tera' ? power.teraType : undefined,
@@ -2071,7 +2083,7 @@ function trainerTactics(foe: Wild, member: KantoTrainerMember, power: UsedGimmic
 function arenaMatchupSides(game: GameSave, foe: Wild) {
   const battle = game.campaign.battle!
   const member = currentTrainer(game)!.team[battle.opponentIndex]
-  const enemy = trainerTactics(foe, member, activePower(game, 'enemy', foe), battle.fieldAI?.stages)
+  const enemy = trainerTactics(foe, member, activePower(game, 'enemy', foe), battle.fieldAI?.stages, battle.fieldAI?.recoveryUses[battle.opponentIndex])
   return { ally: playerTactics(game, foe), enemy }
 }
 
@@ -2094,7 +2106,7 @@ function bestTrainerReserve(game: GameSave, trainer: KantoTrainer, target: Wild,
     const spent = game.runtime.gimmick?.enemy
     const power = spent?.active && spent.owner === opponentOwner(reserve) ? spent : undefined
     const context = trainerContext(game,member)
-    const side = trainerTactics(reserve,member,power)
+    const side = trainerTactics(reserve,member,power,undefined,ai.recoveryUses[index])
     const match = evaluateMatchup(side,player,{ ...context, supportReady:false, stages:{} })
     if (!best || match.position > best.match.position) best = { index,match }
   }
@@ -2133,7 +2145,8 @@ function planTrainerAction(game: GameSave, trainer: KantoTrainer, target: Wild):
   const context = trainerContext(game,member)
   const player = playerTactics(game,target)
   const current = activePower(game,'enemy',target)
-  const own = trainerTactics(target,member,current,ai.stages)
+  const recoveryUses = ai.recoveryUses[battle.opponentIndex]
+  const own = trainerTactics(target,member,current,ai.stages,recoveryUses)
   const base = evaluateMatchup(own,player,context)
   const last = ai.benchHP.every((hp,i) => i === battle.opponentIndex || hp === 0)
   let bestPower: { option:TrainerPower; match:Matchup; merit:number } | undefined
@@ -2141,7 +2154,7 @@ function planTrainerAction(game: GameSave, trainer: KantoTrainer, target: Wild):
     for (const option of fieldPowerOptions(member)) {
       const power = makeGimmick(game,target,'enemy',option.kind,option.formId,option.type,option)
       if (!power) continue
-      const powered = evaluateMatchup(trainerTactics(target,member,power,ai.stages),player,context)
+      const powered = evaluateMatchup(trainerTactics(target,member,power,ai.stages,recoveryUses),player,context)
       if (context.distance > arenaMoveProfile(powered.move).range) continue
       const merit = powerMerit(option.kind,base,powered,player.hp,own.hp/own.maxHP,last)
       if (Number.isFinite(merit) && (!bestPower || merit > bestPower.merit)) bestPower = { option,match:powered,merit }
@@ -2197,8 +2210,9 @@ function supportedTrainerMember(region: WorldRegion, trainer: KantoTrainer, memb
 
 const campaignPlans: Readonly<Record<string, Readonly<Record<string, TrainerSet>>>> = campaignSets as Record<string, Record<string, TrainerSet>>
 const resolvedTrainers = new WeakMap<KantoTrainer, Map<string, KantoTrainer>>()
-export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, starterSpeciesId: string): KantoTrainer {
-  const key = region.id + ':' + (species[starterSpeciesId]?.types[0] ?? '')
+export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, starterSpeciesId: string, leagueWins = 0, legacyRoster = false): KantoTrainer {
+  const round = region.freeEliteOrder && trainer.role === 'elite' ? leagueWins : 0
+  const key = [region.id, species[starterSpeciesId]?.types[0], round, legacyRoster].join(':')
   const cache = resolvedTrainers.get(trainer) ?? new Map<string, KantoTrainer>()
   const previous = cache.get(key)
   if (previous) return previous
@@ -2217,6 +2231,7 @@ export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, start
     const plan = plans[(formId ?? member.speciesId) + ':' + member.level]
     return { ...member, ...(formId && { formId }), plan }
   })
+  if (!legacyRoster) result.team = balanceTrainerTeam(region, original, result.team, round)
   cache.set(key, result)
   resolvedTrainers.set(trainer, cache)
   return result
@@ -2225,7 +2240,7 @@ export function resolveTrainer(region: WorldRegion, trainer: KantoTrainer, start
 function eligibleLeagueOpponents(region: WorldRegion, campaign: Campaign, speciesId: string): KantoTrainer[] {
   if (region.freeEliteOrder) {
     const remaining = region.leagueTrainers.filter(trainer => trainer.role === 'elite' && !campaign.eliteWins?.includes(trainer.id))
-    if (remaining.length) return remaining.map(trainer => resolveTrainer(region, trainer, speciesId))
+    if (remaining.length) return remaining.map(trainer => resolveTrainer(region, trainer, speciesId, campaign.leagueIndex ?? 0))
   }
   const next = region.leagueTrainers[campaign.leagueIndex ?? 0]
   return next ? [resolveTrainer(region, next, speciesId)] : []
@@ -2255,7 +2270,7 @@ export function currentTrainer(game: GameSave): KantoTrainer | undefined {
   if (!id) return
   const region = worldRegions[game.regionId]
   const trainer = trainerDefinition(region, id, game.campaign.battle?.teamNumber, game.campaign.battle?.legacyFieldAceLevel)
-  return trainer && resolveTrainer(region, trainer, game.starterSpeciesId)
+  return trainer && resolveTrainer(region, trainer, game.starterSpeciesId, game.campaign.leagueIndex ?? 0, game.campaign.battle?.legacyRoster)
 }
 
 function canChallenge(game: GameSave): boolean {
@@ -2263,10 +2278,10 @@ function canChallenge(game: GameSave): boolean {
     (['IDLE', 'WANDER', 'RECOVER'] as Activity[]).includes(activeState(game))
 }
 
-function availableFieldTrainer(region: WorldRegion, campaign: Campaign, locationId: string, trainerId: string) {
+function availableFieldTrainer(region: WorldRegion, campaign: Campaign, locationId: string, trainerId: string, legacyRoster = false) {
   if (campaign.leagueIndex !== null) return undefined
   return fieldTrainersByRegion[region.id].find(trainer => trainer.id === trainerId &&
-    trainer.locationId === locationId)
+    (trainer.locationId === locationId || (legacyRoster && previousFieldLocations[trainerId] === locationId)))
 }
 
 export function canChallengeFieldTrainer(game: GameSave, trainerId: string): boolean {
@@ -3241,7 +3256,9 @@ function readWild(value: unknown, clock: number, regionId: RegionId, location: K
     const level = integer(entry.level, 1, 1, MAX_LEVEL)
     const matches = (slot: KantoEncounter) => slot.speciesId === entry.speciesId && slot.level === level
     const ordinary = regionId === 'galar'
-      ? isGalarWildEncounter(location.id, entry.speciesId, level, campaign.champion, campaign.badges.length)
+      ? isGalarWildEncounter(location.id, entry.speciesId, level, campaign.champion, campaign.badges.length) ||
+        location.regionalHabitats?.some(slot => slot.speciesId === entry.speciesId &&
+          Math.max(slot.level, campaign.champion && galarWildAreaIds.has(location.id) ? 60 : 1) === level)
       : location.encounters.some(matches)
     if (!ordinary && !legends.some(matches) && !(campaign.champion && location.visitors?.some(matches))) continue
     const savedForm = validForm(entry.speciesId, entry.formId)
@@ -3453,6 +3470,7 @@ function readTrainerAI(raw: unknown, team: readonly KantoTrainerMember[], active
   if (!isRecord(raw) || !Array.isArray(raw.benchHP) || raw.benchHP.length !== team.length) return ai
   for (const [i,member] of team.entries()) {
     const hp = raw.benchHP[i]
+    if (Array.isArray(raw.recoveryUses)) ai.recoveryUses[i] = integer(raw.recoveryUses[i],0,0,MAX_TRAINER_RECOVERIES)
     ai.benchHP[i] = i === active || hp == null ? null : integer(hp,0,0,trainerBaseHP(member.speciesId,member.level,member.formId))
   }
   ai.switchReadyAt = integer(raw.switchReadyAt,0,0,clock+6500)
@@ -3494,7 +3512,8 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   const localGym = region.gymTrainerByLocationId[locationId]
   const finale = region.finaleTrainer
   const availableFinale = finale?.locationId === locationId && campaign.champion && !campaign.finaleWon ? finale : undefined
-  const field = availableFieldTrainer(region, campaign, locationId, savedTrainerId)
+  const legacyRoster = version < 26 || value.battle.legacyRoster === true
+  const field = availableFieldTrainer(region, campaign, locationId, savedTrainerId, legacyRoster)
   // The entire field roster changed in schema 20. An older mid-fight slot has no source team number.
   if (field && version < 20) return campaign
   let teamNumber: number | undefined
@@ -3521,7 +3540,7 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
   }
   const definition = trainerDefinition(region, savedTrainerId, teamNumber, legacyFieldAceLevel)
   if (!definition) return campaign
-  const team = resolveTrainer(region, definition, speciesId).team
+  const team = resolveTrainer(region, definition, speciesId, campaign.leagueIndex ?? 0, legacyRoster).team
   let opponentIndex = index
   if (version < 16) {
     const oldTeam = originalTrainer(region, definition, speciesId).team
@@ -3534,7 +3553,7 @@ function readCampaign(region: WorldRegion, value: unknown, locationId: string, s
     opponentIndex = team.findIndex(slot => sameMember(slot) && occurrence-- === 0)
   }
   if (opponentIndex >= 0 && opponentIndex < team.length) {
-    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(teamNumber && { teamNumber }), ...(legacyFieldAceLevel && { legacyFieldAceLevel }), ...(practice && { practice }), arena: createArena([]) }
+    campaign.battle = { trainerId: savedTrainerId, opponentIndex, ...(legacyRoster && { legacyRoster: true }), ...(teamNumber && { teamNumber }), ...(legacyFieldAceLevel && { legacyFieldAceLevel }), ...(practice && { practice }), arena: createArena([]) }
     if (team[opponentIndex].plan) {
       const stored = version >= (field ? 21 : 22) ? value.battle.fieldAI : undefined
       campaign.battle.fieldAI = readTrainerAI(stored, team, opponentIndex, clock)
@@ -3610,7 +3629,7 @@ function readTrainerOpponent(region: WorldRegion, value: unknown, campaign: Camp
   if (!battle || !Array.isArray(value) || !targetId) return
   const definition = trainerDefinition(region, battle.trainerId, battle.teamNumber, battle.legacyFieldAceLevel)
   if (!definition) return
-  const trainer = resolveTrainer(region, definition, speciesId)
+  const trainer = resolveTrainer(region, definition, speciesId, campaign.leagueIndex ?? 0, battle.legacyRoster)
   const slot = trainer.team[battle.opponentIndex]
   if (!slot) return
   for (const entry of value.slice(0, MAX_WILD)) {
@@ -3780,7 +3799,7 @@ function readGame(value: unknown, expectedSlot: number, practice?: PracticeParty
   const lead = { instanceId: leaderId, speciesId, formId }
   const target = wild.find(mon => mon.id === runtime.targetId)
   const savedTrainer = campaign.battle?.fieldAI && trainerDefinition(region, campaign.battle.trainerId, campaign.battle.teamNumber, campaign.battle.legacyFieldAceLevel)
-  const savedTeam = savedTrainer && resolveTrainer(region, savedTrainer, starterSpeciesId).team
+  const savedTeam = savedTrainer && resolveTrainer(region, savedTrainer, starterSpeciesId, campaign.leagueIndex ?? 0, campaign.battle?.legacyRoster).team
   const gimmicks = readEncounterGimmicks(isRecord(value.runtime) ? value.runtime.gimmick : undefined,
     value.schemaVersion, regionId, target, [lead, ...followers],savedTeam)
   if (gimmicks) runtime.gimmick = gimmicks

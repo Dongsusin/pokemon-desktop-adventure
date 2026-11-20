@@ -6,6 +6,14 @@ export const RESEARCH_VISIT_CHANCE = 0.10
 type SiteRow = readonly [site: string, level: number, species: readonly string[]]
 
 const visitorSites: readonly SiteRow[] = [
+  ['cinnabar-island', 52, ['omastar', 'kabutops']],
+  ['mirage-tower', 52, ['armaldo']],
+  ['oreburgh-mine', 55, ['rampardos', 'bastiodon']],
+  ['desert-resort', 52, ['archeops']],
+  ['slumbering-weald-interior', 62, ['wyrdeer', 'kleavor']],
+  ['dappled-grove', 62, ['ursaluna']],
+  ['lake-of-outrage', 64, ['basculegion', 'overqwil']],
+  ['galar-route-10', 64, ['sneasler']],
   ['cinnabar-island', 35, ['aerodactyl', 'omanyte', 'kabuto']],
   ['cerulean-cave', 56, ['alakazam']],
   ['mt-moon', 45, ['golem', 'nidoqueen', 'nidoking']],
@@ -111,6 +119,12 @@ const visitorSites: readonly SiteRow[] = [
 ]
 
 const rareSites: readonly SiteRow[] = [
+  ['route-23', 64, ['dragonite']],
+  ['route-120', 55, ['latios']],
+  ['lake-verity', 55, ['mesprit']],
+  ['fullmoon-island', 60, ['cresselia']],
+  ['lake-of-the-moone', 55, ['cosmoem']],
+  ['rolling-fields', 70, ['enamorus']],
   ['dragons-den', 55, ['dragonite']],
   ['pokemon-mansion', 70, ['mew']],
   ['route-37', 50, ['raikou', 'entei']],

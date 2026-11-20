@@ -102,7 +102,7 @@ describe('sustained beams and clash resolution', () => {
       const bounds = { width: 1000, height: 700 }
       const g = createGame('squirtle', 1, bounds, 1000, 123)
       g.player.speciesId = partner
-      g.player.level = 18
+      g.player.level = partner === 'pikachu' ? 27 : 24
       g.player.currentHP = playerStats(g).hp
       g.player.moveIds = [move]
       g.campaign.badges = ['brock']

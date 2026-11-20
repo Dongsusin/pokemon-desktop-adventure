@@ -77,6 +77,7 @@ describe('Alola forms and Totem battles', () => {
       const mon = game.wild[0]
       if (mon?.speciesId === 'lycanroc') {
         seen.add(mon.formId ?? 'midday')
+        game.lastSavedAt = new Date(game.runtime.clock).toISOString()
         expect(hydrateSave(game, 1)?.wild).toEqual(game.wild)
       }
     }
